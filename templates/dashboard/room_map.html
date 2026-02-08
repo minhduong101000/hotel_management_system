@@ -1,0 +1,102 @@
+{% extends "layouts/base.html" %}
+
+{% block content %}
+<div class="top-toolbar">
+    <div class="toolbar-left">
+        <div class="input-group input-group-sm" style="width: 160px;">
+            <span class="input-group-text"><i class="far fa-calendar-alt"></i></span>
+            <input type="text" class="form-control" value="{{ now.strftime('%d/%m/%Y') }}" readonly style="background: white;">
+        </div>
+        
+        <select class="form-select form-select-sm" style="width: 120px;">
+            <option>Tất cả tầng</option>
+            <option>Tầng 1</option>
+            <option>Tầng 2</option>
+        </select>
+        
+        <button class="btn btn-sm btn-primary"><i class="fas fa-filter"></i> Lọc</button>
+    </div>
+
+    <div class="toolbar-right">
+        <span class="status-badge bg-booked">(1) Đặt trước</span>
+        <span class="status-badge bg-occupied">(2) Đang ở</span>
+        <span class="status-badge bg-dirty">(1) Chờ dọn</span>
+        <span class="status-badge bg-free">(12) Phòng trống</span>
+    </div>
+</div>
+
+<div class="room-container">
+    <div class="row g-2"> {% for room in rooms %}
+        <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
+            
+            {% if room.status == 'available' %}
+            <div class="room-card bg-free" onclick="openModal('{{ room.number }}')">
+                <div class="rc-header">
+                    <div>
+                        <div class="room-num">{{ room.number }}</div>
+                        <span class="room-type">{{ room.type }}</span>
+                    </div>
+                    <i class="fas fa-bed rc-icon"></i>
+                </div>
+                <div class="rc-body">
+                    <div class="big-clock js-live-clock">{{ now.strftime('%H:%M') }}</div>
+                    <div style="font-size: 12px; opacity: 0.8">{{ now.strftime('%d/%m') }}</div>
+                </div>
+                <div class="rc-footer">
+                    <span>Phòng trống</span>
+                    <span>Sạch sẽ</span>
+                </div>
+            </div>
+
+            {% elif room.status == 'occupied' %}
+            <div class="room-card bg-occupied">
+                <div class="rc-header">
+                    <div>
+                        <div class="room-num">{{ room.number }}</div>
+                        <span class="room-type">Đơn</span>
+                    </div>
+                    <i class="fas fa-user rc-icon"></i>
+                </div>
+                
+                <div class="rc-body w-100">
+                    <div class="time-range">
+                        <span>{{ room.booking.check_in_time }}</span>
+                        <span>{{ room.booking.check_out_time }}</span>
+                    </div>
+                    <div class="circle-time">
+                        <span style="font-size:12px">2h</span>
+                        <span style="font-size:9px">30p</span>
+                    </div>
+                </div>
+
+                <div class="rc-footer">
+                    <span>Tổng: {{ room.booking.total_price }}</span>
+                    <span>Còn: {{ room.booking.remaining }}</span>
+                </div>
+            </div>
+
+            {% elif room.clean_status == 'dirty' %}
+            <div class="room-card bg-dirty">
+                <div class="rc-header">
+                    <div>
+                        <div class="room-num">{{ room.number }}</div>
+                        <span class="room-type">VIP</span>
+                    </div>
+                    <i class="fas fa-broom rc-icon"></i>
+                </div>
+                <div class="rc-body">
+                    <div class="status-text-big">DỌN DẸP</div>
+                    <i class="fas fa-spray-can" style="font-size: 20px; margin-top:5px;"></i>
+                </div>
+                <div class="rc-footer">
+                    <span>Trạng thái</span>
+                    <span>Chưa sạch</span>
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
