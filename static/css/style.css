@@ -1,209 +1,77 @@
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap');
-
 :root {
-    /* MÀU NỀN CHÍNH */
-    --bg-app: #ecf0f5;       /* Xám rất nhạt (chuẩn AdminLTE) */
-    --bg-sidebar: #222d32;   /* Đen xanh (Sidebar) */
-    --bg-sidebar-active: #1e282c;
-    
-    /* BẢNG MÀU TRẠNG THÁI (FLAT COLORS) */
-    --c-free: #00a65a;       /* Xanh lá đậm */
-    --c-occupied: #dd4b39;   /* Đỏ cam (Đang ở) */
-    --c-dirty: #f39c12;      /* Vàng cam (Bẩn/Chờ dọn) */
-    --c-booked: #00c0ef;     /* Xanh dương (Đặt trước) */
-    
-    /* MÀU CHỮ */
-    --text-main: #333;
-    --text-muted: #777;
+    --bg-app: #ecf0f5; --bg-sidebar: #2A3F54; --text-sidebar: #E7E7E7;
+    --c-green: #27ae60; --c-orange: #d35400; --c-yellow: #f39c12; --c-blue: #2980b9;  --c-purple: #6f42c1;
+}
+body { font-family: 'Roboto', sans-serif; background-color: var(--bg-app); font-size: 14px; height: 100vh; overflow: hidden; margin: 0; display: flex; }
+
+/* Sidebar */
+.app-sidebar { width: 240px; background-color: var(--bg-sidebar); color: var(--text-sidebar); display: flex; flex-direction: column; flex-shrink: 0; }
+.sidebar-brand { height: 60px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 900; background: rgba(0,0,0,0.1); color: white; }
+.menu-list { list-style: none; padding: 0; margin: 20px 0; overflow-y: auto; }
+.menu-header { font-size: 11px; text-transform: uppercase; color: #7f8c8d; padding: 10px 20px 5px 20px; font-weight: 700; }
+.menu-item a { display: flex; align-items: center; padding: 12px 20px; color: #b8c7ce; text-decoration: none; border-left: 4px solid transparent; transition: 0.2s; }
+.menu-item a:hover, .menu-item a.active { background: rgba(255,255,255,0.05); color: white; border-left-color: #3498db; }
+.menu-item i { width: 30px; text-align: center; }
+
+/* Content */
+.app-content { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; }
+.top-bar { height: 60px; background: white; border-bottom: 1px solid #dcdcdc; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; }
+.main-area { padding: 20px; overflow-y: auto; height: calc(100vh - 60px); }
+
+/* Common UI */
+.page-title { font-weight: 700; color: #555; text-transform: uppercase; margin: 0; }
+.card-box { background: white; border-radius: 3px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 20px; }
+
+/* Room Card Styling */
+.room-card { background: white; color: white; height: 140px; border-radius: 3px; cursor: pointer; display: flex; flex-direction: column; justify-content: space-between; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+.rc-head { padding: 10px 15px; display: flex; justify-content: space-between; }
+.rc-num { font-size: 26px; font-weight: 700; line-height: 1; }
+.rc-body { flex-grow: 1; display: flex; align-items: center; justify-content: center; }
+.rc-foot { padding: 5px 15px; background: rgba(0,0,0,0.15); font-size: 11px; display: flex; justify-content: space-between; font-weight: 500;}
+.st-free { background-color: var(--c-green); }
+.st-occupied { background-color: var(--c-orange); }
+.st-hourly { background-color: var(--c-purple); }
+.st-dirty { background-color: var(--c-yellow); color: #fff; }
+
+/* =========================================
+   TIMELINE STYLING - GIAO DIỆN CHUYÊN NGHIỆP
+   ========================================= */
+/* --- TIMELINE CUSTOM --- */
+#visualization {
+    border: 1px solid #dee2e6;
+    background: white;
 }
 
-* { box-sizing: border-box; }
-
-body {
-    font-family: 'Roboto', sans-serif;
-    background-color: var(--bg-app);
-    margin: 0;
-    padding: 0;
-    font-size: 14px;
-    height: 100vh;
-    overflow: hidden; /* Chống cuộn body, chỉ cuộn content */
-    display: flex;
+/* Lưới dọc đậm hơn để chia ngày */
+.vis-time-axis .vis-grid.vis-vertical {
+    border-left: 1px solid #eee;
 }
 
-/* --- 1. SIDEBAR (BÊN TRÁI) --- */
-.app-sidebar {
-    width: 230px;
-    background-color: var(--bg-sidebar);
-    color: #b8c7ce;
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 0; /* Không co lại */
-    transition: all 0.3s;
+/* Nền xen kẽ cho các dòng phòng */
+.vis-group:nth-child(even) .vis-label,
+.vis-group:nth-child(even) .vis-background {
+     background-color: #f8f9fa;
 }
 
-.sidebar-header {
-    height: 50px;
-    background-color: #367fa9; /* Logo Brand Color */
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 900;
-    font-size: 20px;
-    letter-spacing: 1px;
+/* Con trỏ ô tính khi di vào vùng trống */
+.vis-panel.vis-center {
+    cursor: cell;
 }
 
-.sidebar-menu {
-    list-style: none;
-    padding: 0;
-    margin: 0;
+/* Booking Item */
+.vis-item .vis-item-content {
+    padding: 4px 8px;
+    white-space: nowrap;
+    overflow: hidden; 
+    text-overflow: ellipsis;
 }
 
-.menu-item a {
-    display: block;
-    padding: 12px 15px;
-    color: #b8c7ce;
-    text-decoration: none;
-    border-left: 3px solid transparent;
-}
-
-.menu-item a:hover {
-    background-color: var(--bg-sidebar-active);
-    color: white;
-}
-
-.menu-item a.active {
-    background-color: var(--bg-sidebar-active);
-    color: white;
-    border-left-color: #3c8dbc;
-}
-
-.menu-item i { width: 25px; text-align: center; }
-
-/* --- 2. MAIN CONTENT (BÊN PHẢI) --- */
-.app-content {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-
-/* Toolbar (Thanh công cụ trên cùng) */
-.top-toolbar {
-    height: 50px;
-    background: #fff;
-    border-bottom: 1px solid #d2d6de;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 15px;
-}
-
-.toolbar-left { display: flex; align-items: center; gap: 10px; }
-.toolbar-right { display: flex; align-items: center; gap: 5px; }
-
-/* Badge chú thích */
-.status-badge {
-    padding: 4px 10px;
-    color: white;
-    font-size: 12px;
-    font-weight: 700;
-    border-radius: 2px;
-}
-
-/* Khu vực lưới phòng (Cuộn độc lập) */
-.room-container {
-    padding: 15px;
-    overflow-y: auto;
-    height: calc(100vh - 50px);
-}
-
-/* --- 3. ROOM CARD (STYLE PHẦN MỀM) --- */
-.room-card {
-    background: #fff;
-    color: white;
-    height: 130px; /* Chiều cao cố định */
-    position: relative;
-    margin-bottom: 15px;
-    box-shadow: 0 1px 1px rgba(0,0,0,0.1);
-    border-radius: 3px;
+.hover-light {
+    transition: all 0.2s;
     cursor: pointer;
-    transition: transform 0.1s;
-    display: flex;
-    flex-direction: column;
 }
-
-.room-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 10px rgba(0,0,0,0.2);
+.hover-light:hover {
+    color: #fff !important; /* Sáng lên khi di chuột vào */
+    transform: scale(1.1);  /* Phóng to nhẹ */
 }
-
-/* Header: Số phòng */
-.rc-header {
-    padding: 10px 10px 0 10px;
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-}
-.room-num { font-size: 26px; font-weight: 700; line-height: 1; }
-.room-type { font-size: 11px; opacity: 0.8; margin-top: 3px; display: block; }
-.rc-icon { font-size: 24px; opacity: 0.6; }
-
-/* Body: Thông tin giữa */
-.rc-body {
-    flex-grow: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-}
-
-/* Footer: Tiền */
-.rc-footer {
-    background: rgba(0,0,0,0.1);
-    padding: 5px 10px;
-    font-size: 11px;
-    display: flex;
-    justify-content: space-between;
-}
-
-/* --- STYLE CỤ THỂ TỪNG TRẠNG THÁI --- */
-
-/* 1. Available (Xanh) */
-.bg-free { background-color: var(--c-free); }
-.big-clock { font-size: 28px; font-weight: 300; }
-
-/* 2. Occupied (Đỏ/Cam) */
-.bg-occupied { background-color: var(--c-occupied); }
-
-/* Vòng tròn thời gian */
-.circle-time {
-    width: 45px; height: 45px;
-    background: #fff;
-    color: var(--c-occupied);
-    border-radius: 50%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    font-size: 10px;
-    line-height: 1.1;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-}
-
-.time-range {
-    width: 100%;
-    display: flex;
-    justify-content: space-between;
-    padding: 0 10px;
-    font-size: 11px;
-    margin-bottom: 5px;
-}
-
-/* 3. Dirty/Cleaning (Vàng) */
-.bg-dirty { background-color: var(--c-dirty); color: #fff; }
-.status-text-big { font-size: 18px; font-weight: bold; text-transform: uppercase; }
-
-/* 4. Booked (Xanh dương) */
-.bg-booked { background-color: var(--c-booked); }

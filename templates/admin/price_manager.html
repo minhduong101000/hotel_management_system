@@ -1,0 +1,175 @@
+{% extends "layouts/base.html" %}
+
+{% block content %}
+<div class="container-fluid p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="fw-bold text-primary mb-0"><i class="fas fa-tags"></i> QUẢN LÝ GIÁ PHÒNG</h3>
+            <small class="text-muted">Cấu hình Giá Cơ Bản (Base) và Giá Theo Sự Kiện/Lễ</small>
+        </div>
+        <button class="btn btn-outline-secondary btn-sm shadow-sm" onclick="loadData()">
+            <i class="fas fa-sync-alt me-1"></i> Làm mới
+        </button>
+    </div>
+
+    <div class="row">
+        <div class="col-xl-5 col-lg-6 mb-4">
+            <div class="card shadow border-0 h-100">
+                <div class="card-header bg-white border-bottom-0 py-3">
+                    <h6 class="fw-bold text-secondary mb-0"><i class="fas fa-home me-2"></i>GIÁ BASE (MẶC ĐỊNH)</h6>
+                    <small class="text-muted d-block mt-1">Áp dụng khi không có sự kiện nào</small>
+                </div>
+                <div class="card-body p-0 table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light text-secondary small text-uppercase">
+                            <tr>
+                                <th class="ps-3">Phòng</th>
+                                <th style="width: 30%;">Giá Ngày</th>
+                                <th style="width: 35%;">Cấu hình Giá Giờ</th>
+                                <th style="width: 50px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="base-price-table">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-7 col-lg-6 mb-4">
+            <div class="card shadow border-0 h-100">
+                <div class="card-header bg-white border-bottom-0 py-3 d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="fw-bold text-warning mb-0"><i class="fas fa-calendar-check me-2"></i>SỰ KIỆN / CAO ĐIỂM</h6>
+                        <small class="text-muted d-block mt-1">Ghi đè giá gốc theo thời gian</small>
+                    </div>
+                    <button class="btn btn-primary btn-sm px-3 fw-bold shadow-sm" onclick="openRuleModal()">
+                        <i class="fas fa-plus me-1"></i> THÊM LUẬT
+                    </button>
+                </div>
+                <div class="card-body p-0 table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light text-secondary small text-uppercase">
+                            <tr>
+                                <th class="ps-3">Sự kiện</th>
+                                <th>Thời gian</th>
+                                <th>Giá Ngày</th>
+                                <th class="text-end pe-3">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rules-table">
+                             </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="ruleModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold"><i class="fas fa-edit me-2"></i>THIẾT LẬP GIÁ SỰ KIỆN</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body bg-light">
+                <form id="rule-form">
+                    <input type="hidden" id="r-id">
+
+                    <div class="card border-0 shadow-sm p-3 mb-3">
+                        <div class="row g-2">
+                            <div class="col-12">
+                                <label class="small fw-bold text-muted">Tên Sự Kiện</label>
+                                <input type="text" class="form-control fw-bold" id="r-name" placeholder="VD: Mùa Hè, Tết Nguyên Đán...">
+                            </div>
+                            <div class="col-6">
+                                <label class="small fw-bold text-muted">Loại phòng</label>
+                                <select class="form-select" id="r-room-type">
+                                    <option value="Standard">Standard</option>
+                                    <option value="Deluxe">Deluxe</option>
+                                    <option value="Suite">Suite</option>
+                                    </select>
+                            </div>
+                            <div class="col-6">
+                                <label class="small fw-bold text-muted">Độ ưu tiên</label>
+                                <select class="form-select" id="r-priority">
+                                    <option value="1">1 - Mùa Cao Điểm</option>
+                                    <option value="2">2 - Ngày Lễ (Ưu tiên cao nhất)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card border-0 shadow-sm p-3 mb-3">
+                        <h6 class="small fw-bold text-primary mb-2">ĐIỀU KIỆN THỜI GIAN</h6>
+                        <div class="row g-2">
+                            <div class="col-12">
+                                <label class="small text-muted">Khoảng ngày (Để trống nếu áp dụng cả năm)</label>
+                                <div class="input-group input-group-sm">
+                                    <input type="date" class="form-control" id="r-start">
+                                    <span class="input-group-text bg-white">-</span>
+                                    <input type="date" class="form-control" id="r-end">
+                                </div>
+                            </div>
+                            <div class="col-12 mt-2">
+                                <label class="small text-muted d-block mb-1">Thứ trong tuần (VD: Chỉ áp dụng cuối tuần)</label>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <div class="form-check form-check-inline m-0"><input class="form-check-input" type="checkbox" name="daycheck" value="0" id="d0"><label for="d0" class="form-check-label small">T2</label></div>
+                                    <div class="form-check form-check-inline m-0"><input class="form-check-input" type="checkbox" name="daycheck" value="1" id="d1"><label for="d1" class="form-check-label small">T3</label></div>
+                                    <div class="form-check form-check-inline m-0"><input class="form-check-input" type="checkbox" name="daycheck" value="2" id="d2"><label for="d2" class="form-check-label small">T4</label></div>
+                                    <div class="form-check form-check-inline m-0"><input class="form-check-input" type="checkbox" name="daycheck" value="3" id="d3"><label for="d3" class="form-check-label small">T5</label></div>
+                                    <div class="form-check form-check-inline m-0"><input class="form-check-input" type="checkbox" name="daycheck" value="4" id="d4"><label for="d4" class="form-check-label small">T6</label></div>
+                                    <div class="form-check form-check-inline m-0"><input class="form-check-input" type="checkbox" name="daycheck" value="5" id="d5"><label for="d5" class="form-check-label small fw-bold text-danger">T7</label></div>
+                                    <div class="form-check form-check-inline m-0"><input class="form-check-input" type="checkbox" name="daycheck" value="6" id="d6"><label for="d6" class="form-check-label small fw-bold text-danger">CN</label></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card border-0 shadow-sm p-3 border-start border-success border-4">
+                        <h6 class="small fw-bold text-success mb-3">CẤU HÌNH GIÁ MỚI (VNĐ)</h6>
+                        
+                        <div class="row g-3 mb-3">
+                            <div class="col-12">
+                                <label class="small fw-bold text-dark">Giá Qua Đêm</label>
+                                <div class="input-group">
+                                    <input type="number" class="form-control fw-bold text-success fs-5" id="r-price-daily" placeholder="0" step="10000">
+                                    <span class="input-group-text bg-white">đ</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <label class="small fw-bold text-muted">Giá Giờ Đầu (Block)</label>
+                                <div class="input-group input-group-sm">
+                                    <input type="number" class="form-control fw-bold" id="r-price-initial" placeholder="0" step="5000">
+                                    <span class="input-group-text bg-white">đ</span>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <label class="small fw-bold text-muted">Giá Giờ Tiếp Theo</label>
+                                <div class="input-group input-group-sm">
+                                    <input type="number" class="form-control fw-bold" id="r-price-next" placeholder="0" step="5000">
+                                    <span class="input-group-text bg-white">đ</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-primary px-4 fw-bold" onclick="saveRule()">
+                    <i class="fas fa-save me-2"></i>LƯU THIẾT LẬP
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/price_manager.js') }}"></script>
+{% endblock %}

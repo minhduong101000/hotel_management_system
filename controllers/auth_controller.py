@@ -1,6 +1,6 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request
-from flask_login import login_user, logout_user, login_required
-from models.user import User
+from flask import Blueprint, render_template, redirect, url_for, request
+from flask_login import login_user, logout_user
+from models import User
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -10,24 +10,21 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password')
         
-        print(f"--- DEBUG LOGIN ---")
-        print(f"Input Username: {username}")
-        print(f"Input Password: {password}")
-
+        # Logic check user thật
         user = User.query.filter_by(username=username).first()
-        
-        if user:
-            print(f"User found in DB: ID={user.id}, Hash={user.password_hash}")
-            is_valid = user.check_password(password)
-            print(f"Password Check Result: {is_valid}")
+        if user and user.check_password(password):
+            login_user(user)
+            return redirect(url_for('room.map_view')) # Trỏ về blueprint room
             
-            if is_valid:
-                login_user(user)
-                flash('Đăng nhập thành công!', 'success')
-                return redirect(url_for('dashboard.timeline_view'))
-        else:
-            print("User NOT found in DB")
-
-        flash('Sai tài khoản hoặc mật khẩu.', 'danger')
+        # Demo login nhanh (nếu chưa có DB thật)
+        if username == 'admin' and password == '123456':
+            dummy_user = User(id=1, username='admin', role='admin')
+            login_user(dummy_user)
+            return redirect(url_for('room.map_view'))
             
     return render_template('auth/login.html')
+
+@auth_bp.route('/logout')
+def logout():
+    logout_user()
+    return redirect(url_for('auth.login'))

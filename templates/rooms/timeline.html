@@ -1,0 +1,359 @@
+{% extends "layouts/base.html" %}
+
+{% block content %}
+<link href="https://unpkg.com/vis-timeline/styles/vis-timeline-graph2d.min.css" rel="stylesheet" type="text/css" />
+
+<div class="container-fluid p-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="fw-bold text-primary"><i class="fas fa-stream"></i> SƠ ĐỒ TIMELINE</h4>
+        
+        <div class="d-flex gap-2 align-items-center">
+            <div class="d-none d-md-block me-3">
+                <span class="badge" style="background: #3498db;">Đặt trước</span>
+                <span class="badge" style="background: #e67e22;">Đang ở</span>
+                <span class="badge" style="background: #95a5a6;">Đã trả</span>
+                <span class="badge" style="background: #e74c3c;">Đã hủy</span>
+            </div>
+
+            <button class="btn btn-sm btn-success fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#groupBookingModal">
+                <i class="fas fa-users-cog"></i> Đặt Đoàn
+            </button>
+            <button class="btn btn-sm btn-outline-primary ms-1" onclick="loadTimeline()">
+                <i class="fas fa-sync"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <div id="visualization" style="width: 100%; min-height: 550px;"></div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="bookingModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">TẠO ĐẶT PHÒNG: <span id="bk-room-number" class="fw-bold text-warning">...</span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="booking-form">
+                    <ul class="nav nav-tabs nav-fill mb-3">
+                        <li class="nav-item"><button class="nav-link active fw-bold" id="tab-daily" data-bs-toggle="tab" data-bs-target="#panel-daily" type="button" onclick="setRentalType('daily')">THEO NGÀY</button></li>
+                        <li class="nav-item"><button class="nav-link fw-bold" id="tab-hourly" data-bs-toggle="tab" data-bs-target="#panel-hourly" type="button" onclick="setRentalType('hourly')">THEO GIỜ</button></li>
+                    </ul>
+                    <input type="hidden" id="bk-type" value="daily">
+                    
+                    <div class="row mb-2">
+                        <div class="col-6"><label>SĐT</label><input type="text" class="form-control" id="bk-phone"></div>
+                        <div class="col-6"><label>Tên</label><input type="text" class="form-control" id="bk-name"></div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="text-danger fw-bold">Tiền Cọc</label>
+                            <input type="number" class="form-control text-danger fw-bold" id="bk-deposit" placeholder="0">
+                        </div>
+                        <div class="col-6"><label>Ghi chú</label><input type="text" class="form-control" id="bk-note"></div>
+                    </div>
+
+                    <div class="tab-content mt-3">
+                        <div class="tab-pane fade show active" id="panel-daily">
+                            <div class="row">
+                                <div class="col-6"><label>Vào</label><input type="datetime-local" class="form-control" id="bk-daily-in"></div>
+                                <div class="col-6"><label>Ra</label><input type="datetime-local" class="form-control" id="bk-daily-out"></div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="panel-hourly">
+                            <div class="row">
+                                <div class="col-6"><label>Vào</label><input type="datetime-local" class="form-control" id="bk-hourly-in" onchange="updateHourlyEnd()"></div>
+                                <div class="col-6"><label>Ra</label><input type="datetime-local" class="form-control" id="bk-hourly-out"></div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer d-flex justify-content-between">
+                <button type="button" class="btn btn-outline-primary fw-bold" onclick="submitFullBooking('booked')">Lưu Đặt Trước</button>
+                <button type="button" class="btn btn-success fw-bold px-4" onclick="submitFullBooking('checked_in')">Vào Ở Ngay</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editBookingModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title fw-bold">SỬA BOOKING #<span id="edit-id">...</span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-booking-id">
+                
+                <div class="row mb-2">
+                    <div class="col-6"><label>Khách hàng</label><input type="text" class="form-control bg-light" id="edit-customer" readonly></div>
+                    <div class="col-6"><label>Phòng</label><select class="form-select" id="edit-room-select"></select></div>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="fw-bold">Trạng thái</label>
+                    <select class="form-select" id="edit-status" onchange="toggleRefundSection()">
+                        <option value="pending">Chờ cọc</option>
+                        <option value="confirmed">Đã cọc (Đặt trước)</option>
+                        <option value="checked_in">Đang ở</option>
+                        <option value="cancelled" class="text-danger fw-bold">Hủy / Không đến</option>
+                    </select>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-6"><label>Vào</label><input type="datetime-local" class="form-control" id="edit-checkin"></div>
+                    <div class="col-6"><label>Ra</label><input type="datetime-local" class="form-control" id="edit-checkout"></div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="fw-bold text-danger">Tiền cọc gốc</label>
+                    <input type="number" class="form-control text-danger fw-bold" id="edit-deposit">
+                </div>
+
+                <div id="refund-section" class="bg-danger bg-opacity-10 p-3 rounded border border-danger" style="display: none;">
+                    <h6 class="text-danger fw-bold mb-2">XỬ LÝ HOÀN CỌC</h6>
+                    
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="chk-force-majeure" onchange="calculateRefund()">
+                        <label class="form-check-label fw-bold text-danger" for="chk-force-majeure">
+                            Lý do Bất khả kháng (Thiên tai/Dịch bệnh)
+                        </label>
+                    </div>
+
+                    <div class="mb-2">
+                        <label>Mức hoàn tiền:</label>
+                        <select class="form-select form-select-sm" id="refund-percent" onchange="calculateRefund()">
+                            <option value="0">0% (Không hoàn)</option>
+                            <option value="30">30%</option>
+                            <option value="50" selected>50%</option>
+                            <option value="70">70%</option>
+                            <option value="100">100% (Hoàn tất cả)</option>
+                        </select>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center border-top border-danger pt-2">
+                        <span class="fw-bold text-danger">TRẢ LẠI KHÁCH:</span>
+                        <span id="refund-final-text" class="fs-4 fw-bold text-dark">0 đ</span>
+                    </div>
+                    <input type="hidden" id="refund-amount-value" value="0">
+                </div>
+                </div>
+            <div class="modal-footer d-flex justify-content-between">
+                <button type="button" class="btn btn-success fw-bold" onclick="openCheckoutFromTimeline()">
+                    <i class="fas fa-money-bill-wave"></i> Thanh toán
+                </button>
+                <button type="button" class="btn btn-primary fw-bold" onclick="saveBookingChanges()">LƯU THAY ĐỔI</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="checkoutModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg"> <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-file-invoice-dollar me-2"></i>HÓA ĐƠN PHÒNG <span id="co-room-number" class="fw-bold text-warning">...</span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="d-flex justify-content-between border-bottom pb-2 mb-3">
+                    <span class="text-muted">Khách hàng:</span>
+                    <span id="co-customer" class="fw-bold text-dark">...</span>
+                </div>
+
+                <div class="row mb-3 bg-light py-2 rounded mx-0 border">
+                    <div class="col-6 border-end">
+                        <small class="text-muted d-block">Check-in</small>
+                        <strong id="co-checkin" class="text-primary">...</strong>
+                    </div>
+                    <div class="col-6">
+                        <small class="text-muted d-block">Check-out</small>
+                        <strong id="co-checkout" class="text-danger">...</strong>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <h6 class="text-success fw-bold border-bottom pb-2 mb-2">1. TIỀN PHÒNG</h6>
+                    
+                    <div class="d-flex justify-content-between mb-2 px-1">
+                        <span class="text-muted">Hình thức thuê:</span>
+                        <span id="co-type" class="fw-bold text-dark">...</span>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered align-middle mb-0">
+                            <thead class="table-light text-secondary" style="font-size: 0.85rem;">
+                                <tr>
+                                    <th class="text-uppercase fw-bold" style="width: 35%;">Hạng mục</th>
+                                    <th class="text-uppercase fw-bold">Chi tiết</th>
+                                    <th class="text-end text-uppercase fw-bold" style="width: 25%;">Thành tiền</th>
+                                </tr>
+                            </thead>
+                            <tbody id="room-fee-table-body" style="font-size: 0.95rem;">
+                                </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <td colspan="2" class="text-end fw-bold text-dark small text-uppercase">Tổng tiền phòng:</td>
+                                    <td class="text-end fw-bold text-success" id="co-room-fee-table">0 đ</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <h6 class="text-primary fw-bold border-bottom pb-2 mb-2">2. DỊCH VỤ & ĐỒ UỐNG</h6>
+                    
+                    <div id="service-section" style="display: block;">
+                        <table class="table table-sm table-bordered mb-1 align-middle">
+                            <thead class="table-light text-muted" style="font-size: 0.85rem;">
+                                <tr>
+                                    <th>Tên dịch vụ / Đơn giá</th>
+                                    <th class="text-end">Thành tiền</th>
+                                    <th class="text-center" style="width: 120px;">Số lượng</th>
+                                </tr>
+                            </thead>
+                            
+                            <tbody id="table-services-body" style="font-size: 0.9rem;">
+                                </tbody>
+                        </table>
+
+                        <div class="d-flex justify-content-end mt-1 mb-2 px-1">
+                            <span class="me-3 small text-muted text-uppercase fw-bold">Tổng dịch vụ:</span>
+                            <span id="co-service-fee" class="fw-bold text-primary">0 đ</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-light p-3 rounded mt-4 border">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Tổng cộng hóa đơn:</span>
+                        <span id="co-total-bill" class="fw-bold fs-5">0 đ</span>
+                    </div>
+                    
+                    <div id="deposit-section" class="d-flex justify-content-between mb-2 text-danger" style="display: none;">
+                        <span><i class="fas fa-minus-circle me-1"></i>Đã đặt cọc:</span>
+                        <span id="co-deposit" class="fw-bold">- 0 đ</span>
+                    </div>
+                    
+                    <hr class="my-2">
+                    
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <span id="label-payment-type" class="fs-5 fw-bold text-dark">KHÁCH CẦN TRẢ:</span>
+                        <div class="text-end">
+                            <span id="co-final-payment" class="fs-2 fw-bold text-success">0</span> 
+                            <small class="fs-6 text-muted fw-bold">VNĐ</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <input type="hidden" id="co-amount-raw">
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy bỏ</button>
+                <button type="button" class="btn btn-success fw-bold px-4 py-2" onclick="confirmCheckout()">
+                    <i class="fas fa-check-circle me-2"></i> XÁC NHẬN THANH TOÁN
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="groupBookingModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="fas fa-users"></i> ĐẶT PHÒNG THEO ĐOÀN</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            
+            <div class="modal-body bg-light">
+                <form id="groupBookingForm">
+                    <div class="card border-0 shadow-sm p-3 mb-3">
+                        <h6 class="text-success fw-bold mb-2">1. Thời gian lưu trú</h6>
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-5">
+                                <label class="small fw-bold text-muted">Check-in (Mặc định 14:00)</label>
+                                <div class="input-group">
+                                    <input type="date" class="form-control" id="g_check_in" name="check_in" required>
+                                    <span class="input-group-text bg-light text-muted small fw-bold">14:00</span>
+                                </div>
+                            </div>
+                            <div class="col-md-5">
+                                <label class="small fw-bold text-muted">Check-out (Mặc định 12:00)</label>
+                                <div class="input-group">
+                                    <input type="date" class="form-control" id="g_check_out" name="check_out" required>
+                                    <span class="input-group-text bg-light text-muted small fw-bold">12:00</span>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <button type="button" class="btn btn-primary w-100" onclick="searchRoomsForGroup()">
+                                    <i class="fas fa-search"></i> Tìm
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">2. Chọn phòng trống (<span id="availCount">0</span> phòng):</label>
+                        <div class="border p-2 rounded bg-white shadow-sm" style="height: 200px; overflow-y: auto;" id="roomSelectionList">
+                            <div class="text-center text-muted mt-5">
+                                <i class="fas fa-arrow-up"></i><br>Vui lòng chọn ngày và bấm "Tìm"
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card border-0 shadow-sm p-3">
+                        <h6 class="text-success fw-bold mb-2">3. Thông tin Trưởng đoàn</h6>
+                        <div class="row mb-2">
+                            <div class="col-md-6">
+                                <label class="form-label small">Tên Trưởng đoàn <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" name="group_name" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small">Số điện thoại <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" name="group_phone" required>
+                            </div>
+                        </div>
+
+                        <div class="row mb-2">
+                            <div class="col-md-6">
+                                <label class="form-label small">Tiền cọc Tổng (VND)</label>
+                                <input type="number" class="form-control fw-bold text-danger" name="total_deposit" value="0">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small">Ghi chú</label>
+                                <input type="text" class="form-control" name="note" placeholder="VD: Đoàn công ty...">
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-success fw-bold px-4" onclick="submitGroupBooking()">
+                    <i class="fas fa-check-circle me-2"></i> XÁC NHẬN ĐẶT
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/vis-timeline/standalone/umd/vis-timeline-graph2d.min.js"></script>
+<script src="{{ url_for('static', filename='js/timeline_manager.js') }}"></script>
+<script src="{{ url_for('static', filename='js/checkout.js') }}"></script>
+<script src="{{ url_for('static', filename='js/group_booking.js') }}"></script>
+{% endblock %}

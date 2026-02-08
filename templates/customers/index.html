@@ -1,0 +1,94 @@
+{% extends "layouts/base.html" %}
+
+{% block content %}
+<div class="container-fluid p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3 class="text-primary"><i class="fas fa-users me-2"></i>DANH SÁCH KHÁCH HÀNG</h3>
+        <button class="btn btn-primary shadow-sm" onclick="openModal()">
+            <i class="fas fa-user-plus"></i> Thêm khách mới
+        </button>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body py-3">
+            <div class="input-group">
+                <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
+                <input type="text" id="search-input" class="form-control border-start-0" 
+                       placeholder="Tìm theo Tên, SĐT hoặc CCCD..." onkeyup="handleSearch(event)">
+                <button class="btn btn-outline-primary" onclick="loadCustomers()">Tìm kiếm</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light text-secondary">
+                        <tr>
+                            <th class="ps-4">Họ tên</th>
+                            <th>Điện thoại</th>
+                            <th>CCCD / CMND</th>
+                            <th>Email</th>
+                            <th>Địa chỉ</th>
+                            <th class="text-end pe-4">Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody id="customer-table-body">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="customerModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="modalTitle">Thêm Khách Hàng</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="cus-id">
+                
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Họ và Tên <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="cus-name" required>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">Số điện thoại <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="cus-phone" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">CCCD / CMND</label>
+                        <input type="text" class="form-control" id="cus-cccd">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-control" id="cus-email">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Địa chỉ</label>
+                    <textarea class="form-control" id="cus-address" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-primary" onclick="saveCustomer()">
+                    <i class="fas fa-save me-1"></i> Lưu thông tin
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/customer.js') }}"></script>
+{% endblock %}

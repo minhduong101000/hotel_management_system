@@ -2,36 +2,88 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Luxury Hotel Management</title>
+    <title>Hotel POS Pro</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-
+    
     <aside class="app-sidebar">
-        <div class="sidebar-header">
-            HOTEL <span style="color:#f39c12">PRO</span>
+        <div class="sidebar-brand">
+            <i class="fas fa-hotel me-2"></i> HOTEL<span style="color:#f39c12">POS</span>
         </div>
-        <ul class="sidebar-menu">
+        
+        <ul class="menu-list">
+            <li class="menu-header">LỄ TÂN</li>
+            
             <li class="menu-item">
-                <a href="/dashboard/room-map" class="{{ 'active' if 'room-map' in request.path else '' }}">
-                    <i class="fas fa-th"></i> <span>Sơ đồ phòng</span>
+                <a href="{{ url_for('room.map_view') }}" class="{{ 'active' if 'room.map' in request.endpoint else '' }}">
+                    <i class="fas fa-th-large"></i><span>Sơ đồ phòng</span>
                 </a>
             </li>
+
             <li class="menu-item">
-                <a href="/dashboard/timeline" class="{{ 'active' if 'timeline' in request.path else '' }}">
-                    <i class="fas fa-stream"></i> <span>Timeline</span>
+                <a href="{{ url_for('room.timeline_view') }}" class="{{ 'active' if 'room.timeline' in request.endpoint else '' }}">
+                    <i class="fas fa-stream"></i><span>Timeline</span>
                 </a>
             </li>
+
             <li class="menu-item">
-                <a href="#">
-                    <i class="fas fa-users"></i> <span>Khách hàng</span>
+                <a href="{{ url_for('customer.index') }}" class="{{ 'active' if 'customer' in request.endpoint else '' }}">
+                    <i class="fas fa-users"></i><span>Khách hàng</span>
                 </a>
             </li>
+            
             <li class="menu-item">
-                <a href="/logout">
-                    <i class="fas fa-sign-out-alt"></i> <span>Đăng xuất</span>
+                <a href="{{ url_for('billing.index') }}" class="{{ 'active' if 'billing' in request.endpoint else '' }}">
+                    <i class="fas fa-cash-register"></i><span>Thu ngân</span>
+                </a>
+            </li>
+            
+            <li class="menu-item">
+                <a href="{{ url_for('staff.shifts') }}" class="{{ 'active' if 'staff' in request.endpoint else '' }}">
+                    <i class="fas fa-sync-alt"></i><span>Giao ca</span>
+                </a>
+            </li>
+            
+            <li class="menu-header">DỊCH VỤ & KHO</li>
+
+            <li class="menu-item">
+                <a href="{{ url_for('price.index') }}" class="{{ 'active' if 'price.' in request.endpoint else '' }}">
+                    <i class="fas fa-tags"></i><span>Quản lý Giá phòng</span>
+                </a>
+            </li>
+            
+            <li class="menu-item">
+                <a href="{{ url_for('service.index') }}" class="{{ 'active' if 'service' in request.endpoint else '' }}">
+                    <i class="fas fa-concierge-bell"></i><span>Dịch vụ / Minibar</span>
+                </a>
+            </li>
+            
+            <li class="menu-item">
+                <a href="{{ url_for('warehouse.index') }}" class="{{ 'active' if 'warehouse' in request.endpoint else '' }}">
+                    <i class="fas fa-boxes"></i><span>Kho hàng</span>
+                </a>
+            </li>
+            
+            <li class="menu-header">HỆ THỐNG</li>
+            
+            <li class="menu-item">
+                <a href="{{ url_for('report.revenue') }}" class="{{ 'active' if 'report' in request.endpoint else '' }}">
+                    <i class="fas fa-chart-line"></i><span>Báo cáo</span>
+                </a>
+            </li>
+            
+            <li class="menu-item">
+                <a href="{{ url_for('setting.index') }}" class="{{ 'active' if 'setting' in request.endpoint else '' }}">
+                    <i class="fas fa-cogs"></i><span>Cấu hình</span>
+                </a>
+            </li>
+            
+            <li class="menu-item mt-4">
+                <a href="{{ url_for('auth.logout') }}" class="text-danger">
+                    <i class="fas fa-power-off"></i><span>Đăng xuất</span>
                 </a>
             </li>
         </ul>
@@ -43,6 +95,8 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
     {% block scripts %}{% endblock %}
+
 </body>
 </html>

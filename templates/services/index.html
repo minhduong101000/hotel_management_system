@@ -1,0 +1,58 @@
+{% extends "layouts/base.html" %}
+
+{% block content %}
+<div class="container-fluid p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3><i class="fas fa-concierge-bell me-2"></i>QUẢN LÝ DỊCH VỤ & MENU</h3>
+        <button class="btn btn-primary" onclick="openModal()">
+            <i class="fas fa-plus"></i> Thêm món mới
+        </button>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-4">Tên dịch vụ</th>
+                        <th>Đơn giá (VNĐ)</th>
+                        <th class="text-end pe-4">Hành động</th>
+                    </tr>
+                </thead>
+                <tbody id="service-table-body">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="serviceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">Thêm Dịch Vụ</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="service-id"> <div class="mb-3">
+                    <label class="form-label">Tên món / Dịch vụ</label>
+                    <input type="text" class="form-control" id="service-name" placeholder="Ví dụ: Coca Cola">
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Đơn giá</label>
+                    <input type="number" class="form-control" id="service-price" placeholder="Ví dụ: 15000">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary" onclick="saveService()">Lưu lại</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/service_manager.js') }}"></script>
+{% endblock %}
