@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, jsonify, request
 from flask_login import login_required
+from decorators import admin_required
 from extensions import db
 from models.service import Service
 
@@ -8,12 +9,14 @@ service_bp = Blueprint('service', __name__)
 # 1. GIAO DIỆN QUẢN LÝ (HTML)
 @service_bp.route('/services')
 @login_required
+@admin_required
 def index():
     return render_template('services/index.html')
 
 # 2. API: LẤY DANH SÁCH (Đã có, dùng lại)
 @service_bp.route('/api/services')
 @login_required
+@admin_required
 def get_services():
     services = Service.query.order_by(Service.id.desc()).all() # Mới nhất lên đầu
     return jsonify([s.to_dict() for s in services])
@@ -21,6 +24,7 @@ def get_services():
 # 3. API: THÊM MỚI
 @service_bp.route('/api/services', methods=['POST'])
 @login_required
+@admin_required
 def add_service():
     data = request.get_json()
     try:
@@ -37,6 +41,7 @@ def add_service():
 # 4. API: CẬP NHẬT (SỬA)
 @service_bp.route('/api/services/<int:id>', methods=['PUT'])
 @login_required
+@admin_required
 def update_service(id):
     data = request.get_json()
     service = Service.query.get(id)
@@ -50,6 +55,7 @@ def update_service(id):
 # 5. API: XÓA
 @service_bp.route('/api/services/<int:id>', methods=['DELETE'])
 @login_required
+@admin_required
 def delete_service(id):
     service = Service.query.get(id)
     if service:

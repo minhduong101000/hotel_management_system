@@ -1,65 +1,186 @@
-@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap');
-:root {
-    --bg-app: #ecf0f5; --bg-sidebar: #2A3F54; --text-sidebar: #E7E7E7;
-    --c-green: #27ae60; --c-orange: #d35400; --c-yellow: #f39c12; --c-blue: #2980b9;  --c-purple: #6f42c1;
+/* =========================================
+   1. FONTS & VARIABLES
+   ========================================= */
+* {
+    box-sizing: border-box;
 }
-body { font-family: 'Roboto', sans-serif; background-color: var(--bg-app); font-size: 14px; height: 100vh; overflow: hidden; margin: 0; display: flex; }
+/* Import cả Roboto (Dashboard) và Poppins (Login) */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Roboto:wght@400;500;700;900&display=swap');
 
-/* Sidebar */
-.app-sidebar { width: 240px; background-color: var(--bg-sidebar); color: var(--text-sidebar); display: flex; flex-direction: column; flex-shrink: 0; }
-.sidebar-brand { height: 60px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 900; background: rgba(0,0,0,0.1); color: white; }
-.menu-list { list-style: none; padding: 0; margin: 20px 0; overflow-y: auto; }
-.menu-header { font-size: 11px; text-transform: uppercase; color: #7f8c8d; padding: 10px 20px 5px 20px; font-weight: 700; }
-.menu-item a { display: flex; align-items: center; padding: 12px 20px; color: #b8c7ce; text-decoration: none; border-left: 4px solid transparent; transition: 0.2s; }
-.menu-item a:hover, .menu-item a.active { background: rgba(255,255,255,0.05); color: white; border-left-color: #3498db; }
-.menu-item i { width: 30px; text-align: center; }
+:root {
+    /* Màu giao diện chính */
+    --bg-app: #ecf0f5;
+    --bg-sidebar: #2A3F54;
+    --text-sidebar: #E7E7E7;
+    
+    /* Màu trạng thái phòng */
+    --c-green: #27ae60;  /* Phòng trống */
+    --c-orange: #d35400; /* Đang ở */
+    --c-yellow: #f39c12; /* Bẩn */
+    --c-blue: #2980b9;   /* Đặt trước */
+    --c-purple: #6f42c1; /* Giờ */
+    
+    /* Màu Login */
+    --login-bg-start: #2c3e50;
+    --login-bg-end: #4ca1af;
+}
 
-/* Content */
-.app-content { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; }
-.top-bar { height: 60px; background: white; border-bottom: 1px solid #dcdcdc; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; }
-.main-area { padding: 20px; overflow-y: auto; height: calc(100vh - 60px); }
+/* =========================================
+   2. GLOBAL & DASHBOARD LAYOUT
+   ========================================= */
+body {
+    font-family: 'Roboto', sans-serif;
+    background-color: var(--bg-app);
+    font-size: 14px;
+    height: 100vh;
+    margin: 0;
+    overflow: hidden; /* Tránh thanh cuộn thừa */
+}
 
-/* Common UI */
-.page-title { font-weight: 700; color: #555; text-transform: uppercase; margin: 0; }
-.card-box { background: white; border-radius: 3px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 20px; }
+/* Mặc định body cho Dashboard là flex ngang (Sidebar - Content) */
+body:not(.login-page) {
+    display: flex; 
+}
 
-/* Room Card Styling */
-.room-card { background: white; color: white; height: 140px; border-radius: 3px; cursor: pointer; display: flex; flex-direction: column; justify-content: space-between; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+/* --- SIDEBAR --- */
+.app-sidebar {
+    width: 240px;
+    background-color: var(--bg-sidebar);
+    color: var(--text-sidebar);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+}
+
+.sidebar-brand {
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: 900;
+    background: rgba(0,0,0,0.1);
+    color: white;
+}
+
+.menu-list {
+    list-style: none;
+    padding: 0;
+    margin: 20px 0;
+    overflow-y: auto;
+}
+
+.menu-header {
+    font-size: 11px;
+    text-transform: uppercase;
+    color: #7f8c8d;
+    padding: 10px 20px 5px 20px;
+    font-weight: 700;
+}
+
+.menu-item a {
+    display: flex;
+    align-items: center;
+    padding: 12px 20px;
+    color: #b8c7ce;
+    text-decoration: none;
+    border-left: 4px solid transparent;
+    transition: 0.2s;
+}
+
+.menu-item a:hover, .menu-item a.active {
+    background: rgba(255,255,255,0.05);
+    color: white;
+    border-left-color: #3498db;
+}
+
+.menu-item i {
+    width: 30px;
+    text-align: center;
+}
+
+/* --- CONTENT AREA --- */
+.app-content {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.top-bar {
+    height: 60px;
+    background: white;
+    border-bottom: 1px solid #dcdcdc;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+}
+
+.main-area {
+    padding: 20px;
+    overflow-y: auto;
+    height: calc(100vh - 60px);
+}
+
+.page-title {
+    font-weight: 700;
+    color: #555;
+    text-transform: uppercase;
+    margin: 0;
+}
+
+.card-box {
+    background: white;
+    border-radius: 3px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    padding: 20px;
+}
+
+/* =========================================
+   3. COMPONENT: ROOM CARD
+   ========================================= */
+.room-card {
+    background: white;
+    color: white;
+    height: 140px;
+    border-radius: 3px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    transition: transform 0.2s;
+}
+
+.room-card:hover {
+    transform: translateY(-2px);
+}
+
 .rc-head { padding: 10px 15px; display: flex; justify-content: space-between; }
 .rc-num { font-size: 26px; font-weight: 700; line-height: 1; }
 .rc-body { flex-grow: 1; display: flex; align-items: center; justify-content: center; }
 .rc-foot { padding: 5px 15px; background: rgba(0,0,0,0.15); font-size: 11px; display: flex; justify-content: space-between; font-weight: 500;}
+
+/* Trạng thái phòng */
 .st-free { background-color: var(--c-green); }
 .st-occupied { background-color: var(--c-orange); }
 .st-hourly { background-color: var(--c-purple); }
 .st-dirty { background-color: var(--c-yellow); color: #fff; }
 
 /* =========================================
-   TIMELINE STYLING - GIAO DIỆN CHUYÊN NGHIỆP
+   4. COMPONENT: TIMELINE
    ========================================= */
-/* --- TIMELINE CUSTOM --- */
 #visualization {
     border: 1px solid #dee2e6;
     background: white;
 }
-
-/* Lưới dọc đậm hơn để chia ngày */
-.vis-time-axis .vis-grid.vis-vertical {
-    border-left: 1px solid #eee;
-}
-
-/* Nền xen kẽ cho các dòng phòng */
+.vis-time-axis .vis-grid.vis-vertical { border-left: 1px solid #eee; }
 .vis-group:nth-child(even) .vis-label,
-.vis-group:nth-child(even) .vis-background {
-     background-color: #f8f9fa;
-}
+.vis-group:nth-child(even) .vis-background { background-color: #f8f9fa; }
+.vis-panel.vis-center { cursor: cell; }
 
-/* Con trỏ ô tính khi di vào vùng trống */
-.vis-panel.vis-center {
-    cursor: cell;
-}
-
-/* Booking Item */
 .vis-item .vis-item-content {
     padding: 4px 8px;
     white-space: nowrap;
@@ -67,11 +188,104 @@ body { font-family: 'Roboto', sans-serif; background-color: var(--bg-app); font-
     text-overflow: ellipsis;
 }
 
-.hover-light {
-    transition: all 0.2s;
-    cursor: pointer;
+.hover-light { transition: all 0.2s; cursor: pointer; }
+.hover-light:hover { color: #fff !important; transform: scale(1.1); }
+
+/* =========================================
+   5. PAGE: LOGIN SCREEN
+   ========================================= */
+/* Class đặc biệt cho thẻ body của trang login */
+body.login-page {
+    background: linear-gradient(135deg, var(--login-bg-start) 0%, var(--login-bg-end) 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: 'Poppins', sans-serif; /* Login dùng font riêng */
 }
-.hover-light:hover {
-    color: #fff !important; /* Sáng lên khi di chuột vào */
-    transform: scale(1.1);  /* Phóng to nhẹ */
+
+.login-card {
+    background: white;
+    width: 400px;
+    padding: 40px;
+    border-radius: 15px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    text-align: center;
+}
+
+.login-header h2 {
+    color: var(--bg-sidebar);
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+.login-header p {
+    color: #7f8c8d;
+    font-size: 14px;
+    margin-bottom: 30px;
+}
+
+/* Form Styles */
+.input-group { position: relative; margin-bottom: 20px; text-align: left; }
+.input-group label { display: block; margin-bottom: 5px; color: #34495e; font-weight: 500; font-size: 14px; }
+
+.input-wrapper { position: relative; }
+.input-wrapper i {
+    position: absolute; left: 15px; top: 50%;
+    transform: translateY(-50%); color: #95a5a6;
+}
+.input-wrapper input {
+    width: 100%;
+    padding: 12px 15px 12px 45px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    outline: none;
+    transition: all 0.3s;
+    font-size: 14px;
+}
+.input-wrapper input:focus {
+    border-color: #3498db;
+    box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+}
+
+.checkbox-group {
+    display: flex; align-items: center;
+    margin-bottom: 25px; font-size: 14px; color: #666;
+}
+.checkbox-group input { margin-right: 8px; accent-color: #3498db; cursor: pointer; }
+
+/* Button */
+.btn-login {
+    width: 100%;
+    padding: 12px;
+    background: linear-gradient(to right, #2980b9, #2c3e50);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.btn-login:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(44, 62, 80, 0.3);
+}
+
+/* Alert Messages */
+.alert {
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 14px;
+    text-align: left;
+    display: flex;
+    align-items: center;
+}
+.alert-danger { background-color: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
+.alert-info { background-color: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd; }
+.alert i { margin-right: 10px; }
+.alert-success {
+    background-color: #d1e7dd;
+    color: #0f5132;
+    border: 1px solid #badbcc;
 }

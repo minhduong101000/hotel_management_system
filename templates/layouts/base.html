@@ -41,55 +41,66 @@
                 </a>
             </li>
             
-            <li class="menu-item">
-                <a href="{{ url_for('staff.shifts') }}" class="{{ 'active' if 'staff' in request.endpoint else '' }}">
-                    <i class="fas fa-sync-alt"></i><span>Giao ca</span>
-                </a>
-            </li>
-            
             <li class="menu-header">DỊCH VỤ & KHO</li>
 
+            {% if current_user.role == 'admin' %}
             <li class="menu-item">
                 <a href="{{ url_for('price.index') }}" class="{{ 'active' if 'price.' in request.endpoint else '' }}">
                     <i class="fas fa-tags"></i><span>Quản lý Giá phòng</span>
                 </a>
             </li>
+            {% endif %}
             
+            {% if current_user.role == 'admin' %}
             <li class="menu-item">
                 <a href="{{ url_for('service.index') }}" class="{{ 'active' if 'service' in request.endpoint else '' }}">
                     <i class="fas fa-concierge-bell"></i><span>Dịch vụ / Minibar</span>
                 </a>
             </li>
-            
+            {% endif %}      
+
             <li class="menu-item">
                 <a href="{{ url_for('warehouse.index') }}" class="{{ 'active' if 'warehouse' in request.endpoint else '' }}">
                     <i class="fas fa-boxes"></i><span>Kho hàng</span>
                 </a>
             </li>
             
-            <li class="menu-header">HỆ THỐNG</li>
-            
-            <li class="menu-item">
-                <a href="{{ url_for('report.revenue') }}" class="{{ 'active' if 'report' in request.endpoint else '' }}">
-                    <i class="fas fa-chart-line"></i><span>Báo cáo</span>
-                </a>
-            </li>
-            
-            <li class="menu-item">
-                <a href="{{ url_for('setting.index') }}" class="{{ 'active' if 'setting' in request.endpoint else '' }}">
-                    <i class="fas fa-cogs"></i><span>Cấu hình</span>
-                </a>
-            </li>
+            {% if current_user.role == 'admin' %}
+                <li class="menu-header">QUẢN TRỊ VIÊN</li> <li class="menu-item">
+                    <a href="{{ url_for('report.revenue') }}" class="{{ 'active' if 'report' in request.endpoint else '' }}">
+                        <i class="fas fa-chart-line"></i><span>Báo cáo</span>
+                    </a>
+                </li>
+                
+                <li class="menu-item">
+                    <a href="{{ url_for('staff.index') }}" class="{{ 'active' if 'staff' in request.endpoint else '' }}">
+                        <i class="fas fa-cogs"></i><span>Cấu hình & Nhân sự</span>
+                    </a>
+                </li>
+            {% endif %}
             
             <li class="menu-item mt-4">
                 <a href="{{ url_for('auth.logout') }}" class="text-danger">
-                    <i class="fas fa-power-off"></i><span>Đăng xuất</span>
+                    <i class="fas fa-power-off"></i><span>Đăng xuất ({{ current_user.username }})</span>
                 </a>
             </li>
         </ul>
     </aside>
 
     <main class="app-content">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="container-fluid mt-3">
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
         {% block content %}{% endblock %}
     </main>
 

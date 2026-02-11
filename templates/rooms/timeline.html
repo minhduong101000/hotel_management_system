@@ -91,7 +91,7 @@
             </div>
             <div class="modal-body">
                 <input type="hidden" id="edit-booking-id">
-                
+                <input type="hidden" id="edit-booking-room-id">
                 <div class="row mb-2">
                     <div class="col-6"><label>Khách hàng</label><input type="text" class="form-control bg-light" id="edit-customer" readonly></div>
                     <div class="col-6"><label>Phòng</label><select class="form-select" id="edit-room-select"></select></div>
@@ -101,7 +101,7 @@
                     <label class="fw-bold">Trạng thái</label>
                     <select class="form-select" id="edit-status" onchange="toggleRefundSection()">
                         <option value="pending">Chờ cọc</option>
-                        <option value="confirmed">Đã cọc (Đặt trước)</option>
+                        <option value="booked">Đã cọc (Đặt trước)</option>
                         <option value="checked_in">Đang ở</option>
                         <option value="cancelled" class="text-danger fw-bold">Hủy / Không đến</option>
                     </select>
@@ -130,9 +130,9 @@
                     <div class="mb-2">
                         <label>Mức hoàn tiền:</label>
                         <select class="form-select form-select-sm" id="refund-percent" onchange="calculateRefund()">
-                            <option value="0">0% (Không hoàn)</option>
+                            <option value="0" selected>0% (Không hoàn)</option>
                             <option value="30">30%</option>
-                            <option value="50" selected>50%</option>
+                            <option value="50">50%</option>
                             <option value="70">70%</option>
                             <option value="100">100% (Hoàn tất cả)</option>
                         </select>

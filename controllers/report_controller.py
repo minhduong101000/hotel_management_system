@@ -1,10 +1,12 @@
 from flask import Blueprint, render_template
 from flask_login import login_required
+from decorators import admin_required
 
 report_bp = Blueprint('report', __name__)
 
 @report_bp.route('/reports/revenue')
 @login_required
+@admin_required
 def revenue():
     # Số liệu báo cáo
     data = {

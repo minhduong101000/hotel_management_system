@@ -22,17 +22,19 @@ function loadTimeline() {
             }
 
             var container = document.getElementById('visualization');
+            
+            // QUAN TRỌNG: Khai báo items ra biến để dùng trong sự kiện click
             var items = new vis.DataSet(data.items);
             var groups = new vis.DataSet(data.groups);
 
             var options = {
-                groupOrder: 'content', // Sắp xếp theo tên phòng
+                groupOrder: 'content', 
                 orientation: 'top',
-                stack: true, // Cho phép xếp chồng nếu trùng giờ
-                zoomKey: 'ctrlKey', // Giữ Ctrl + lăn chuột để zoom
+                stack: true, 
+                zoomKey: 'ctrlKey', 
                 minHeight: '550px',
-                start: new Date(new Date().getTime() - 24 * 60 * 60 * 1000), // Nhìn từ hôm qua
-                end: new Date(new Date().getTime() + 3 * 24 * 60 * 60 * 1000), // Đến 3 ngày tới
+                start: new Date(new Date().getTime() - 24 * 60 * 60 * 1000), 
+                end: new Date(new Date().getTime() + 3 * 24 * 60 * 60 * 1000), 
                 locale: 'vi', 
                 tooltip: {
                     followMouse: true,
@@ -46,8 +48,15 @@ function loadTimeline() {
             // BẮT SỰ KIỆN CLICK
             timeline.on('click', function (properties) {
                 if (properties.item) {
-                    // Click vào booking -> Mở Modal Sửa
-                    openEditModal(properties.item);
+                    // --- SỬA LOGIC LẤY DATA TẠI ĐÂY ---
+                    // Lấy toàn bộ data của item (bao gồm booking_id mà backend trả về)
+                    var itemData = items.get(properties.item);
+                    
+                    if (itemData) {
+                        // itemData.id = ID của BookingRoom (Chi tiết phòng)
+                        // itemData.booking_id = ID của Booking (Đoàn/Tổng)
+                        openEditModal(itemData.id, itemData.booking_id);
+                    }
                 } else if (properties.what === 'background' && properties.group) {
                     // Click vào ô trống -> Mở Modal Tạo mới
                     openCreateModal(properties.group, properties.time);
@@ -61,10 +70,7 @@ function loadTimeline() {
 // 2. MODAL TẠO MỚI (CREATE)
 // ========================================================
 function openCreateModal(roomId, time) {
-    // Điền số phòng
     document.getElementById('bk-room-number').innerText = roomMap[roomId] || '...';
-    
-    // Reset form
     document.getElementById('booking-form').reset();
 
     // Tự động set giờ (+2 tiếng) cho Tab Theo Giờ
@@ -85,10 +91,8 @@ function openCreateModal(roomId, time) {
     document.getElementById('bk-daily-in').value = toLocalISO(dStart);
     document.getElementById('bk-daily-out').value = toLocalISO(dEnd);
 
-    // Mặc định chọn tab Theo Ngày
     setRentalType('daily');
     
-    // Reset active tab UI (Bootstrap 5)
     var triggerEl = document.querySelector('#tab-daily');
     if(triggerEl) {
         var tab = new bootstrap.Tab(triggerEl);
@@ -106,7 +110,7 @@ function submitFullBooking(status) {
         phone: document.getElementById('bk-phone').value,
         name: document.getElementById('bk-name').value,
         rental_type: rentalType,
-        status: status, // 'confirmed' hoặc 'checked_in'
+        status: status, 
         check_in: rentalType === 'daily' ? document.getElementById('bk-daily-in').value : document.getElementById('bk-hourly-in').value,
         check_out: rentalType === 'daily' ? document.getElementById('bk-daily-out').value : document.getElementById('bk-hourly-out').value,
         deposit: document.getElementById('bk-deposit').value,
@@ -125,7 +129,7 @@ function submitFullBooking(status) {
         if(d.success) {
             alert(d.msg);
             bootstrap.Modal.getInstance(document.getElementById('bookingModal')).hide();
-            loadTimeline(); // Load lại timeline
+            loadTimeline(); 
         } else {
             alert(d.msg);
         }
@@ -136,47 +140,44 @@ function submitFullBooking(status) {
 // ========================================================
 // 3. MODAL CHỈNH SỬA (EDIT) & LƯU THAY ĐỔI
 // ========================================================
-function openEditModal(bookingId) {
-    // Bước 1: Load danh sách phòng để điền vào Select Box
+
+// SỬA: Nhận cả bookingRoomId (để sửa dòng này) và bookingId (để quản lý đoàn)
+function openEditModal(bookingRoomId, bookingId) {
+    // Lưu ID vào hidden input để dùng lúc Save
+    document.getElementById('edit-booking-room-id').value = bookingRoomId; 
+    document.getElementById('edit-booking-id').value = bookingId || ''; 
+
+    // Bước 1: Load danh sách phòng
     fetch('/api/rooms').then(r => r.json()).then(rData => {
         const sel = document.getElementById('edit-room-select');
         sel.innerHTML = '';
-        
         let rooms = rData.rooms || rData; 
         rooms.forEach(r => {
             sel.innerHTML += `<option value="${r.id}">${r.number || r.room_number}</option>`;
         });
 
-        // Bước 2: Lấy chi tiết Booking
-        return fetch('/api/bookings/' + bookingId);
+        // Bước 2: Lấy chi tiết BookingRoom (để điền giờ cụ thể của phòng này)
+        // Lưu ý: API này cần trả về thông tin của dòng BookingRoomId
+        return fetch('/api/bookings/' + bookingRoomId); 
     }).then(r => r.json()).then(data => {
+        
         // Điền dữ liệu vào form
-        document.getElementById('edit-booking-id').value = data.id;
-        document.getElementById('edit-id').innerText = data.id;
+        document.getElementById('edit-id').innerText = data.booking_id; // Hiển thị mã đoàn
         document.getElementById('edit-customer').value = data.customer_name;
         document.getElementById('edit-room-select').value = data.room_id;
-        
-        // Cập nhật trạng thái
-        const statusSelect = document.getElementById('edit-status');
-        statusSelect.value = data.status;
-        
+        document.getElementById('edit-status').value = data.status;
+
+        // Giờ check-in/out của RIÊNG phòng này
         document.getElementById('edit-checkin').value = data.check_in;
         document.getElementById('edit-checkout').value = data.check_out;
+        
+        // Tiền cọc (thường gắn với Booking tổng, nhưng hiển thị ở đây để sửa)
         document.getElementById('edit-deposit').value = data.deposit;
         
-        // --- XỬ LÝ GIAO DIỆN HOÀN TIỀN ---
-        // 1. Reset checkbox Bất khả kháng
+        // Reset giao diện hoàn tiền
         const chkForce = document.getElementById('chk-force-majeure');
         if(chkForce) chkForce.checked = false;
-
-        // 2. Reset dropdown % (Mở khóa và set về 50%)
-        const refundSelect = document.getElementById('refund-percent');
-        if(refundSelect) {
-            refundSelect.disabled = false;
-            refundSelect.value = "50";
-        }
-
-        // 3. Hiển thị/Ẩn section hoàn tiền dựa trên trạng thái hiện tại
+        
         toggleRefundSection();
 
         new bootstrap.Modal(document.getElementById('editBookingModal')).show();
@@ -185,16 +186,17 @@ function openEditModal(bookingId) {
 }
 
 function saveBookingChanges() {
-    const bookingId = document.getElementById('edit-booking-id').value;
+    // Lấy ID chính xác của dòng cần sửa (BookingRoom)
+    const bookingRoomId = document.getElementById('edit-booking-room-id').value;
+    const bookingId = document.getElementById('edit-booking-id').value; // Dùng nếu hủy cả đơn
     const status = document.getElementById('edit-status').value;
 
-    if (!bookingId) return;
+    if (!bookingRoomId) return;
 
     // --- TRƯỜNG HỢP 1: HỦY PHÒNG ---
     if (status === 'cancelled') {
         if (!confirm("Bạn có chắc chắn muốn HỦY đơn đặt phòng này không?")) return;
 
-        // Kiểm tra xem có tick Bất khả kháng không
         const chkForce = document.getElementById('chk-force-majeure');
         const isForceMajeure = chkForce ? chkForce.checked : false;
 
@@ -202,26 +204,27 @@ function saveBookingChanges() {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
-                booking_id: bookingId,
+                booking_room_id: bookingRoomId, // Gửi ID phòng để hủy đúng phòng
+                booking_id: bookingId,          // Fallback
                 is_force_majeure: isForceMajeure
             })
         })
         .then(r => r.json())
         .then(d => {
             if(d.success) {
-                alert(d.msg); // Thông báo tiền hoàn
+                alert(d.msg);
                 bootstrap.Modal.getInstance(document.getElementById('editBookingModal')).hide();
                 loadTimeline();
             } else {
                 alert(d.msg);
             }
-        })
-        .catch(err => alert("Lỗi server: " + err));
+        });
     } 
-    // --- TRƯỜNG HỢP 2: CẬP NHẬT THÔNG TIN ---
+    // --- TRƯỜNG HỢP 2: CẬP NHẬT THÔNG TIN (ĐỔI PHÒNG, ĐỔI GIỜ) ---
     else {
         const data = {
             booking_id: bookingId,
+            booking_room_id: bookingRoomId, // QUAN TRỌNG: Gửi ID này để biết sửa thanh nào trên timeline
             room_id: document.getElementById('edit-room-select').value,
             status: status,
             check_in: document.getElementById('edit-checkin').value,
@@ -243,22 +246,56 @@ function saveBookingChanges() {
             } else {
                 alert(d.msg);
             }
-        })
-        .catch(err => alert("Lỗi server: " + err));
+        });
     }
 }
 
 // ========================================================
-// 4. LOGIC TÍNH TOÁN HOÀN TIỀN (REFUND)
+// 4. CHỨC NĂNG THÊM PHÒNG VÀO ĐOÀN (NEW)
+// ========================================================
+function addRoomToExistingBooking() {
+    const bookingId = document.getElementById('edit-booking-id').value;
+    if (!bookingId) { alert("Không tìm thấy mã đoàn!"); return; }
+
+    const roomNumber = prompt("Nhập số phòng muốn lấy thêm cho đoàn này:");
+    if (!roomNumber) return;
+
+    // Lấy ngày giờ từ form hiện tại làm mặc định
+    const checkIn = document.getElementById('edit-checkin').value;
+    const checkOut = document.getElementById('edit-checkout').value;
+
+    fetch('/api/bookings/add-room', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            booking_id: bookingId,
+            room_number: roomNumber,
+            check_in: checkIn,
+            check_out: checkOut
+        })
+    })
+    .then(r => r.json())
+    .then(d => {
+        if(d.success) {
+            alert(d.msg);
+            bootstrap.Modal.getInstance(document.getElementById('editBookingModal')).hide();
+            loadTimeline();
+        } else {
+            alert("Lỗi: " + d.msg);
+        }
+    });
+}
+
+// ========================================================
+// 5. LOGIC TÍNH TOÁN HOÀN TIỀN
 // ========================================================
 function toggleRefundSection() {
     const status = document.getElementById('edit-status').value;
     const section = document.getElementById('refund-section');
     
-    // Chỉ hiện khi chọn Cancelled
     if (status === 'cancelled') {
         section.style.display = 'block';
-        calculateRefund(); // Tính toán ngay lập tức
+        calculateRefund(); 
     } else {
         section.style.display = 'none';
         document.getElementById('refund-amount-value').value = 0;
@@ -266,65 +303,44 @@ function toggleRefundSection() {
 }
 
 function calculateRefund() {
-    // 1. Lấy tiền cọc
     const depositVal = document.getElementById('edit-deposit').value || 0;
     const deposit = parseFloat(depositVal);
-
-    // 2. Kiểm tra Checkbox Bất khả kháng
     const chkForce = document.getElementById('chk-force-majeure');
     const selPercent = document.getElementById('refund-percent');
     
     let percent = 0;
-
     if (chkForce && chkForce.checked) {
-        // Nếu chọn Bất khả kháng: Set 100% và KHÓA dropdown
         percent = 100;
         selPercent.value = "100";
         selPercent.disabled = true;
     } else {
-        // Nếu không chọn: MỞ dropdown và lấy giá trị đang chọn
         percent = parseInt(selPercent.value);
         selPercent.disabled = false;
     }
 
-    // 3. Tính tiền
     const refund = deposit * (percent / 100);
-
-    // 4. Hiển thị text (Format tiền Việt)
     document.getElementById('refund-final-text').innerText = refund.toLocaleString('vi-VN') + ' đ';
-    
-    // 5. Lưu vào input ẩn
     document.getElementById('refund-amount-value').value = refund;
 }
 
 // ========================================================
-// 5. CHUYỂN SANG THANH TOÁN (CHECKOUT BRIDGE) - UPDATE
+// 6. HELPER FUNCTIONS
 // ========================================================
 function openCheckoutFromTimeline() {
-    // 1. Lấy ID booking từ input hidden
+    // Truyền cả ID đoàn và tên phòng
     const bookingId = document.getElementById('edit-booking-id').value;
-    
-    // 2. Lấy số phòng từ select box (để hiển thị hoặc fallback)
     const select = document.getElementById('edit-room-select');
     const roomNumber = select.options[select.selectedIndex].text; 
 
-    // 3. Ẩn Modal Sửa
-    const modalEl = document.getElementById('editBookingModal');
-    const modal = bootstrap.Modal.getInstance(modalEl);
-    if(modal) modal.hide();
+    bootstrap.Modal.getInstance(document.getElementById('editBookingModal')).hide();
 
-    // 4. Gọi hàm checkOut() bên file checkout.js
-    // LƯU Ý: Hàm checkOut bên kia phải nhận 2 tham số: (roomNumber, bookingId)
     if (typeof checkOut === 'function') {
         checkOut(roomNumber, bookingId);
     } else {
-        alert("Lỗi: Không tìm thấy hàm checkOut(). Vui lòng kiểm tra lại file checkout.js!");
+        alert("Lỗi: Không tìm thấy hàm checkOut().");
     }
 }
 
-// ========================================================
-// HELPER FUNCTIONS
-// ========================================================
 function setRentalType(type) {
     document.getElementById('bk-type').value = type;
 }
@@ -333,11 +349,10 @@ function updateHourlyEnd() {
     let startStr = document.getElementById('bk-hourly-in').value;
     if(!startStr) return;
     let start = new Date(startStr);
-    start.setHours(start.getHours() + 2); // Mặc định +2h
+    start.setHours(start.getHours() + 2); 
     document.getElementById('bk-hourly-out').value = toLocalISO(start);
 }
 
-// Format ngày giờ chuẩn ISO (YYYY-MM-DDTHH:mm) cho input HTML
 function toLocalISO(date) {
     var local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
     return local.toISOString().slice(0, 16);

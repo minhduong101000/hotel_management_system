@@ -138,44 +138,48 @@ def calculate_raw_hourly_fee(check_in, check_out, price_config):
     return total, billable_hours, desc
 
 # =======================================================
-# 4. HÀM LOGIC CHÍNH (MAIN FUNCTION)
+# 4. HÀM LOGIC CHÍNH (MAIN FUNCTION) - ĐÃ SỬA
 # =======================================================
-def calculate_complex_hotel_bill(check_in, check_out, room, rental_type='hourly'):
+def calculate_complex_hotel_bill(check_in, check_out, room, rental_type='hourly', 
+                                 expected_check_in=None, expected_check_out=None):
     """
-    Hàm tính tiền tổng hợp:
-    1. Lấy giá chuẩn (đã áp dụng Rule Lễ/Tết cho giá ngày).
-    2. Nếu thuê giờ: Tính giá giờ -> So sánh giá ngày -> Chọn phương án rẻ hoặc đúng luật.
-    3. Nếu thuê ngày (hoặc bị chuyển từ giờ sang): Tính đêm + Phụ thu Check-in/out.
+    Hàm tính tiền chuẩn xác:
+    1. Base Fee: Luôn tính dựa trên thời gian ĐÃ ĐẶT (Booking) để đảm bảo doanh thu (khách đến muộn vẫn phải trả).
+    2. Surcharge: Chỉ tính khi khách đến SỚM HƠN booking hoặc về MUỘN HƠN booking.
     """
     
-    # B1: Lấy cấu hình giá (Đã check Lễ/Tết)
-    prices = get_effective_room_prices(room, check_in)
+    # --- 1. XÁC ĐỊNH MỐC TÍNH TIỀN PHÒNG (BASE) ---
+    # Mặc định lấy theo Booking (Expected). 
+    # Nếu không có Booking (khách lẻ) thì lấy theo Thực tế.
     
-    # Biến để hiển thị tên rule (nếu có)
+    base_start = expected_check_in if expected_check_in else check_in
+    base_end = expected_check_out if expected_check_out else check_out
+    
+    # Lấy giá tại thời điểm bắt đầu tính tiền
+    prices = get_effective_room_prices(room, base_start)
     rule_tag = f" ({prices['rule_name']})" if prices['is_special'] else ""
     
     total_fee = 0.0
     breakdown = []
     
-    # Cấu hình giờ chuẩn
-    STD_IN = 14  # 14:00
-    STD_OUT = 12 # 12:00
-
-    # Cờ xác định có dùng luật ngày hay không
     use_daily_rule = (rental_type == 'daily')
 
     # ====================================================
-    # CASE A: KHÁCH THUÊ GIỜ (HOURLY)
+    # PHẦN 1: TÍNH TIỀN PHÒNG CƠ BẢN (THEO BOOKING)
     # ====================================================
+    
+    # CASE A: THUÊ GIỜ
     if rental_type == 'hourly':
-        # Tính tiền giờ thuần túy
-        raw_fee, billed_hours, note = calculate_raw_hourly_fee(check_in, check_out, prices)
+        # Với thuê giờ, thường tính theo thực tế nhiều hơn, nhưng nếu logic của bạn là giữ slot
+        # thì vẫn dùng base_start/base_end. 
+        # Tuy nhiên, để an toàn và thường gặp: Thuê giờ tính theo range rộng nhất.
+        calc_start = min(check_in, base_start)
+        calc_end = max(check_out, base_end)
         
-        # --- LOGIC QUAN TRỌNG: CEILING CHECK (KIỂM TRA TRẦN) ---
-        # Nếu tiền giờ > tiền 1 đêm (theo giá thời điểm đó) -> Chuyển sang tính ngày
+        raw_fee, billed_hours, note = calculate_raw_hourly_fee(calc_start, calc_end, prices)
+        
         if raw_fee > prices['p_night']:
-            use_daily_rule = True 
-            # Không append breakdown vội, để xuống dưới tính lại theo ngày
+            use_daily_rule = True
         else:
             total_fee = raw_fee
             breakdown.append({
@@ -184,64 +188,83 @@ def calculate_complex_hotel_bill(check_in, check_out, room, rental_type='hourly'
                 "amount": total_fee
             })
 
-    # ====================================================
-    # CASE B: KHÁCH THUÊ NGÀY (HOẶC BỊ CHUYỂN TỪ GIỜ SANG)
-    # ====================================================
+    # CASE B: THUÊ NGÀY
     if use_daily_rule:
-        # Nếu bị chuyển từ giờ sang, thêm 1 dòng log giải thích
         if rental_type == 'hourly':
             breakdown.append({
                 "label": "Tự động chuyển đổi",
-                "detail": "Tiền giờ > Giá đêm. Tính theo giá đêm có lợi hơn.",
+                "detail": "Tiền giờ > Giá đêm. Tính theo giá đêm.",
                 "amount": 0
             })
 
-        # 1. Tính tiền đêm cơ bản
-        # Logic: check_out date - check_in date
-        nights = (check_out.date() - check_in.date()).days
-        if nights < 1: nights = 1 # Tối thiểu 1 đêm
+        # Tính số đêm dựa trên BOOKING (để khách đến muộn vẫn thu đủ)
+        nights = (base_end.date() - base_start.date()).days
+        if nights < 1: nights = 1 
         
         base_fee = nights * prices['p_night']
         total_fee += base_fee
         
+        # Format hiển thị giờ
+        bk_in_str = base_start.strftime('%d/%m %H:%M')
+        bk_out_str = base_end.strftime('%d/%m %H:%M')
+        
         breakdown.append({
             "label": f"Tiền phòng{rule_tag}",
-            "detail": f"{nights} đêm (Chuẩn 14h-12h)",
+            "detail": f"{nights} đêm (Theo lịch đặt: {bk_in_str} - {bk_out_str})",
             "amount": base_fee
         })
 
-        # 2. Phụ thu Check-in Sớm (Early Check-in)
-        # So sánh giờ check-in thực tế vs 14:00 cùng ngày
-        std_checkin_time = datetime.combine(check_in.date(), time(STD_IN, 0))
-        if check_in < std_checkin_time:
-            diff = std_checkin_time - check_in
-            early_hours = diff.total_seconds() / 3600.0
+        # ====================================================
+        # PHẦN 2: TÍNH PHỤ THU (CHỈ KHI VƯỢT KHUNG)
+        # ====================================================
+        
+        total_extra_hours = 0.0
+        extra_details = [] 
+
+        # 1. Check-in Sớm: Chỉ tính nếu Thực tế < Dự kiến (Đã bao gồm logic 14:00 nếu dự kiến set là 14:00)
+        # Ví dụ: Book 14:00, Vào 10:00 -> Sớm 4h.
+        # Ví dụ: Book 14:00, Vào 15:00 -> Không sớm -> Không tính.
+        # Ví dụ: Book 10:00 (đã trả phí trước), Vào 10:00 -> Không sớm -> Không tính thêm.
+        
+        if expected_check_in and check_in < expected_check_in:
+            diff = expected_check_in - check_in
+            early_h = diff.total_seconds() / 3600.0
             
-            ratio, r_note = get_surcharge_ratio(early_hours)
+            # Chỉ tính nếu sớm đáng kể (trên 15p)
+            if early_h > 0.2: 
+                total_extra_hours += early_h
+                extra_details.append(f"Sớm {early_h:.1f}h")
+
+        # 2. Check-out Muộn: Chỉ tính nếu Thực tế > Dự kiến
+        # Ví dụ: Book đến 12:00, Ra 14:00 -> Muộn 2h.
+        # Ví dụ: Book đến 12:00, Ra 10:00 -> Không muộn -> Không tính.
+        
+        if expected_check_out and check_out > expected_check_out:
+            diff = check_out - expected_check_out
+            late_h = diff.total_seconds() / 3600.0
+            
+            if late_h > 0.2:
+                total_extra_hours += late_h
+                extra_details.append(f"Muộn {late_h:.1f}h")
+
+        # 3. Tổng hợp Phụ thu
+        if total_extra_hours > 0:
+            ratio, r_note = get_surcharge_ratio(total_extra_hours)
+            
             if ratio > 0:
                 surcharge = prices['p_night'] * ratio
                 total_fee += surcharge
+                
                 breakdown.append({
-                    "label": "Phụ thu nhận sớm",
-                    "detail": f"Sớm {early_hours:.1f}h ({r_note})",
+                    "label": "Phụ thu phát sinh",
+                    "detail": f"Tổng {total_extra_hours:.1f}h ({', '.join(extra_details)})",
                     "amount": surcharge
                 })
-
-        # 3. Phụ thu Check-out Muộn (Late Check-out)
-        # So sánh giờ check-out thực tế vs 12:00 cùng ngày
-        std_checkout_time = datetime.combine(check_out.date(), time(STD_OUT, 0))
-        if check_out > std_checkout_time:
-            diff = check_out - std_checkout_time
-            late_hours = diff.total_seconds() / 3600.0
-            
-            ratio, r_note = get_surcharge_ratio(late_hours)
-            if ratio > 0:
-                surcharge = prices['p_night'] * ratio
-                total_fee += surcharge
-                breakdown.append({
-                    "label": "Phụ thu trả muộn",
-                    "detail": f"Muộn {late_hours:.1f}h ({r_note})",
-                    "amount": surcharge
+            else:
+                 breakdown.append({
+                    "label": "Phụ thu phát sinh",
+                    "detail": f"Tổng {total_extra_hours:.1f}h (Miễn phí dưới 1h)",
+                    "amount": 0
                 })
 
     return total_fee, breakdown

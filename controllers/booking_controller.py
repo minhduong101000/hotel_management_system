@@ -110,7 +110,6 @@ def preview_checkout():
         return jsonify({'success': False, 'msg': 'Phòng này chưa check-in hoặc không có khách.'})
 
     booking = booking_room.booking # Lấy Booking cha
-    print(booking.__dict__)
     if not booking:
         return jsonify({'success': False, 'msg': 'Lỗi dữ liệu: Không tìm thấy thông tin Booking gốc.'})
 
@@ -118,11 +117,12 @@ def preview_checkout():
     # Dùng check_in_actual của BookingRoom để tính tiền chính xác
     check_in = booking_room.check_in_actual if booking_room.check_in_actual else booking.booking_date
     check_out = datetime.now()
-    
+    expected_in= booking_room.check_in_expected
+    expected_out= booking_room.check_out_expected
     rental_mode = booking_room.rental_type # Lấy loại thuê của phòng cụ thể
 
     # GỌI HÀM TÍNH TOÁN 
-    room_fee, message = calculate_complex_hotel_bill(check_in, check_out, room, rental_type=rental_mode)
+    room_fee, message = calculate_complex_hotel_bill(check_in, check_out, room, rental_type=rental_mode, expected_check_in=expected_in, expected_check_out=expected_out)
     
     # --- TÍNH TIỀN DỊCH VỤ ---
     # Lưu ý: Dịch vụ đang gắn với Booking cha. 

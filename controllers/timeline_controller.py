@@ -110,6 +110,7 @@ def get_timeline():
         
         items.append({
             'id': br.id,          # ID này là ID của BookingRoom
+            'booking_id': br.booking_id,
             'group': br.room_id,  # Thuộc dòng của phòng nào
             'start': start.isoformat(),
             'end': end.isoformat(),
@@ -296,3 +297,182 @@ def update_booking_timeline():
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'msg': str(e)})
+    
+# ========================================================
+# 5. API HỦY PHÒNG (CANCEL) & HOÀN TIỀN
+# ========================================================
+@timeline_bp.route('/api/bookings/cancel', methods=['POST'])
+@login_required
+def cancel_booking():
+    try:
+        data = request.get_json()
+        booking_id = data.get('booking_id')
+        is_force_majeure = data.get('is_force_majeure', False)
+        
+        # --- THÊM DÒNG NÀY: Lấy % hoàn tiền từ client gửi lên ---
+        # Nếu không gửi thì mặc định là 0
+        refund_percent_input = float(data.get('refund_percent', 0)) 
+        
+        # 1. Tìm Booking
+        booking = Booking.query.get(booking_id)
+        if not booking:
+            return jsonify({'success': False, 'msg': 'Không tìm thấy đơn đặt phòng.'})
+
+        booking_rooms = BookingRoom.query.filter_by(booking_id=booking.id).all()
+
+        # 2. Tính toán tiền hoàn lại (Refund Logic - ĐÃ SỬA)
+        deposit = float(booking.prepaid_amount or 0)
+        refund_amount = 0
+        final_percent = 0
+
+        if deposit > 0:
+            if is_force_majeure:
+                final_percent = 100
+                refund_amount = deposit
+                reason = "Hủy do bất khả kháng (Hoàn 100% cọc)"
+            else:
+                # Dùng số % từ frontend gửi lên
+                final_percent = refund_percent_input
+                refund_amount = deposit * (final_percent / 100)
+                reason = f"Hủy thường (Hoàn {final_percent}% cọc)"
+        else:
+            reason = "Hủy phòng (Không có cọc)"
+
+        # 3. Cập nhật Database
+        
+        # A. Cập nhật trạng thái BookingRoom -> cancelled
+        for br in booking_rooms:
+            # Chỉ hủy những phòng chưa check-in hoặc đang book
+            if br.status != 'cancelled': 
+                br.status = 'cancelled'
+                
+                # B. Trả lại trạng thái "Sẵn sàng" cho Room thực tế
+                room = Room.query.get(br.room_id)
+                if room:
+                    room.status = 'available'
+
+        # C. Cập nhật Note
+        refund_str = "{:,.0f}".format(refund_amount).replace(',', '.')
+        current_note = booking.note or ""
+        
+        # Ghi log rõ ràng hơn
+        booking.note = f"{current_note} | [ĐÃ HỦY: {reason}. Hoàn tiền: {refund_str} đ]".strip()
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True, 
+            'msg': f'Đã hủy phòng thành công.\nLý do: {reason}\nSố tiền cần hoàn trả khách: {refund_str} đ'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error canceling: {e}")
+        return jsonify({'success': False, 'msg': str(e)})
+
+# ========================================================
+# 6. API CẬP NHẬT THÔNG TIN (UPDATE)
+# ========================================================
+@timeline_bp.route('/api/bookings/update', methods=['POST'])
+@login_required
+def update_booking():
+    try:
+        data = request.get_json()
+        
+        # 1. Lấy tham số quan trọng
+        booking_room_id = data.get('booking_room_id') # <--- QUAN TRỌNG: ID của dòng chi tiết
+        booking_id = data.get('booking_id')           # ID của đơn tổng
+        
+        # Lấy dữ liệu cần sửa
+        new_room_id = int(data.get('room_id'))
+        new_status = data.get('status') 
+        new_deposit = data.get('deposit')
+        
+        check_in_str = data.get('check_in')
+        check_out_str = data.get('check_out')
+
+        # ---------------------------------------------------------
+        # BƯỚC 1: CẬP NHẬT ĐƠN TỔNG (Booking)
+        # (Cập nhật tiền cọc chung cho cả đoàn nếu có thay đổi)
+        # ---------------------------------------------------------
+        if booking_id:
+            booking = Booking.query.get(booking_id)
+            if booking and new_deposit is not None:
+                booking.prepaid_amount = float(new_deposit)
+                # db.session.add(booking) # (SQLAlchemy tự track, không cần add lại nếu chỉ sửa)
+
+        # ---------------------------------------------------------
+        # BƯỚC 2: CẬP NHẬT CHI TIẾT PHÒNG (BookingRoom)
+        # ---------------------------------------------------------
+        br = None
+        
+        # Ưu tiên tìm đích danh dòng BookingRoom cần sửa
+        if booking_room_id:
+            br = BookingRoom.query.get(booking_room_id)
+        
+        # Fallback: Nếu frontend cũ không gửi booking_room_id thì mới tìm theo booking_id
+        elif booking_id:
+            br = BookingRoom.query.filter_by(booking_id=booking_id).first()
+
+        if not br:
+            return jsonify({'success': False, 'msg': 'Không tìm thấy thông tin phòng cần sửa.'})
+
+        # -- Logic đổi phòng --
+        old_room_id = br.room_id
+        
+        # Cập nhật thông tin mới
+        br.room_id = new_room_id
+        br.status = new_status
+        
+        # Parse ngày giờ (Cần format chuẩn từ Frontend gửi lên: YYYY-MM-DDTHH:mm)
+        if check_in_str:
+            # Cắt chuỗi nếu frontend gửi dư giây (VD: 2023-10-10T14:00:00.000Z)
+            clean_in = check_in_str.split('.')[0] 
+            br.check_in_expected = datetime.strptime(clean_in, '%Y-%m-%dT%H:%M')
+            
+        if check_out_str:
+            clean_out = check_out_str.split('.')[0]
+            br.check_out_expected = datetime.strptime(clean_out, '%Y-%m-%dT%H:%M')
+
+        # ---------------------------------------------------------
+        # BƯỚC 3: XỬ LÝ TRẠNG THÁI PHÒNG (Room Status)
+        # ---------------------------------------------------------
+        
+        # A. Nếu thay đổi phòng (VD: Đổi từ phòng 101 -> 102)
+        if old_room_id != new_room_id:
+            # 1. Trả phòng cũ về 'available' (nếu nó đang occupied bởi đơn này)
+            room_old = Room.query.get(old_room_id)
+            if room_old and room_old.status == 'occupied':
+                # Chỉ set available nếu đơn này đang chiếm giữ
+                # (Logic kỹ hơn là check xem có booking nào khác đang check-in không, nhưng tạm làm đơn giản)
+                room_old.status = 'available'
+            
+            # 2. Set phòng mới thành status tương ứng
+            room_new = Room.query.get(new_room_id)
+            if room_new:
+                if new_status == 'checked_in':
+                    room_new.status = 'occupied'
+                # Nếu chỉ là booked thì không đổi status room (vẫn để available cho khách khác book giờ khác)
+
+        # B. Nếu không đổi phòng, chỉ đổi trạng thái (VD: Check-in)
+        else:
+            room_current = Room.query.get(new_room_id)
+            if room_current:
+                if new_status == 'checked_in':
+                    room_current.status = 'occupied'
+                    # Cập nhật giờ check-in thực tế nếu chưa có
+                    if not br.check_in_actual:
+                        br.check_in_actual = datetime.now()
+                
+                elif new_status == 'cancelled' or new_status == 'checked_out':
+                    room_current.status = 'available'
+
+        db.session.commit()
+        return jsonify({'success': True, 'msg': 'Cập nhật thành công!'})
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating: {e}")
+        import traceback
+        traceback.print_exc() # In lỗi chi tiết ra terminal để debug
+        return jsonify({'success': False, 'msg': f'Lỗi server: {str(e)}'})

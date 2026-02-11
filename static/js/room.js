@@ -5,7 +5,6 @@
 // Biến toàn cục
 let allRooms = [];
 let currentCheckInRoomNumber = null; // Dùng cho Modal tạo Booking mới
-// ĐÃ XÓA: let currentCheckoutRoom = null; -> Biến này giờ nằm bên checkout.js
 
 document.addEventListener('DOMContentLoaded', () => {
     loadRoomsData();
@@ -69,12 +68,17 @@ function renderGrid() {
 
     filteredRooms.forEach(room => {
         let cardHtml = '';
+        
         // --- TRƯỜNG HỢP 1: PHÒNG CÓ KHÁCH (OCCUPIED) ---
         if (room.status === 'occupied') {
             let statusClass = (room.rental_type === 'hourly') ? 'st-hourly' : 'st-occupied';
             
+            // --- [FIX LỖI NULL TẠI ĐÂY] ---
+            // Sử dụng ?. để kiểm tra an toàn, nếu customer là null thì lấy chuỗi rỗng
             const safeName = (room.customer_name || '').replace(/'/g, "\\'");
-            const safePhone = (room.customer.phone || '').replace(/'/g, "\\'");
+            const safePhone = (room.customer?.phone || '').replace(/'/g, "\\'"); 
+            // ------------------------------
+
             const safeCheckInTime = (room.check_in_time || '');
             const safeCheckOutTime = (room.check_out_expected || '');
 
@@ -99,7 +103,7 @@ function renderGrid() {
                     <div class="rc-body">
                         <strong>ĐANG Ở</strong>
                         <div style="font-size: 0.75rem; margin-top: 5px; opacity: 0.8;">
-                             </div>
+                        </div>
                     </div>
                     
                     <div class="rc-foot mt-2 pt-2 border-top border-white-50 d-flex justify-content-between">
@@ -180,12 +184,11 @@ function renderGrid() {
 // ==========================================
 
 function checkIn(roomNumber, roomId) {
-    console.log(roomNumber, roomId)
+    console.log(roomNumber, roomId);
     fetch(`/api/bookings/upcoming/${roomId}`)
         .then(res => res.json())
         .then(data => {
             if (data.has_booking) {
-                // ... (Logic xác nhận check-in đặt trước giữ nguyên) ...
                 const typeText = data.rental_type === 'hourly' ? 'Theo Giờ' : 'Theo Ngày';
                 const msg = `⚠️ PHÁT HIỆN ĐẶT PHÒNG TRƯỚC\nPhòng: ${roomNumber}\nKhách hàng: ${data.customer_name}\nBạn có muốn Check-in cho khách này ngay bây giờ?`;
 
@@ -203,7 +206,7 @@ function checkIn(roomNumber, roomId) {
 }
 
 function performCheckIn(roomNumber, bookingId) {
-    console.log(roomNumber, bookingId)
+    console.log(roomNumber, bookingId);
     fetch('/api/rooms/checkin', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -248,7 +251,7 @@ function openBookingModal(roomNumber) {
 
     const modalEl = document.getElementById('bookingModal');
     if(modalEl) new bootstrap.Modal(modalEl).show();
-    else alert("Lỗi: Không tìm thấy Modal Booking trong HTML.");
+    else alert("Hiện chưa booking nào");
 }
 
 function submitFullBooking(status) {
@@ -314,9 +317,6 @@ function setRentalType(type) {
 // ==========================================
 // 5. CÁC HÀM TIỆN ÍCH KHÁC
 // ==========================================
-
-// ĐÃ XÓA PHẦN LOGIC CHECK-OUT CŨ
-// Bây giờ code sẽ gọi hàm checkOut() từ file static/js/checkout.js
 
 function cleanRoom(number) {
     if(!confirm("Xác nhận đã dọn xong phòng " + number + "?")) return;

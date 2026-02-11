@@ -29,6 +29,7 @@ class BookingRoom(db.Model):
     def to_dict(self):
         return {
             'id': self.id,
+            'booking': self.booking_id,
             'room_number': self.room.room_number if self.room else 'N/A',
             'status': self.status,
             'final_amount': float(self.final_amount or 0)

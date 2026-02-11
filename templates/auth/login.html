@@ -1,13 +1,68 @@
 <!DOCTYPE html>
-<html>
-<head><title>Login</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-<style>body{background:#2A3F54;height:100vh;display:flex;align-items:center;justify-content:center;}</style></head>
-<body>
-<div class="card p-4 shadow" style="width:350px;">
-    <h3 class="text-center mb-4 text-secondary">LOGIN SYSTEM</h3>
-    <form method="POST">
-        <input type="text" name="username" class="form-control mb-3" placeholder="admin" required>
-        <input type="password" name="password" class="form-control mb-3" placeholder="123456" required>
-        <button class="btn btn-primary w-100 fw-bold">ĐĂNG NHẬP</button>
-    </form>
-</div></body></html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng nhập - HotelPOS</title>
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body class="login-page">
+
+    <div class="login-card">
+        <div class="login-header">
+            <div style="font-size: 40px; color: #2980b9; margin-bottom: 10px;">
+                <i class="fa-solid fa-hotel"></i>
+            </div>
+            <h2>HOTEL POS</h2>
+            <p>Hệ thống quản lý khách sạn chuyên nghiệp</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ 'danger' if category == 'error' else category }}">
+                <i class="fa-solid fa-circle-exclamation"></i>
+                {{ message }}
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form method="POST">
+            <div class="input-group">
+                <label>Tên đăng nhập</label>
+                <div class="input-wrapper">
+                    <i class="fa-solid fa-user"></i>
+                    <input type="text" name="username" required placeholder="Nhập username..." autocomplete="off">
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label>Mật khẩu</label>
+                <div class="input-wrapper">
+                    <i class="fa-solid fa-lock"></i>
+                    <input type="password" name="password" required placeholder="Nhập mật khẩu...">
+                </div>
+            </div>
+
+            <div class="checkbox-group">
+                <input type="checkbox" name="remember" id="remember">
+                <label for="remember">Ghi nhớ đăng nhập</label>
+            </div>
+
+            <button type="submit" class="btn-login">
+                ĐĂNG NHẬP <i class="fa-solid fa-arrow-right-to-bracket" style="margin-left: 5px;"></i>
+            </button>
+        </form>
+        
+        <div style="margin-top: 20px; font-size: 12px; color: #aaa;">
+            &copy; 2026 Hotel Management System
+        </div>
+    </div>
+
+</body>
+</html>
