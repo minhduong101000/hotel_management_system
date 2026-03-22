@@ -1,7 +1,14 @@
 from flask import Flask, redirect, url_for
-# Import db và login_manager từ file extensions (nơi bạn khởi tạo chúng)
 from extensions import db, login_manager 
+from flask_migrate import Migrate
+import warnings
 from models import User
+from models.inventory_item import InventoryItem
+from models.expense import Expense
+from models.booking import Booking
+from models.booking_room import BookingRoom
+from config import Config
+from sqlalchemy import inspect, text
 
 # Import các Controllers (Blueprints)
 from controllers.auth_controller import auth_bp
@@ -15,17 +22,18 @@ from controllers.staff_controller import staff_bp
 from controllers.report_controller import report_bp
 from controllers.price_controller import price_bp
 from controllers.booking_controller import booking_bp
+from controllers.expense_controller import expense_bp
+from controllers.cashier_controller import cashier_bp
 
 app = Flask(__name__)
 
 # --- 1. CẤU HÌNH APP ---
-app.config['SECRET_KEY'] = 'luxury-secret-key' # Nên đổi chuỗi này phức tạp hơn khi chạy thật
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:123456@localhost/Hotel_Management_System'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config.from_object(Config)
 
 # --- 2. KHỞI TẠO EXTENSIONS ---
 db.init_app(app)
 login_manager.init_app(app)
+migrate = Migrate(app, db)
 
 # --- [QUAN TRỌNG] CẤU HÌNH LOGIN MANAGER ---
 # Đường dẫn đến hàm login (tên blueprint.tên hàm)
@@ -53,6 +61,8 @@ app.register_blueprint(staff_bp)
 app.register_blueprint(report_bp)
 app.register_blueprint(price_bp)
 app.register_blueprint(booking_bp)
+app.register_blueprint(expense_bp)
+app.register_blueprint(cashier_bp)
 
 # --- 4. ROUTES HỆ THỐNG ---
 @app.route('/')
@@ -61,9 +71,83 @@ def index():
     return redirect(url_for('room.map_view')) 
 
 
+def ensure_schema_updates():
+    warnings.warn(
+        "ensure_schema_updates() is deprecated; use Flask-Migrate instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    inspector = inspect(db.engine)
+    if 'booking_rooms' not in inspector.get_table_names():
+        return
+
+    columns = {col['name'] for col in inspector.get_columns('booking_rooms')}
+    if 'room_deposit_amount' not in columns:
+        db.session.execute(text("ALTER TABLE booking_rooms ADD COLUMN room_deposit_amount NUMERIC(15, 2) DEFAULT 0"))
+        db.session.commit()
+        print(">>> Đã thêm cột booking_rooms.room_deposit_amount")
+
+    if 'room_deposit_original' not in columns:
+        db.session.execute(text("ALTER TABLE booking_rooms ADD COLUMN room_deposit_original NUMERIC(15, 2) DEFAULT 0"))
+        db.session.commit()
+        print(">>> Đã thêm cột booking_rooms.room_deposit_original")
+
+    if 'cancellation_refund_percent' not in columns:
+        db.session.execute(text("ALTER TABLE booking_rooms ADD COLUMN cancellation_refund_percent NUMERIC(5, 2) DEFAULT 0"))
+        db.session.commit()
+        print(">>> Đã thêm cột booking_rooms.cancellation_refund_percent")
+
+    if 'cancellation_fee_percent' not in columns:
+        db.session.execute(text("ALTER TABLE booking_rooms ADD COLUMN cancellation_fee_percent NUMERIC(5, 2) DEFAULT 0"))
+        db.session.commit()
+        print(">>> Đã thêm cột booking_rooms.cancellation_fee_percent")
+
+    if 'cancellation_refund_amount' not in columns:
+        db.session.execute(text("ALTER TABLE booking_rooms ADD COLUMN cancellation_refund_amount NUMERIC(15, 2) DEFAULT 0"))
+        db.session.commit()
+        print(">>> Đã thêm cột booking_rooms.cancellation_refund_amount")
+
+
+def backfill_room_deposits():
+    bookings = Booking.query.filter(Booking.prepaid_amount > 0).all()
+    patched = 0
+
+    for booking in bookings:
+        active_rooms = [r for r in booking.rooms if r.status in ['booked', 'checked_in']]
+        if not active_rooms:
+            continue
+
+        current_sum = sum(float(r.room_deposit_amount or 0) for r in active_rooms)
+        target_sum = float(booking.prepaid_amount or 0)
+
+        if target_sum <= 0 or abs(current_sum - target_sum) < 0.01:
+            continue
+
+        weights = [float(r.price_snapshot or 0) if float(r.price_snapshot or 0) > 0 else 1.0 for r in active_rooms]
+        total_weight = sum(weights) or float(len(active_rooms))
+
+        allocated = 0.0
+        for idx, room_row in enumerate(active_rooms):
+            if idx == len(active_rooms) - 1:
+                share = max(0.0, round(target_sum - allocated, 2))
+            else:
+                share = round(target_sum * (weights[idx] / total_weight), 2)
+                allocated += share
+            room_row.room_deposit_amount = share
+            room_row.room_deposit_original = max(float(room_row.room_deposit_original or 0), share)
+
+        patched += 1
+
+    if patched > 0:
+        db.session.commit()
+        print(f">>> Đã backfill cọc theo phòng cho {patched} booking")
+
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
+        ensure_schema_updates()
+        backfill_room_deposits()
         
         # 1. Tạo Admin
         if not User.query.filter_by(username='admin').first():

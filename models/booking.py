@@ -1,8 +1,11 @@
 from extensions import db
-from datetime import datetime
 
 class Booking(db.Model):
     __tablename__ = 'bookings' # Lưu ý: SQL bạn để là bookings (số nhiều)
+
+    __table_args__ = (
+        db.Index('ix_bookings_status', 'status'),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String(20), unique=True, nullable=False)
@@ -17,11 +20,11 @@ class Booking(db.Model):
     payment_status = db.Column(db.String(20), default='partial') # unpaid, partial, paid, refunded
     status = db.Column(db.String(20), default='pending') # pending, confirmed, checked_in...
     
-    note = db.Column(db.String(255), nullable=True)
+    note = db.Column(db.String(1000), nullable=True)
     source = db.Column(db.String(50), default='walk_in')
     
-    created_at = db.Column(db.DateTime, default=datetime.now)
-    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    created_at = db.Column(db.DateTime, default=db.func.now())
+    updated_at = db.Column(db.DateTime, default=db.func.now(), onupdate=db.func.now())
 
     # --- RELATIONSHIPS (ĐỊNH NGHĨA RÕ RÀNG) ---
     customer = db.relationship('Customer', back_populates='bookings')

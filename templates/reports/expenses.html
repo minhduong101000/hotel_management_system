@@ -1,0 +1,422 @@
+{% extends "layouts/base.html" %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h5 class="fw-bold text-primary m-0"><i class="fas fa-money-bill-wave me-2"></i>QUẢN LÝ CHI PHÍ</h5>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-primary btn-sm" href="{{ url_for('warehouse.index') }}">
+                <i class="fas fa-warehouse me-1"></i> Sang trang Kho hàng
+            </a>
+            <button class="btn btn-danger btn-sm" onclick="openAddExpense()">
+                <i class="fas fa-plus me-1"></i> Thêm chi phí
+            </button>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-center">
+                <div class="col-auto">
+                    <label class="form-label small fw-bold mb-0">Từ ngày</label>
+                    <input type="date" id="filter-start" class="form-control form-control-sm">
+                </div>
+                <div class="col-auto">
+                    <label class="form-label small fw-bold mb-0">Đến ngày</label>
+                    <input type="date" id="filter-end" class="form-control form-control-sm">
+                </div>
+                <div class="col-auto">
+                    <label class="form-label small fw-bold mb-0">Loại</label>
+                    <select id="filter-category" class="form-select form-select-sm">
+                        <option value="">Tất cả</option>
+                        <option value="Điện nước">Điện nước</option>
+                        <option value="Lương">Lương</option>
+                        <option value="Mua sắm">Mua sắm</option>
+                        <option value="Sửa chữa">Sửa chữa</option>
+                        <option value="Khác">Khác</option>
+                    </select>
+                </div>
+                <div class="col-auto align-self-end">
+                    <button class="btn btn-primary btn-sm" onclick="loadExpenses()"><i class="fas fa-search me-1"></i>Lọc</button>
+                </div>
+                <div class="col text-end align-self-end">
+                    <span class="fw-bold">Tổng: <span id="total-amount" class="text-danger fs-5">0</span> đ</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Ngày</th>
+                        <th>Loại</th>
+                        <th>Mô tả</th>
+                        <th>Kho liên quan</th>
+                        <th class="text-end">Số tiền</th>
+                        <th>Người tạo</th>
+                        <th class="text-end">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody id="expenses-tbody">
+                    <tr><td colspan="7" class="text-center text-muted py-4">Đang tải...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="expenseModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="fas fa-receipt me-2"></i>Thêm chi phí</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-2">
+                    <div class="col-md-4 mb-2">
+                        <label class="form-label fw-bold">Loại chi phí</label>
+                        <select class="form-select" id="exp-category">
+                            <option value="Điện nước">Điện nước</option>
+                            <option value="Lương">Lương</option>
+                            <option value="Mua sắm">Mua sắm</option>
+                            <option value="Sửa chữa">Sửa chữa</option>
+                            <option value="Khác">Khác</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <label class="form-label fw-bold">Số tiền (VND)</label>
+                        <input type="number" class="form-control" id="exp-amount" placeholder="500000">
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <label class="form-label fw-bold">Ngày chi</label>
+                        <input type="date" class="form-control" id="exp-date">
+                    </div>
+                </div>
+
+                <div class="mb-3 mt-2">
+                    <label class="form-label fw-bold">Mô tả</label>
+                    <input type="text" class="form-control" id="exp-desc" placeholder="VD: Nhập nước suối kho phòng">
+                </div>
+
+                <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" id="exp-sync-warehouse" onchange="toggleWarehouseSync()">
+                    <label class="form-check-label" for="exp-sync-warehouse">Đồng bộ vào kho hàng</label>
+                </div>
+                <small class="text-muted d-block mb-2">Bật tùy chọn này nếu khoản chi là nhập hàng hóa vật tư. Lưu xong sẽ cập nhật ngay trang Kho hàng. Điện nước hoặc chi phí khác thì để tắt.</small>
+                <small class="text-muted d-block mb-2">Giá nhập trong kho sẽ được tính từ Số tiền chi phí / Số lượng nhập.</small>
+
+                <div id="warehouse-sync-fields" class="border rounded p-3 bg-light" style="display:none;">
+                    <div class="mb-2">
+                        <label class="form-label fw-bold">Chọn vật tư đã có (tùy chọn)</label>
+                        <select class="form-select" id="wh-existing-item" onchange="applyExistingWarehouseItem()">
+                            <option value="">-- Tạo mới / nhập mã tay --</option>
+                        </select>
+                    </div>
+
+                    <div class="row g-2">
+                        <div class="col-md-4 mb-2">
+                            <label class="form-label fw-bold">Mã vật tư</label>
+                            <input type="text" class="form-control" id="wh-code" placeholder="VD: VT01">
+                        </div>
+                        <div class="col-md-8 mb-2">
+                            <label class="form-label fw-bold">Tên vật tư</label>
+                            <input type="text" class="form-control" id="wh-name" placeholder="VD: Nước suối chai 350ml">
+                        </div>
+                    </div>
+
+                    <div class="row g-2">
+                        <div class="col-md-3 mb-2">
+                            <label class="form-label fw-bold">Đơn vị</label>
+                            <input type="text" class="form-control" id="wh-unit" value="cái">
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <label class="form-label fw-bold">Số lượng nhập</label>
+                            <input type="number" class="form-control" id="wh-qty" value="1" min="1">
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <label class="form-label fw-bold">Ngưỡng cảnh báo</label>
+                            <input type="number" class="form-control" id="wh-min" value="10" min="0">
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <label class="form-label fw-bold">Liên kết dịch vụ</label>
+                            <select class="form-select" id="wh-service">
+                                <option value="">-- Không liên kết --</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-check form-switch mt-2 mb-2">
+                        <input class="form-check-input" type="checkbox" id="exp-sync-service" onchange="toggleServiceSync()">
+                        <label class="form-check-label" for="exp-sync-service">Đồng bộ dịch vụ</label>
+                    </div>
+
+                    <div id="service-sync-fields" class="row g-2" style="display:none;">
+                        <div class="col-md-12 mb-2">
+                            <label class="form-label fw-bold">Tham chiếu bảng Dịch vụ (chọn sẵn hoặc tạo mới)</label>
+                            <select class="form-select" id="svc-existing-service" onchange="applyExistingService()">
+                                <option value="">-- Tạo dịch vụ mới --</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label fw-bold">Tên dịch vụ (tạo mới / cập nhật)</label>
+                            <input type="text" class="form-control" id="svc-name" placeholder="VD: Bánh kẹo, Nước suối...">
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label fw-bold">Giá bán dịch vụ</label>
+                            <input type="number" class="form-control" id="svc-price" min="0" placeholder="VD: 15000">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-danger" onclick="saveExpense()"><i class="fas fa-save me-1"></i>Lưu</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let warehouseItems = [];
+
+function fmtMoney(n) {
+    return new Intl.NumberFormat('vi-VN').format(Math.round(n));
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('filter-start').value = today.substring(0, 8) + '01';
+    document.getElementById('filter-end').value = today;
+    document.getElementById('exp-date').value = today;
+    loadExpenses();
+    loadServices();
+    loadWarehouseItems();
+});
+
+function loadServices() {
+    fetch('/api/services').then(r => r.json()).then(data => {
+        const linkSel = document.getElementById('wh-service');
+        linkSel.innerHTML = '<option value="">-- Không liên kết --</option>';
+        data.forEach(s => {
+            linkSel.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+        });
+
+        const refSel = document.getElementById('svc-existing-service');
+        refSel.innerHTML = '<option value="">-- Tạo dịch vụ mới --</option>';
+        data.forEach(s => {
+            refSel.innerHTML += `<option value="${s.id}" data-name="${s.name}" data-price="${s.price || 0}">${s.name} (${fmtMoney(s.price || 0)} đ)</option>`;
+        });
+    }).catch(() => {});
+}
+
+function loadWarehouseItems() {
+    fetch('/api/warehouse').then(r => r.json()).then(data => {
+        warehouseItems = data || [];
+        const sel = document.getElementById('wh-existing-item');
+        sel.innerHTML = '<option value="">-- Tạo mới / nhập mã tay --</option>';
+        warehouseItems.forEach(i => {
+            sel.innerHTML += `<option value="${i.id}">${i.code} - ${i.name}</option>`;
+        });
+    }).catch(() => {});
+}
+
+function applyExistingWarehouseItem() {
+    const selectedId = parseInt(document.getElementById('wh-existing-item').value || '0', 10);
+    if (!selectedId) return;
+
+    const item = warehouseItems.find(x => x.id === selectedId);
+    if (!item) return;
+
+    document.getElementById('wh-code').value = item.code || '';
+    document.getElementById('wh-name').value = item.name || '';
+    document.getElementById('wh-unit').value = item.unit || 'cái';
+    document.getElementById('wh-min').value = item.min_quantity || 10;
+    document.getElementById('wh-service').value = item.service_id || '';
+}
+
+function applyExistingService() {
+    const ref = document.getElementById('svc-existing-service');
+    const option = ref.options[ref.selectedIndex];
+    const selectedId = ref.value || '';
+
+    if (!selectedId) return;
+
+    document.getElementById('svc-name').value = option.getAttribute('data-name') || '';
+    document.getElementById('svc-price').value = option.getAttribute('data-price') || '';
+    document.getElementById('wh-service').value = selectedId;
+}
+
+function toggleWarehouseSync() {
+    const enabled = document.getElementById('exp-sync-warehouse').checked;
+    document.getElementById('warehouse-sync-fields').style.display = enabled ? 'block' : 'none';
+}
+
+function toggleServiceSync() {
+    const enabled = document.getElementById('exp-sync-service').checked;
+    document.getElementById('service-sync-fields').style.display = enabled ? 'flex' : 'none';
+}
+
+function loadExpenses() {
+    const start = document.getElementById('filter-start').value;
+    const end = document.getElementById('filter-end').value;
+    const cat = document.getElementById('filter-category').value;
+
+    let url = `/api/expenses?start=${start}&end=${end}`;
+    if (cat) url += `&category=${cat}`;
+
+    fetch(url).then(r => r.json()).then(res => {
+        if (!res.success) return;
+
+        document.getElementById('total-amount').textContent = fmtMoney(res.total);
+
+        const tbody = document.getElementById('expenses-tbody');
+        if (!res.data.length) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Không có dữ liệu</td></tr>';
+            return;
+        }
+
+        const catColors = {
+            'Điện nước': 'info',
+            'Lương': 'warning',
+            'Mua sắm': 'primary',
+            'Sửa chữa': 'secondary',
+            'Khác': 'dark'
+        };
+
+        tbody.innerHTML = res.data.map(e => `<tr>
+            <td>${e.expense_date}</td>
+            <td><span class="badge bg-${catColors[e.category] || 'secondary'}">${e.category}</span></td>
+            <td>${e.description}</td>
+            <td>
+                ${e.inventory_code
+                    ? `<span class="badge bg-primary-subtle text-primary border border-primary-subtle">${e.inventory_code}</span>
+                       <div class="small text-muted">${e.inventory_name || ''}${e.inventory_service_name ? ' -> ' + e.inventory_service_name : ''}</div>`
+                    : '<span class="text-muted">Không liên kết</span>'}
+            </td>
+            <td class="text-end fw-bold text-danger">${fmtMoney(e.amount)} đ</td>
+            <td class="text-muted">${e.created_by}</td>
+            <td class="text-end">
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteExpense(${e.id})"><i class="fas fa-trash"></i></button>
+            </td>
+        </tr>`).join('');
+    });
+}
+
+function openAddExpense() {
+    document.getElementById('exp-desc').value = '';
+    document.getElementById('exp-amount').value = '';
+    document.getElementById('exp-date').value = new Date().toISOString().split('T')[0];
+
+    document.getElementById('exp-sync-warehouse').checked = false;
+    document.getElementById('warehouse-sync-fields').style.display = 'none';
+
+    document.getElementById('wh-code').value = '';
+    document.getElementById('wh-name').value = '';
+    document.getElementById('wh-existing-item').value = '';
+    document.getElementById('wh-unit').value = 'cái';
+    document.getElementById('wh-qty').value = 1;
+    document.getElementById('wh-min').value = 10;
+    document.getElementById('wh-service').value = '';
+
+    document.getElementById('exp-sync-service').checked = false;
+    document.getElementById('service-sync-fields').style.display = 'none';
+    document.getElementById('svc-existing-service').value = '';
+    document.getElementById('svc-name').value = '';
+    document.getElementById('svc-price').value = '';
+
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('expenseModal')).show();
+}
+
+function saveExpense() {
+    const syncInventory = document.getElementById('exp-sync-warehouse').checked;
+    const syncService = document.getElementById('exp-sync-service').checked;
+
+    const payload = {
+        category: document.getElementById('exp-category').value,
+        description: document.getElementById('exp-desc').value,
+        amount: document.getElementById('exp-amount').value,
+        expense_date: document.getElementById('exp-date').value,
+        sync_inventory: syncInventory,
+        sync_service: syncService
+    };
+
+    if (syncInventory) {
+        const warehouse = {
+            code: document.getElementById('wh-code').value.trim(),
+            name: document.getElementById('wh-name').value.trim(),
+            unit: document.getElementById('wh-unit').value.trim() || 'cái',
+            quantity: parseInt(document.getElementById('wh-qty').value || '0', 10),
+            min_quantity: parseInt(document.getElementById('wh-min').value || '10', 10),
+            service_id: document.getElementById('wh-service').value || null
+        };
+
+        if (!warehouse.code || !warehouse.name) {
+            alert('Vui lòng nhập mã và tên vật tư để cập nhật kho.');
+            return;
+        }
+        if (warehouse.quantity <= 0) {
+            alert('Số lượng nhập kho phải lớn hơn 0.');
+            return;
+        }
+
+        payload.warehouse = warehouse;
+
+        if (syncService) {
+            const serviceIdFromRef = document.getElementById('svc-existing-service').value || '';
+            const service = {
+                id: serviceIdFromRef ? parseInt(serviceIdFromRef, 10) : null,
+                name: document.getElementById('svc-name').value.trim(),
+                price: parseFloat(document.getElementById('svc-price').value || '0')
+            };
+
+            if (service.id && !warehouse.service_id) {
+                warehouse.service_id = service.id;
+            }
+
+            if (!service.name && !warehouse.service_id) {
+                alert('Vui lòng nhập tên dịch vụ hoặc chọn dịch vụ có sẵn để đồng bộ.');
+                return;
+            }
+            if (service.price < 0) {
+                alert('Giá dịch vụ không hợp lệ.');
+                return;
+            }
+
+            payload.service = service;
+        }
+    }
+
+    fetch('/api/expenses', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(res => {
+        alert(res.msg);
+        if (res.success) {
+            bootstrap.Modal.getInstance(document.getElementById('expenseModal')).hide();
+            loadExpenses();
+            loadWarehouseItems();
+            loadServices();
+        }
+    });
+}
+
+function deleteExpense(id) {
+    if (!confirm('Xóa chi phí này?')) return;
+    fetch(`/api/expenses/${id}`, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(res => {
+            alert(res.msg);
+            if (res.success) loadExpenses();
+        });
+}
+</script>
+{% endblock %}

@@ -137,11 +137,16 @@ function renderGrid() {
         
         // --- TRƯỜNG HỢP 3: PHÒNG TRỐNG (AVAILABLE) ---
         else if (room.status === 'available') {
-            const badgeHtml = room.upcoming 
-            ? `<div class="position-absolute top-0 end-0 m-1 badge bg-warning text-dark shadow-sm" style="z-index: 10;">
-                 <i class="fas fa-clock"></i> Khách đến: ${room.upcoming}
-               </div>` 
-            : '';
+            let badgeHtml = '';
+            if (room.waiting) {
+                badgeHtml = `<div class="position-absolute top-0 end-0 m-1 badge bg-danger text-white shadow-sm" style="z-index: 10;">
+                                 <i class="fas fa-exclamation-circle"></i> Chờ: ${room.waiting}
+                               </div>`;
+            } else if (room.upcoming) {
+                badgeHtml = `<div class="position-absolute top-0 end-0 m-1 badge bg-warning text-dark shadow-sm" style="z-index: 10;">
+                                 <i class="fas fa-clock"></i> Sắp đến: ${room.upcoming}
+                               </div>`;
+            }
 
             cardHtml = `
                 <div class="room-card st-free position-relative">
@@ -234,6 +239,8 @@ function openBookingModal(roomNumber) {
     
     if(document.getElementById('bk-phone')) document.getElementById('bk-phone').value = '';
     if(document.getElementById('bk-name')) document.getElementById('bk-name').value = '';
+    if(document.getElementById('bk-cccd')) document.getElementById('bk-cccd').value = '';
+    if(document.getElementById('bk-address')) document.getElementById('bk-address').value = '';
     
     // Set thời gian mặc định
     const now = new Date();
@@ -250,13 +257,15 @@ function openBookingModal(roomNumber) {
     if(document.getElementById('bk-daily-out')) document.getElementById('bk-daily-out').value = tomLocal.toISOString().slice(0,16);
 
     const modalEl = document.getElementById('bookingModal');
-    if(modalEl) new bootstrap.Modal(modalEl).show();
+    if(modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
     else alert("Hiện chưa booking nào");
 }
 
 function submitFullBooking(status) {
     const phone = document.getElementById('bk-phone').value;
     const name = document.getElementById('bk-name').value;
+    const cccd = document.getElementById('bk-cccd').value;
+    const address = document.getElementById('bk-address').value;
     
     let type = 'daily';
     const activeTab = document.querySelector('#bookingModal .nav-link.active');
@@ -280,6 +289,7 @@ function submitFullBooking(status) {
         body: JSON.stringify({
             room_number: currentCheckInRoomNumber,
             phone: phone, name: name,
+            cccd: cccd, address: address,
             rental_type: type,
             status: status,
             check_in: checkIn,
@@ -339,5 +349,5 @@ function showCustomerInfo(name, phone, citime, cotime) {
     document.getElementById('ci-time').innerText = citime;
     document.getElementById('co-time').innerText = cotime;
     
-    new bootstrap.Modal(document.getElementById('customerInfoModal')).show();
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('customerInfoModal')).show();
 }

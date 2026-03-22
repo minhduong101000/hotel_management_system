@@ -27,7 +27,14 @@ def get_effective_room_prices(room, check_date=None):
     # Nếu DB không có cột này, tạm tính theo công thức mặc định
     base_price_initial = float(getattr(room, 'price_initial_block', 0)) or (base_price_night / 4)
     base_price_next = float(getattr(room, 'price_next_hour', 0)) or (base_price_night / 10)
-    initial_hours_val = int(getattr(room, 'initial_hours', 1)) # Mặc định block đầu là 1 tiếng
+    # Mặc định block đầu là 2 giờ nếu dữ liệu phòng thiếu/sai.
+    raw_initial_hours = getattr(room, 'initial_hours', 2)
+    try:
+        initial_hours_val = int(raw_initial_hours)
+    except (TypeError, ValueError):
+        initial_hours_val = 2
+    if initial_hours_val < 1:
+        initial_hours_val = 2
 
     prices = {
         'p_initial': base_price_initial, # Giá block đầu
@@ -42,15 +49,19 @@ def get_effective_room_prices(room, check_date=None):
     check_date_obj = check_date.date()
     
     # Tìm các rule đang active và thỏa mãn ngày
-    candidate_rules = PriceRule.query.filter(
-        and_(
-            PriceRule.room_type == room.room_type, 
-            PriceRule.is_active == True,
-            # Kiểm tra ngày nằm trong khoảng hiệu lực (Start -> End)
-            PriceRule.start_date <= check_date_obj,
-            PriceRule.end_date >= check_date_obj
-        )
-    ).order_by(PriceRule.priority.desc()).all()
+    try:
+        candidate_rules = PriceRule.query.filter(
+            and_(
+                PriceRule.room_type == room.room_type,
+                PriceRule.is_active == True,
+                # Kiểm tra ngày nằm trong khoảng hiệu lực (Start -> End)
+                PriceRule.start_date <= check_date_obj,
+                PriceRule.end_date >= check_date_obj
+            )
+        ).order_by(PriceRule.priority.desc()).all()
+    except RuntimeError:
+        # Cho phép chạy test/script ngoài Flask app context: bỏ qua rule đặc biệt.
+        candidate_rules = []
 
     # --- C. Lọc rule theo Thứ trong tuần (Weekdays) ---
     selected_rule = None
@@ -143,20 +154,16 @@ def calculate_raw_hourly_fee(check_in, check_out, price_config):
 def calculate_complex_hotel_bill(check_in, check_out, room, rental_type='hourly', 
                                  expected_check_in=None, expected_check_out=None):
     """
-    Hàm tính tiền chuẩn xác:
-    1. Base Fee: Luôn tính dựa trên thời gian ĐÃ ĐẶT (Booking) để đảm bảo doanh thu (khách đến muộn vẫn phải trả).
-    2. Surcharge: Chỉ tính khi khách đến SỚM HƠN booking hoặc về MUỘN HƠN booking.
+    Hàm tính tiền chuẩn xác (Fix lỗi phụ thu hàng trăm giờ):
+    1. Base Fee (Tiền phòng): Tính số ĐÊM dựa trên khoảng ngày rộng nhất (để thu đủ nếu ở lố ngày).
+    2. Surcharge (Phụ thu): CHỈ tính số GIỜ lố trong ngày check-in/check-out thực tế.
     """
     
-    # --- 1. XÁC ĐỊNH MỐC TÍNH TIỀN PHÒNG (BASE) ---
-    # Mặc định lấy theo Booking (Expected). 
-    # Nếu không có Booking (khách lẻ) thì lấy theo Thực tế.
-    
-    base_start = expected_check_in if expected_check_in else check_in
-    base_end = expected_check_out if expected_check_out else check_out
-    
-    # Lấy giá tại thời điểm bắt đầu tính tiền
-    prices = get_effective_room_prices(room, base_start)
+    # Cấu hình giờ chuẩn của khách sạn
+    STD_IN_HOUR = 14  # 14:00
+    STD_OUT_HOUR = 12 # 12:00
+
+    prices = get_effective_room_prices(room, check_in)
     rule_tag = f" ({prices['rule_name']})" if prices['is_special'] else ""
     
     total_fee = 0.0
@@ -165,18 +172,19 @@ def calculate_complex_hotel_bill(check_in, check_out, room, rental_type='hourly'
     use_daily_rule = (rental_type == 'daily')
 
     # ====================================================
-    # PHẦN 1: TÍNH TIỀN PHÒNG CƠ BẢN (THEO BOOKING)
+    # PHẦN 1: TÍNH TIỀN PHÒNG CƠ BẢN (SỐ ĐÊM/GIỜ)
     # ====================================================
     
-    # CASE A: THUÊ GIỜ
+    # Tính MỐC NGÀY để tính tiền phòng (Lấy khoảng rộng nhất)
+    # Khách đến trước ngày book -> Tính từ ngày đến. Khách đến muộn -> Tính từ ngày book.
+    bill_start_date = min(check_in.date(), expected_check_in.date()) if expected_check_in else check_in.date()
+    
+    # Khách về sau ngày book -> Tính đến ngày về. Khách về sớm -> Tính đến ngày book.
+    bill_end_date = max(check_out.date(), expected_check_out.date()) if expected_check_out else check_out.date()
+
     if rental_type == 'hourly':
-        # Với thuê giờ, thường tính theo thực tế nhiều hơn, nhưng nếu logic của bạn là giữ slot
-        # thì vẫn dùng base_start/base_end. 
-        # Tuy nhiên, để an toàn và thường gặp: Thuê giờ tính theo range rộng nhất.
-        calc_start = min(check_in, base_start)
-        calc_end = max(check_out, base_end)
-        
-        raw_fee, billed_hours, note = calculate_raw_hourly_fee(calc_start, calc_end, prices)
+        # Thuê giờ: luôn tính theo thời gian ở thực tế.
+        raw_fee, billed_hours, note = calculate_raw_hourly_fee(check_in, check_out, prices)
         
         if raw_fee > prices['p_night']:
             use_daily_rule = True
@@ -188,73 +196,75 @@ def calculate_complex_hotel_bill(check_in, check_out, room, rental_type='hourly'
                 "amount": total_fee
             })
 
-    # CASE B: THUÊ NGÀY
     if use_daily_rule:
         if rental_type == 'hourly':
             breakdown.append({
                 "label": "Tự động chuyển đổi",
-                "detail": "Tiền giờ > Giá đêm. Tính theo giá đêm.",
+                "detail": "Tiền giờ > Giá đêm. Chuyển sang tính theo đêm.",
                 "amount": 0
             })
 
-        # Tính số đêm dựa trên BOOKING (để khách đến muộn vẫn thu đủ)
-        nights = (base_end.date() - base_start.date()).days
+        # LOGIC MỚI: Tính số đêm chính xác dựa trên khoảng ngày
+        nights = (bill_end_date - bill_start_date).days
         if nights < 1: nights = 1 
         
         base_fee = nights * prices['p_night']
         total_fee += base_fee
         
-        # Format hiển thị giờ
-        bk_in_str = base_start.strftime('%d/%m %H:%M')
-        bk_out_str = base_end.strftime('%d/%m %H:%M')
-        
         breakdown.append({
             "label": f"Tiền phòng{rule_tag}",
-            "detail": f"{nights} đêm (Theo lịch đặt: {bk_in_str} - {bk_out_str})",
+            "detail": f"{nights} đêm (Từ {bill_start_date.strftime('%d/%m')} đến {bill_end_date.strftime('%d/%m')})",
             "amount": base_fee
         })
 
         # ====================================================
-        # PHẦN 2: TÍNH PHỤ THU (CHỈ KHI VƯỢT KHUNG)
+        # PHẦN 2: TÍNH PHỤ THU (CHỈ TÍNH GIỜ TRONG NGÀY)
         # ====================================================
-        
         total_extra_hours = 0.0
         extra_details = [] 
 
-        # 1. Check-in Sớm: Chỉ tính nếu Thực tế < Dự kiến (Đã bao gồm logic 14:00 nếu dự kiến set là 14:00)
-        # Ví dụ: Book 14:00, Vào 10:00 -> Sớm 4h.
-        # Ví dụ: Book 14:00, Vào 15:00 -> Không sớm -> Không tính.
-        # Ví dụ: Book 10:00 (đã trả phí trước), Vào 10:00 -> Không sớm -> Không tính thêm.
-        
-        if expected_check_in and check_in < expected_check_in:
-            diff = expected_check_in - check_in
-            early_h = diff.total_seconds() / 3600.0
-            
-            # Chỉ tính nếu sớm đáng kể (trên 15p)
-            if early_h > 0.2: 
-                total_extra_hours += early_h
-                extra_details.append(f"Sớm {early_h:.1f}h")
+        # 1. CHECK-IN SỚM:
+        early_h = 0
+        if expected_check_in:
+            if check_in.date() == expected_check_in.date():
+                # Đến cùng ngày nhưng sớm hơn giờ book
+                if check_in < expected_check_in:
+                    early_h = (expected_check_in - check_in).total_seconds() / 3600.0
+            elif check_in.date() < expected_check_in.date():
+                # Đến trước cả ngày (Đã bị cộng thành 1 đêm ở trên)
+                # Chỉ soi xem ngày đến đó có sớm hơn 14:00 không
+                std_in_time = datetime.combine(check_in.date(), time(STD_IN_HOUR, 0))
+                if check_in < std_in_time:
+                    early_h = (std_in_time - check_in).total_seconds() / 3600.0
 
-        # 2. Check-out Muộn: Chỉ tính nếu Thực tế > Dự kiến
-        # Ví dụ: Book đến 12:00, Ra 14:00 -> Muộn 2h.
-        # Ví dụ: Book đến 12:00, Ra 10:00 -> Không muộn -> Không tính.
-        
-        if expected_check_out and check_out > expected_check_out:
-            diff = check_out - expected_check_out
-            late_h = diff.total_seconds() / 3600.0
-            
-            if late_h > 0.2:
-                total_extra_hours += late_h
-                extra_details.append(f"Muộn {late_h:.1f}h")
+        if early_h > 0.2:
+            total_extra_hours += early_h
+            extra_details.append(f"Sớm {early_h:.1f}h")
 
-        # 3. Tổng hợp Phụ thu
+        # 2. CHECK-OUT MUỘN:
+        late_h = 0
+        if expected_check_out:
+            if check_out.date() <= expected_check_out.date():
+                # Về đúng ngày hoặc về sớm (Đã thu đủ tiền đêm) -> Chỉ phạt nếu muộn hơn giờ book
+                if check_out > expected_check_out:
+                    late_h = (check_out - expected_check_out).total_seconds() / 3600.0
+            else:
+                # Về lố sang ngày hôm sau (Đã bị cộng thành các đêm ở trên)
+                # Chỉ soi xem cái ngày đi đó có muộn hơn 12:00 trưa không
+                std_out_time = datetime.combine(check_out.date(), time(STD_OUT_HOUR, 0))
+                if check_out > std_out_time:
+                    late_h = (check_out - std_out_time).total_seconds() / 3600.0
+
+        if late_h > 0.2:
+            total_extra_hours += late_h
+            extra_details.append(f"Muộn {late_h:.1f}h")
+
+        # 3. TỔNG HỢP PHỤ THU:
         if total_extra_hours > 0:
             ratio, r_note = get_surcharge_ratio(total_extra_hours)
-            
             if ratio > 0:
                 surcharge = prices['p_night'] * ratio
                 total_fee += surcharge
-                
                 breakdown.append({
                     "label": "Phụ thu phát sinh",
                     "detail": f"Tổng {total_extra_hours:.1f}h ({', '.join(extra_details)})",

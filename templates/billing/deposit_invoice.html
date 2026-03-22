@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phieu Dat Coc - {{ booking_code }}</title>
+    <style>
+        :root {
+            --ink: #111827;
+            --muted: #6b7280;
+            --line: #d1d5db;
+            --paper-width: 148mm;
+            --paper-padding: 8mm;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            background: #eef2f7;
+            color: var(--ink);
+            font-family: "Consolas", "Courier New", monospace;
+            font-size: 12px;
+            line-height: 1.35;
+        }
+
+        .actions {
+            width: var(--paper-width);
+            margin: 14px auto 10px;
+            text-align: right;
+        }
+
+        .print-btn {
+            border: 0;
+            border-radius: 6px;
+            padding: 8px 10px;
+            background: #0f766e;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .receipt {
+            width: var(--paper-width);
+            margin: 0 auto 14px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            padding: var(--paper-padding);
+            box-shadow: 0 6px 18px rgba(17, 24, 39, 0.08);
+        }
+
+        .center { text-align: center; }
+        .muted { color: var(--muted); }
+        .line { border-top: 1px dashed var(--line); margin: 6px 0; }
+
+        .hotel-name { font-weight: 700; font-size: 13px; text-transform: uppercase; }
+        .voucher-title { font-weight: 700; margin-top: 4px; }
+
+        .logo-wrap {
+            text-align: center;
+            margin-bottom: 4px;
+        }
+
+        .logo-wrap img {
+            width: 48px;
+            height: 48px;
+            object-fit: contain;
+        }
+
+        .meta-row,
+        .sum-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            margin: 2px 0;
+        }
+
+        .sum-row.total {
+            font-weight: 700;
+            font-size: 13px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 3px 0;
+            vertical-align: top;
+        }
+
+        th { text-align: left; border-bottom: 1px dashed var(--line); }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+
+        .item-note {
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        @page {
+            size: A5 portrait;
+            margin: 6mm;
+        }
+
+        @media print {
+            html, body {
+                width: var(--paper-width);
+                background: #fff;
+            }
+            .actions { display: none !important; }
+            .receipt {
+                margin: 0;
+                border: 0;
+                box-shadow: none;
+                width: 100%;
+                padding: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="actions">
+        <button class="print-btn" onclick="window.print()">In phieu</button>
+    </div>
+
+    <section class="receipt">
+        <div class="logo-wrap">
+            <img src="{{ config.HOTEL_LOGO_URL }}" alt="logo" onerror="this.style.display='none'">
+        </div>
+        <div class="center hotel-name">{{ config.HOTEL_NAME }}</div>
+        <div class="center muted">{{ config.HOTEL_BRANCH }}</div>
+        <div class="center muted">{{ config.HOTEL_ADDRESS }}</div>
+        <div class="center muted">{{ config.HOTEL_PHONE }}</div>
+
+        <div class="line"></div>
+        <div class="center voucher-title">PHIEU DAT COC</div>
+        <div class="line"></div>
+
+        <div class="meta-row">
+            <span>Ma:</span>
+            <strong>{{ booking_code }}</strong>
+        </div>
+        <div class="meta-row">
+            <span>Ngay in:</span>
+            <span>{{ deposit_date }}</span>
+        </div>
+        <div class="meta-row">
+            <span>Khach:</span>
+            <span>{{ customer_name }}</span>
+        </div>
+        <div class="meta-row">
+            <span>SDT:</span>
+            <span>{{ customer_phone }}</span>
+        </div>
+        <div class="meta-row">
+            <span>Phong:</span>
+            <span>{{ room_number }}</span>
+        </div>
+
+        <div class="line"></div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Noi dung</th>
+                    <th class="text-center">SL</th>
+                    <th class="text-right">Don gia</th>
+                    <th class="text-right">Tien</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if invoice_lines %}
+                    {% for line in invoice_lines %}
+                    <tr>
+                        <td>
+                            <div><strong>P.{{ line.room_label }} ({{ line.rental_type }})</strong></div>
+                            {% if line.rental_type in ['Ngay', 'Theo ngày', 'daily', 'Daily'] %}
+                                {% set parts = line.period_text.split(' - ') %}
+                                {% if parts|length == 2 %}
+                                    <div class="item-note">{{ parts[0].split(' ')[0] }} - {{ parts[1].split(' ')[0] }}</div>
+                                {% else %}
+                                    <div class="item-note">{{ line.period_text }}</div>
+                                {% endif %}
+                            {% else %}
+                                <div class="item-note">{{ line.period_text }}</div>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">{{ line.qty }}</td>
+                        <td class="text-right">{{ "{:,.0f}".format(line.unit_price) }}</td>
+                        <td class="text-right">{{ "{:,.0f}".format(line.line_total) }}</td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td>Dat coc giu phong</td>
+                        <td class="text-center">1</td>
+                        <td class="text-right">{{ "{:,.0f}".format(deposit_amount) }}</td>
+                        <td class="text-right">{{ "{:,.0f}".format(deposit_amount) }}</td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+
+        <div class="line"></div>
+
+        <div class="sum-row">
+            <span>Tong du kien:</span>
+            <strong>{{ "{:,.0f}".format(estimated_total) }}</strong>
+        </div>
+        <div class="sum-row">
+            <span>Da coc:</span>
+            <strong>{{ "{:,.0f}".format(deposit_amount) }}</strong>
+        </div>
+        <div class="sum-row total">
+            <span>Con lai:</span>
+            <span>{{ "{:,.0f}".format(remaining_amount) }} đ</span>
+        </div>
+
+        <div class="line"></div>
+        <div class="center muted">Cam on quy khach!</div>
+        <div class="center muted">{{ config.HOTEL_NAME }}</div>
+    </section>
+</body>
+</html>

@@ -44,7 +44,7 @@ function openModal(id = null, name = '', price = '') {
     
     document.getElementById('modalTitle').innerText = id ? 'Cập Nhật Dịch Vụ' : 'Thêm Dịch Vụ Mới';
     
-    new bootstrap.Modal(document.getElementById('serviceModal')).show();
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('serviceModal')).show();
 }
 
 // 3. LƯU (Xử lý thông minh: Nếu có ID là Sửa, không ID là Thêm)

@@ -1,7 +1,7 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, render_template
 from flask_login import login_required
 from extensions import db
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # =======================================================
 # IMPORT MODELS (Đúng cấu trúc)
@@ -14,9 +14,94 @@ from models.booking_room import BookingRoom
 from models.customer import Customer
 
 # Import Shared Logic
-from controllers.pricing_service import calculate_complex_hotel_bill
+from services.pricing_service import calculate_complex_hotel_bill, get_effective_room_prices
+from services import inventory_service, payment_service
 
 booking_bp = Blueprint('booking', __name__)
+
+
+def _resolve_active_booking_room(room, booking_id=None, booking_room_id=None, now=None, persist_sync=False):
+    """
+    Tìm booking_room đang ở (checked_in).
+    Nếu lệch trạng thái (room occupied nhưng booking_room còn booked), tự đồng bộ sang checked_in.
+    """
+    now = now or datetime.now()
+
+    query = BookingRoom.query.filter(
+        BookingRoom.room_id == room.id,
+        BookingRoom.status == 'checked_in'
+    )
+    if booking_room_id:
+        query = query.filter(BookingRoom.id == booking_room_id)
+    if booking_id:
+        query = query.filter(BookingRoom.booking_id == booking_id)
+
+    booking_room = query.order_by(
+        BookingRoom.check_in_actual.desc(),
+        BookingRoom.check_in_expected.desc()
+    ).first()
+
+    if booking_room:
+        return booking_room
+
+    # Fallback cho dữ liệu cũ/lệch trạng thái:
+    # phòng đã occupied nhưng booking_room còn booked.
+    if room.status != 'occupied':
+        return None
+
+    fallback_query = BookingRoom.query.filter(
+        BookingRoom.room_id == room.id,
+        BookingRoom.status == 'booked',
+        BookingRoom.check_in_expected <= now + timedelta(hours=6)
+    )
+    if booking_room_id:
+        fallback_query = fallback_query.filter(BookingRoom.id == booking_room_id)
+    if booking_id:
+        fallback_query = fallback_query.filter(BookingRoom.booking_id == booking_id)
+
+    booking_room = fallback_query.order_by(BookingRoom.check_in_expected.desc()).first()
+    if not booking_room:
+        return None
+
+    changed = False
+    if booking_room.status != 'checked_in':
+        booking_room.status = 'checked_in'
+        changed = True
+    if booking_room.check_in_actual is None:
+        booking_room.check_in_actual = booking_room.check_in_expected or now
+        changed = True
+
+    if booking_room.booking and booking_room.booking.status not in ['checked_in', 'completed', 'cancelled']:
+        booking_room.booking.status = 'checked_in'
+        changed = True
+
+    if room.status != 'occupied':
+        room.status = 'occupied'
+        changed = True
+
+    if changed:
+        if persist_sync:
+            db.session.commit()
+        else:
+            db.session.flush()
+
+    return booking_room
+
+
+def _is_last_active_room_for_booking(booking_id, current_booking_room_id=None):
+    """
+    True khi không còn phòng active nào khác trong cùng booking.
+    Active = booked hoặc checked_in.
+    """
+    query = BookingRoom.query.filter(
+        BookingRoom.booking_id == booking_id,
+        BookingRoom.status.in_(['booked', 'checked_in'])
+    )
+
+    if current_booking_room_id:
+        query = query.filter(BookingRoom.id != current_booking_room_id)
+
+    return query.first() is None
 
 # =======================================================
 # 1. LẤY THÔNG TIN BOOKING SẮP TỚI (Dùng cho Timeline)
@@ -24,14 +109,12 @@ booking_bp = Blueprint('booking', __name__)
 @booking_bp.route('/api/bookings/upcoming/<int:room_id>')
 @login_required
 def get_upcoming_booking(room_id):
-    # Tìm trong bảng BookingRoom thay vì Booking
     booking_room = BookingRoom.query.filter(
         BookingRoom.room_id == room_id,
-        BookingRoom.status == 'booked' # Hoặc 'confirmed' tùy enum của bạn
+        BookingRoom.status == 'booked'
     ).order_by(BookingRoom.check_in_expected.asc()).first()
     
     if booking_room:
-        # Lấy thông tin Booking cha
         parent_booking = booking_room.booking
         customer_name = "Khách lẻ"
         if parent_booking and parent_booking.customer:
@@ -54,9 +137,8 @@ def get_upcoming_booking(room_id):
 def checkin_room():
     req_data = request.get_json()
     room_number = req_data.get('number')
-    # booking_id = req_data.get('booking_id') # Có thể dùng hoặc tìm tự động
+    booking_room_id = req_data.get('booking_room_id')
 
-    # 1. Kiểm tra phòng
     room = Room.query.filter(Room.room_number == room_number).first()
     if not room: 
         return jsonify({'success': False, 'msg': 'Phòng không tồn tại.'})
@@ -64,23 +146,33 @@ def checkin_room():
     if room.clean_status == 'dirty': 
         return jsonify({'success': False, 'msg': 'Phòng đang bẩn, hãy dọn trước!'})
 
-    # 2. Tìm BookingRoom tương ứng (đang ở trạng thái chờ checkin)
-    booking_room = BookingRoom.query.filter(
-        BookingRoom.room_id == room.id,
-        BookingRoom.status == 'booked'
-    ).first()
+    if room.status == 'occupied':
+        return jsonify({'success': False, 'msg': 'Phòng đang có khách, không thể check-in thêm.'})
+
+    booking_room = None
+    if booking_room_id:
+        booking_room = BookingRoom.query.filter(
+            BookingRoom.id == booking_room_id,
+            BookingRoom.room_id == room.id,
+            BookingRoom.status == 'booked'
+        ).first()
+    else:
+        booking_room = BookingRoom.query.filter(
+            BookingRoom.room_id == room.id,
+            BookingRoom.status == 'booked'
+        ).order_by(BookingRoom.check_in_expected.asc()).first()
 
     if booking_room:
-        # Cập nhật trạng thái BookingRoom
+        now = datetime.now()
+        if booking_room.check_in_expected and booking_room.check_in_expected - now > timedelta(hours=3):
+            return jsonify({'success': False, 'msg': 'Chỉ được check-in sớm tối đa 3 giờ trước giờ booking.'})
+
         booking_room.status = 'checked_in'
-        booking_room.check_in_actual = datetime.now() # GIỜ VÀO THỰC TẾ
-        
-        # Cập nhật trạng thái Phòng
+        booking_room.check_in_actual = now
         room.status = 'occupied'
         
-        # Cập nhật trạng thái Booking cha (nếu cần logic checkin tất cả)
         if booking_room.booking:
-             booking_room.booking.status = 'checked_in' # Hoặc giữ nguyên logic của bạn
+             booking_room.booking.status = 'checked_in'
 
         db.session.commit()
         
@@ -90,90 +182,57 @@ def checkin_room():
     return jsonify({'success': False, 'msg': 'Không tìm thấy đơn đặt phòng hợp lệ cho phòng này.'})
 
 # =======================================================
-# 3. XEM TRƯỚC HÓA ĐƠN (Preview Checkout)
+# 3. IN HÓA ĐƠN ĐẶT CỌC
 # =======================================================
-@booking_bp.route('/api/rooms/preview_checkout', methods=['POST'])
+@booking_bp.route('/api/bookings/<int:booking_id>/deposit-invoice', methods=['GET'])
 @login_required
-def preview_checkout():
-    data = request.get_json()
-    room_number = data.get('number')
-    
-    room = Room.query.filter(Room.room_number == room_number).first()
-    if not room:
-        return jsonify({'success': False, 'msg': 'Phòng không tồn tại!'})
-
-    # --- KHẮC PHỤC LỖI ID ---
-    # Tìm BookingRoom đang check-in
-    booking_room = BookingRoom.query.filter_by(room_id=room.id, status='checked_in').first()
-
-    if not booking_room:
-        return jsonify({'success': False, 'msg': 'Phòng này chưa check-in hoặc không có khách.'})
-
-    booking = booking_room.booking # Lấy Booking cha
+def print_deposit_invoice(booking_id):
+    booking = Booking.query.get(booking_id)
     if not booking:
-        return jsonify({'success': False, 'msg': 'Lỗi dữ liệu: Không tìm thấy thông tin Booking gốc.'})
+        return jsonify({'success': False, 'msg': 'Không tìm thấy thông tin đặt phòng.'}), 404
 
-    # --- TÍNH TOÁN TIỀN ---
-    # Dùng check_in_actual của BookingRoom để tính tiền chính xác
-    check_in = booking_room.check_in_actual if booking_room.check_in_actual else booking.booking_date
-    check_out = datetime.now()
-    expected_in= booking_room.check_in_expected
-    expected_out= booking_room.check_out_expected
-    rental_mode = booking_room.rental_type # Lấy loại thuê của phòng cụ thể
+    customer_name = booking.customer.name if booking.customer else "Khách lẻ"
+    customer_phone = booking.customer.phone if booking.customer else "--"
+    customer_email = booking.customer.email if (booking.customer and booking.customer.email) else "--"
+    deposit_date = booking.created_at.strftime('%d/%m/%Y %H:%M') if booking.created_at else datetime.now().strftime('%d/%m/%Y %H:%M')
+    deposit_amount = float(booking.prepaid_amount or 0)
+    room_number = ", ".join([br.room.room_number for br in booking.rooms if br.room]) or "--"
 
-    # GỌI HÀM TÍNH TOÁN 
-    room_fee, message = calculate_complex_hotel_bill(check_in, check_out, room, rental_type=rental_mode, expected_check_in=expected_in, expected_check_out=expected_out)
-    
-    # --- TÍNH TIỀN DỊCH VỤ ---
-    # Lưu ý: Dịch vụ đang gắn với Booking cha. 
-    # Nếu check-out 1 phòng trong đoàn, logic này đang hiển thị TOÀN BỘ dịch vụ của đoàn.
-    # Bạn có thể cần sửa logic BookingService để có cột room_id nếu muốn tách riêng từng phòng.
-    service_fee = 0.0
-    service_details = []
-    
-    if booking.services:
-        for item in booking.services:
-            if item.service:
-                price = float(item.price_at_booking or item.service.price)
-                total_item = item.quantity * price
-                service_fee += total_item
-                
-                service_details.append({
-                    'service_id': item.service_id,
-                    'name': item.service.name,
-                    'quantity': item.quantity,
-                    'price': price,
-                    'total': total_item
-                })
+    invoice_lines = []
+    estimated_total = 0.0
+    for idx, br in enumerate(booking.rooms, start=1):
+        room_label = br.room.room_number if br.room else f"P{idx}"
+        rental_type_map = {'daily': 'Ngay', 'hourly': 'Gio'}
+        rental_type_label = rental_type_map.get(br.rental_type, br.rental_type or '--')
 
-    total_bill = room_fee + service_fee
-    
-    # Tiền cọc: Cần xem xét cọc của cả đoàn hay cọc riêng. 
-    # Ở đây lấy cọc tổng chia đều hoặc hiển thị hết tùy logic nghiệp vụ.
-    # Tạm thời hiển thị cọc tổng của Booking.
-    prepaid_amount = float(booking.prepaid_amount or 0)
-    final_amount = total_bill - prepaid_amount
+        checkin_txt = br.check_in_expected.strftime('%d/%m/%Y %H:%M') if br.check_in_expected else '--'
+        checkout_txt = br.check_out_expected.strftime('%d/%m/%Y %H:%M') if br.check_out_expected else '--'
 
-    return jsonify({
-        'success': True,
-        'booking_id': booking.id, 
-        'booking_room_id': booking_room.id, # Trả về thêm ID phòng chi tiết
-        'room_number': room.room_number,
-        'rental_type': 'Thuê ngày' if rental_mode == 'daily' else 'Thuê giờ',
-        'customer_name': booking.customer.name if booking.customer else 'Khách lẻ',
-        'check_in': check_in.strftime('%H:%M %d/%m'),
-        'check_out': check_out.strftime('%H:%M %d/%m'),
-        'bill_details': message,
-        'formatted_room_fee': "{:,.0f}".format(room_fee),
-        'formatted_service_fee': "{:,.0f}".format(service_fee),
-        'prepaid_amount': prepaid_amount,
-        'formatted_prepaid_amount': "{:,.0f}".format(prepaid_amount),
-        'formatted_total_bill': "{:,.0f}".format(total_bill),
-        'total_bill': total_bill,
-        'formatted_final_amount': "{:,.0f}".format(final_amount),
-        'final_amount': final_amount,
-        'services': service_details
-    })
+        unit_price = float(br.price_snapshot or 0)
+        estimated_total += unit_price
+
+        invoice_lines.append({
+            'room_label': room_label,
+            'rental_type': rental_type_label,
+            'period_text': f"{checkin_txt} - {checkout_txt}",
+            'qty': 1,
+            'unit_price': unit_price,
+            'line_total': unit_price
+        })
+
+    remaining_amount = max(0.0, estimated_total - deposit_amount)
+
+    return render_template('billing/deposit_invoice.html', 
+                           booking_code=booking.code,
+                           customer_name=customer_name, 
+                           customer_phone=customer_phone,
+                           customer_email=customer_email,
+                           deposit_date=deposit_date, 
+                           deposit_amount=deposit_amount, 
+                           room_number=room_number,
+                           invoice_lines=invoice_lines,
+                           estimated_total=estimated_total,
+                           remaining_amount=remaining_amount)
 
 # =======================================================
 # 4. CẬP NHẬT SỐ LƯỢNG DỊCH VỤ (+/-)
@@ -185,15 +244,16 @@ def update_service_quantity():
         data = request.json
         booking_id = data.get('booking_id')
         service_id = data.get('service_id')
+        room_id = data.get('room_id')
         change = int(data.get('change', 0))
 
         if not booking_id or not service_id:
             return jsonify({'success': False, 'msg': 'Thiếu thông tin.'})
 
-        line_item = BookingService.query.filter_by(
-            booking_id=booking_id,
-            service_id=service_id
-        ).first()
+        filter_kwargs = {'booking_id': booking_id, 'service_id': service_id}
+        if room_id:
+            filter_kwargs['room_id'] = room_id
+        line_item = BookingService.query.filter_by(**filter_kwargs).first()
 
         if line_item:
             new_qty = line_item.quantity + change
@@ -213,6 +273,13 @@ def update_service_quantity():
                     )
                     db.session.add(new_item)
 
+        # === TỰ ĐỘNG CẬP NHẬT KHO ===
+        # Nếu change > 0 (thêm): trừ kho. Nếu change < 0 (giảm): cộng lại kho.
+        if change > 0:
+            inventory_service.deduct_inventory(service_id, change)
+        elif change < 0:
+            inventory_service.restore_inventory(service_id, abs(change))
+
         db.session.commit()
         return jsonify({'success': True})
 
@@ -221,48 +288,294 @@ def update_service_quantity():
         return jsonify({'success': False, 'msg': str(e)})
 
 # =======================================================
-# 5. XÁC NHẬN TRẢ PHÒNG (CHECKOUT CONFIRM)
+# 5. PREVIEW HÓA ĐƠN TRẢ PHÒNG
+# =======================================================
+@booking_bp.route('/api/rooms/preview_checkout', methods=['POST'])
+@login_required
+def preview_checkout_room():
+    data = request.get_json() or {}
+    room_number = data.get('number')
+    booking_id = data.get('booking_id')
+    include_tax_raw = data.get('include_tax', False)
+    include_tax = str(include_tax_raw).strip().lower() in ['1', 'true', 'yes', 'on']
+
+    if not room_number:
+        return jsonify({'success': False, 'msg': 'Thiếu số phòng.'})
+
+    room = Room.query.filter(Room.room_number == room_number).first()
+    if not room:
+        return jsonify({'success': False, 'msg': 'Phòng không tồn tại.'})
+
+    now = datetime.now()
+    booking_room = _resolve_active_booking_room(
+        room=room,
+        booking_id=booking_id,
+        now=now,
+        persist_sync=True
+    )
+
+    if not booking_room:
+        return jsonify({'success': False, 'msg': 'Không tìm thấy phòng đang check-in để thanh toán.'})
+
+    check_in_time = booking_room.check_in_actual or booking_room.check_in_expected or datetime.now()
+    check_out_time = datetime.now()
+
+    room_fee, breakdown = calculate_complex_hotel_bill(
+        check_in_time,
+        check_out_time,
+        room,
+        rental_type=booking_room.rental_type,
+        expected_check_in=booking_room.check_in_expected,
+        expected_check_out=booking_room.check_out_expected
+    )
+
+    room_services = BookingService.query.filter_by(
+        booking_id=booking_room.booking_id,
+        room_id=room.id
+    ).all()
+
+    services_data = []
+    service_fee = 0.0
+    for item in room_services:
+        price = float(item.price_at_booking or (item.service.price if item.service else 0))
+        qty = int(item.quantity or 0)
+        total = price * qty
+        service_fee += total
+        services_data.append({
+            'service_id': item.service_id,
+            'name': item.service.name if item.service else 'Dich vu',
+            'quantity': qty,
+            'price': price,
+            'total': total
+        })
+
+    total_before_tax = float(room_fee) + float(service_fee)
+    tax_rate = 0.08
+    tax_amount = round(total_before_tax * tax_rate, 2) if include_tax else 0.0
+    total_bill = total_before_tax + tax_amount
+
+    prepaid_amount = 0.0
+    apply_deposit_now = False
+    if booking_room.booking:
+        apply_deposit_now = _is_last_active_room_for_booking(
+            booking_id=booking_room.booking.id,
+            current_booking_room_id=booking_room.id
+        )
+        if apply_deposit_now:
+            prepaid_amount = float(booking_room.booking.prepaid_amount or 0)
+
+    final_amount = total_bill - prepaid_amount
+
+    def _format_vnd(amount):
+        return f"{int(round(amount)):,.0f}".replace(',', '.')
+
+    customer_name = 'Khách lẻ'
+    if booking_room.booking and booking_room.booking.customer:
+        customer_name = booking_room.booking.customer.name
+
+    if booking_room.rental_type == 'daily':
+        rental_type_text = 'Theo ngày'
+    elif booking_room.rental_type == 'hourly':
+        rental_type_text = 'Theo giờ'
+    else:
+        rental_type_text = booking_room.rental_type or '--'
+
+    duration_msg = breakdown[0]['detail'] if breakdown else ''
+
+    return jsonify({
+        'success': True,
+        'booking_id': booking_room.booking_id,
+        'booking_room_id': booking_room.id,
+        'room_number': room.room_number,
+        'customer_name': customer_name,
+        'check_in': check_in_time.strftime('%H:%M %d/%m/%Y'),
+        'check_out': check_out_time.strftime('%H:%M %d/%m/%Y'),
+        'rental_type': rental_type_text,
+        'bill_details': breakdown,
+        'duration_msg': duration_msg,
+        'services': services_data,
+        'formatted_room_fee': _format_vnd(room_fee),
+        'formatted_service_fee': _format_vnd(service_fee),
+        'include_tax': include_tax,
+        'tax_rate': int(tax_rate * 100),
+        'tax_amount': tax_amount,
+        'formatted_tax_amount': _format_vnd(tax_amount),
+        'formatted_total_bill': _format_vnd(total_bill),
+        'apply_deposit_now': apply_deposit_now,
+        'prepaid_amount': prepaid_amount,
+        'formatted_prepaid_amount': _format_vnd(prepaid_amount),
+        'final_amount': final_amount,
+        'formatted_final_amount': f"{_format_vnd(final_amount)} đ"
+    })
+
+# =======================================================
+# 6. XÁC NHẬN TRẢ PHÒNG (CHECKOUT CONFIRM)
 # =======================================================
 @booking_bp.route('/api/rooms/checkout', methods=['POST'])
 @login_required
 def checkout_room():
-    data = request.get_json()
+    data = request.get_json() or {}
     room_number = data.get('number')
-    booking_room_id = data.get('booking_room_id') # Nên gửi kèm ID này từ preview
+    booking_room_id = data.get('booking_room_id')
+    booking_id = data.get('booking_id')
     amount_raw = data.get('amount', '0')
-    
-    payment_received = float(str(amount_raw).replace(',', ''))
+    include_tax_raw = data.get('include_tax', False)
+    include_tax = str(include_tax_raw).strip().lower() in ['1', 'true', 'yes', 'on']
+
+    def _parse_amount(raw):
+        if raw is None:
+            return 0.0
+        if isinstance(raw, (int, float)):
+            return float(raw)
+
+        s = str(raw).strip().replace('đ', '').replace('VND', '').replace(' ', '')
+
+        if s.count('.') > 1 and s.count(',') == 0:
+            s = s.replace('.', '')
+        if s.count(',') > 1 and s.count('.') == 0:
+            s = s.replace(',', '')
+
+        if ',' in s and '.' in s:
+            if s.rfind(',') > s.rfind('.'):
+                s = s.replace('.', '').replace(',', '.')
+            else:
+                s = s.replace(',', '')
+        elif ',' in s:
+            s = s.replace(',', '.')
+
+        try:
+            return float(s)
+        except ValueError:
+            return 0.0
+
+    payment_received = _parse_amount(amount_raw)
 
     room = Room.query.filter(Room.room_number == room_number).first()
     if not room:
          return jsonify({'success': False, 'msg': 'Phòng không tồn tại.'})
 
-    # Tìm BookingRoom
-    booking_room = None
-    if booking_room_id:
-        booking_room = BookingRoom.query.get(booking_room_id)
-    else:
-        # Fallback tìm thủ công
-        booking_room = BookingRoom.query.filter_by(room_id=room.id, status='checked_in').first()
+    now = datetime.now()
+    booking_room = _resolve_active_booking_room(
+        room=room,
+        booking_id=booking_id,
+        booking_room_id=booking_room_id,
+        now=now,
+        persist_sync=False
+    )
 
     if booking_room:
-        # 1. Chốt BookingRoom
-        booking_room.status = 'checked_out'
-        booking_room.check_out_actual = datetime.now()
-        booking_room.price = payment_received # Lưu tiền phòng thực tế vào detail
+        # Nếu rơi vào fallback booked -> ghi nhận thời điểm vào ở thực tế để tính bill đúng.
+        if booking_room.status == 'booked' and booking_room.check_in_actual is None:
+            booking_room.check_in_actual = booking_room.check_in_expected or now
+
+        # --- BƯỚC 1: TÍNH TOÀN BỘ TIỀN PHÒNG + DỊCH VỤ THỰC TẾ ---
+        # 1. Tiền phòng
+        room_fee, _ = calculate_complex_hotel_bill(
+            booking_room.check_in_actual or booking_room.check_in_expected or now, 
+            now, 
+            room, 
+            rental_type=booking_room.rental_type,
+            expected_check_in=booking_room.check_in_expected,
+            expected_check_out=booking_room.check_out_expected
+        )
         
-        # 2. Giải phóng phòng
+        # 2. Tiền dịch vụ
+        service_fee = 0.0
+        room_services = BookingService.query.filter_by(booking_id=booking_room.booking_id, room_id=room.id).all()
+        for item in room_services:
+            if item.service:
+                service_fee += item.quantity * float(item.price_at_booking or item.service.price)
+        
+        tax_rate = 0.08
+        tax_amount = round((room_fee + service_fee) * tax_rate, 2) if include_tax else 0.0
+        total_bill_with_tax = room_fee + service_fee + tax_amount
+
+        # --- BƯỚC 2: CẬP NHẬT DỮ LIỆU PHÒNG ---
+        booking_room.status = 'checked_out'
+        booking_room.check_out_actual = now
+        booking_room.final_amount = total_bill_with_tax # LƯU TỔNG CỘNG, không phải số tiền thực nhận
+        
         room.status = 'available'
         room.clean_status = 'dirty'
-        
-        # 3. Kiểm tra xem Booking cha đã xong hết chưa (Optional)
-        # parent_booking = booking_room.booking
-        # check_remaining = BookingRoom.query.filter_by(booking_id=parent_booking.id, status='checked_in').count()
-        # if check_remaining == 0:
-        #     parent_booking.status = 'completed'
+
+        booking = Booking.query.get(booking_room.booking_id)
+        if booking:
+            total_bill_nom = total_bill_with_tax
+            apply_deposit_now = _is_last_active_room_for_booking(
+                booking_id=booking.id,
+                current_booking_room_id=booking_room.id
+            )
+
+            # --- GHI NHẬN DOANH THU VÀO SỔ QUỸ (CASHIER) ---
+            # Tỷ lệ: Nếu payment_received < tổng bill (do trừ cọc), chia tỷ lệ tương đối.
+            if total_bill_nom > 0 and payment_received > 0:
+                ratio_room = room_fee / total_bill_nom
+                ratio_service = service_fee / total_bill_nom
+                ratio_tax = tax_amount / total_bill_nom
+
+                actual_room_payment = payment_received * ratio_room
+                actual_service_payment = payment_received * ratio_service
+                actual_tax_payment = payment_received * ratio_tax
+
+                distributed_total = actual_room_payment + actual_service_payment + actual_tax_payment
+                rounding_gap = payment_received - distributed_total
+                if rounding_gap != 0:
+                    actual_room_payment += rounding_gap
+            else:
+                actual_room_payment = payment_received
+                actual_service_payment = 0
+                actual_tax_payment = 0
+                
+            if actual_room_payment != 0:
+                payment_service.record_room_payment(
+                    booking_id=booking.id,
+                    amount=actual_room_payment,
+                    payment_method='cash',
+                    payment_type='room_payment',
+                    note=f"Thanh toán tiền phòng {room.room_number}",
+                    created_at=now,
+                )
+                
+            if actual_service_payment > 0:
+                payment_service.record_room_payment(
+                    booking_id=booking.id,
+                    amount=actual_service_payment,
+                    payment_method='cash',
+                    payment_type='service_payment',
+                    note=f"Thanh toán tiền dịch vụ phòng {room.room_number}",
+                    created_at=now,
+                )
+
+            if actual_tax_payment > 0:
+                payment_service.record_room_payment(
+                    booking_id=booking.id,
+                    amount=actual_tax_payment,
+                    payment_method='cash',
+                    payment_type='tax_payment',
+                    note=f"Thuế VAT 8% phòng {room.room_number}",
+                    created_at=now,
+                )
+
+            # --- KIỂM TRA ĐƠN TỔNG ---
+            all_rooms = BookingRoom.query.filter_by(booking_id=booking.id).all()
+
+            # Chỉ trừ cọc khi checkout phòng cuối cùng trong booking lẻ.
+            if apply_deposit_now:
+                booking.prepaid_amount = 0.0
+                for r in all_rooms:
+                    r.room_deposit_amount = 0.0
+            else:
+                booking.prepaid_amount = float(booking.prepaid_amount or 0)
+            
+            # CẬP NHẬT TỔNG TIỀN ĐƠN (Dùng để hiển thị trong Hóa đơn cũ - cập nhật liên tục)
+            booking.total_amount = sum(float(r.final_amount or 0) for r in all_rooms)
+            booking.updated_at = now # Cưỡng bức cập nhật thời gian
+            
+            if all(r.status in ['checked_out', 'cancelled'] for r in all_rooms):
+                booking.status = 'completed'
 
         db.session.commit()
-        return jsonify({'success': True, 'msg': 'Trả phòng thành công!'})
+        return jsonify({'success': True, 'msg': f'Trả phòng {room_number} thành công!'})
         
     return jsonify({'success': False, 'msg': 'Không tìm thấy đơn để thanh toán.'})
 
@@ -277,11 +590,9 @@ def add_order():
         room_number = data.get('room_number')
         items = data.get('items') 
 
-        # 1. Tìm phòng từ số phòng
         room = Room.query.filter_by(room_number=room_number).first()
         if not room: return jsonify({'success': False, 'msg': 'Phòng lỗi.'})
 
-        # 2. Tìm BookingRoom đang check-in của phòng này
         br = BookingRoom.query.filter_by(room_id=room.id, status='checked_in').first()
         if not br: return jsonify({'success': False, 'msg': 'Phòng chưa check-in.'})
 
@@ -291,11 +602,10 @@ def add_order():
             s_id = item['id']
             qty = int(item['qty'])
             
-            # Logic cộng dồn nếu đã có dịch vụ này rồi (trong cùng booking và cùng phòng)
             existing = BookingService.query.filter_by(
                 booking_id=booking_id, 
                 service_id=s_id,
-                room_id=room.id  # <--- QUAN TRỌNG: Phải check cả room_id để tránh cộng nhầm sang phòng khác trong đoàn
+                room_id=room.id  
             ).first()
 
             if existing:
@@ -305,23 +615,25 @@ def add_order():
                 if svc:
                     new_bs = BookingService(
                         booking_id=booking_id,
-                        room_id=room.id,   # <--- BỔ SUNG DÒNG NÀY (Fix lỗi null)
+                        room_id=room.id,   
                         service_id=s_id,
                         quantity=qty,
                         price_at_booking=svc.price
                     )
                     db.session.add(new_bs)
+            
+            # === TỰ ĐỘNG TRỪ KHO ===
+            inventory_service.deduct_inventory(s_id, qty)
         
         db.session.commit()
-        return jsonify({'success': True, 'msg': 'Đã thêm dịch vụ.'})
+        return jsonify({'success': True, 'msg': 'Đã thêm dịch vụ (kho đã cập nhật).'})
     except Exception as e:
         db.session.rollback()
-        # In lỗi ra console để debug dễ hơn
         print(f"Lỗi thêm dịch vụ: {e}")
         return jsonify({'success': False, 'msg': str(e)})
 
 # =======================================================
-# 7. TẠO BOOKING (Đoàn/Lẻ) - Logic mới
+# 7. TẠO BOOKING (Đoàn/Lẻ) - BỎ CHIA CỌC, GIỮ NGUYÊN CỤC
 # =======================================================
 @booking_bp.route('/api/bookings/group_create', methods=['POST'])
 @login_required
@@ -329,7 +641,7 @@ def create_group_booking():
     try:
         data = request.json
         customer_info = data.get('customer', {})
-        room_ids = data.get('room_ids', [])
+        room_ids = [int(rid) for rid in data.get('room_ids', [])]
         check_in_str = data.get('check_in')
         check_out_str = data.get('check_out')
         total_deposit = float(data.get('deposit', 0))
@@ -338,7 +650,10 @@ def create_group_booking():
         if not room_ids or not customer_info.get('phone'):
             return jsonify({'success': False, 'msg': 'Thiếu thông tin phòng hoặc khách hàng!'})
 
-        # Parse ngày
+        # Chặn payload chọn trùng phòng (frontend có thể gửi id bị lặp do thao tác nhanh).
+        if len(set(room_ids)) != len(room_ids):
+            return jsonify({'success': False, 'msg': 'Danh sách phòng bị trùng. Vui lòng bỏ chọn phòng trùng và thử lại.'})
+
         try:
             c_in_date = datetime.strptime(check_in_str[0:10], '%Y-%m-%d')
             c_out_date = datetime.strptime(check_out_str[0:10], '%Y-%m-%d')
@@ -347,32 +662,83 @@ def create_group_booking():
         except ValueError:
              return jsonify({'success': False, 'msg': 'Lỗi định dạng ngày!'})
 
-        # 1. Tạo/Lấy Customer
+        if check_in >= check_out:
+            return jsonify({'success': False, 'msg': 'Ngày trả phải sau ngày nhận phòng.'})
+
+        rooms_query = Room.query.filter(Room.id.in_(room_ids)).all()
+        room_dict = {r.id: r for r in rooms_query}
+
+        nights = (check_out.date() - check_in.date()).days
+        if nights < 1:
+            nights = 1
+
+        estimated_total = 0.0
+        for room_obj in rooms_query:
+            prices = get_effective_room_prices(room_obj, check_in)
+            estimated_total += float(prices['p_night']) * nights
+
+        if estimated_total <= 0:
+            return jsonify({'success': False, 'msg': 'Không thể tính tổng tiền dự kiến để kiểm tra tiền cọc.'})
+
+        expected_50 = round(estimated_total * 0.5, 2)
+        expected_100 = round(estimated_total, 2)
+        dep = round(total_deposit, 2)
+        if not (abs(dep - expected_50) <= 1 or abs(dep - expected_100) <= 1):
+            return jsonify({'success': False, 'msg': 'Tiền cọc bắt buộc phải đúng 50% hoặc 100% tổng tiền phòng dự kiến của đoàn.'})
+
+        cccd = str(customer_info.get('cccd', '')).strip() or None
+        address = str(customer_info.get('address', '')).strip() or None
+        
         customer = Customer.query.filter_by(phone=customer_info['phone']).first()
         if not customer:
-            customer = Customer(name=customer_info['name'], phone=customer_info['phone'])
+            customer = Customer(name=customer_info['name'], phone=customer_info['phone'], cccd=cccd, address=address)
             db.session.add(customer)
-            db.session.flush() # Để lấy ID
+            db.session.flush()
+        else:
+            if cccd and not customer.cccd: customer.cccd = cccd
+            if address and not customer.address: customer.address = address
+            if customer_info.get('name') and customer.name in ["", "Khách lẻ"]: customer.name = customer_info.get('name')
+            db.session.flush()
 
-        # 2. Tạo Booking Header (Một đơn chung cho cả nhóm)
+        time_prefix = datetime.now().strftime('%y%m%d-%H%M%S')
+        booking_code = f"GRP-{time_prefix}" 
+
         new_booking = Booking(
+            code=booking_code,           
             customer_id=customer.id,
-            booking_date=datetime.now(),
-            status='confirmed', # Trạng thái chung
-            deposit=total_deposit,
+            created_at=datetime.now(),
+            status='confirmed',          
+            prepaid_amount=total_deposit,
             note=f"{note} (Đoàn: {len(room_ids)} phòng)",
-            # rental_type logic: Tạm để daily, hoặc lấy từ FE
-            rental_type='daily' 
         )
         db.session.add(new_booking)
-        db.session.flush() # Lấy new_booking.id
+        db.session.flush() 
 
-        # 3. Tạo BookingRoom (Chi tiết từng phòng)
+        # --- GHI NHẬN TIỀN CỌC VÀO SỔ QUỸ (CASHIER) ---
+        if total_deposit > 0:
+            payment_service.record_deposit(
+                booking_id=new_booking.id,
+                amount=total_deposit,
+                payment_method='cash',
+                note=f"Nhận cọc đặt đoàn {booking_code} ({len(room_ids)} phòng)",
+                created_at=datetime.now(),
+                flush=True,
+            )
+
         success_count = 0
         errors = []
+        created_rooms = []
 
         for r_id in room_ids:
-            # Check trùng lịch cho từng phòng
+            current_room = room_dict.get(r_id)
+            if not current_room:
+                errors.append(f"Phòng {r_id} không tồn tại.")
+                continue
+
+            if current_room.status == 'maintenance':
+                errors.append(f"Phòng {current_room.room_number} đang bảo trì.")
+                continue
+
             is_taken = BookingRoom.query.filter(
                 BookingRoom.room_id == r_id,
                 BookingRoom.status.in_(['booked', 'checked_in']),
@@ -381,8 +747,10 @@ def create_group_booking():
             ).first()
 
             if is_taken:
-                errors.append(f"Phòng {r_id} đã có lịch.")
+                errors.append(f"Phòng {current_room.room_number} đã có lịch.")
                 continue
+
+            room_price = float(current_room.price_per_night) if current_room else 0
 
             new_br = BookingRoom(
                 booking_id=new_booking.id,
@@ -391,16 +759,47 @@ def create_group_booking():
                 check_out_expected=check_out,
                 status='booked',
                 rental_type='daily',
-                price=0 # Giá sẽ tính khi checkout hoặc lấy từ settings
+                price_snapshot=room_price,
+                room_deposit_amount=0
             )
             db.session.add(new_br)
+            created_rooms.append(new_br)
             success_count += 1
 
         if success_count > 0:
+            estimated_total_success = 0.0
+            for br in created_rooms:
+                room_obj = room_dict.get(br.room_id)
+                if not room_obj:
+                    continue
+                prices = get_effective_room_prices(room_obj, check_in)
+                estimated_total_success += float(prices['p_night']) * nights
+
+            expected_50_success = round(estimated_total_success * 0.5, 2)
+            expected_100_success = round(estimated_total_success, 2)
+            dep_success = round(total_deposit, 2)
+            if not (abs(dep_success - expected_50_success) <= 1 or abs(dep_success - expected_100_success) <= 1):
+                db.session.rollback()
+                return jsonify({'success': False, 'msg': 'Sau khi lọc phòng khả dụng, tiền cọc không còn đúng 50%/100%. Vui lòng chọn lại phòng và bấm cọc lại.'})
+
+            if total_deposit > 0 and created_rooms:
+                weights = [float(r.price_snapshot or 0) if float(r.price_snapshot or 0) > 0 else 1.0 for r in created_rooms]
+                total_weight = sum(weights) or float(len(created_rooms))
+                allocated = 0.0
+
+                for idx, br in enumerate(created_rooms):
+                    if idx == len(created_rooms) - 1:
+                        share = max(0.0, round(total_deposit - allocated, 2))
+                    else:
+                        share = round(total_deposit * (weights[idx] / total_weight), 2)
+                        allocated += share
+                    br.room_deposit_amount = share
+                    br.room_deposit_original = share
+
             db.session.commit()
-            msg = f"Đã đặt {success_count} phòng."
+            msg = f"Đã đặt {success_count} phòng thành công."
             if errors:
-                msg += f" (Bỏ qua {len(errors)} phòng do trùng)."
+                msg += f" (Bỏ qua {len(errors)} phòng do trùng lịch)."
             return jsonify({'success': True, 'msg': msg})
         else:
             db.session.rollback()
@@ -410,7 +809,7 @@ def create_group_booking():
         db.session.rollback()
         print(f"Lỗi Booking: {e}")
         return jsonify({'success': False, 'msg': 'Lỗi hệ thống: ' + str(e)})
-
+    
 # =======================================================
 # 8. UPDATE SERVICES (Trước checkout)
 # =======================================================
@@ -430,27 +829,357 @@ def update_services_before_checkout():
     booking = booking_room.booking
 
     try:
-        # Xóa cũ thay mới (hoặc logic update diff tùy bạn)
-        BookingService.query.filter_by(booking_id=booking.id).delete()
+        # --- LOGIC CÂN BẰNG KHO ---
+        # 1. Lấy danh sách dịch vụ cũ để biết cần cộng lại bao nhiêu vào kho
+        old_items = BookingService.query.filter_by(booking_id=booking.id, room_id=room.id).all()
+        for old in old_items:
+            inventory_service.restore_inventory(old.service_id, old.quantity)  # Trả lại kho trước
+
+        # 2. Xóa cũ
+        BookingService.query.filter_by(booking_id=booking.id, room_id=room.id).delete()
         
+        # 3. Thêm mới và Trừ kho mới
         for item in new_services:
             qty = int(item['quantity'])
-            s_id = int(item['service_id']) # Lưu ý key từ frontend
+            s_id = int(item['service_id']) 
             
             if qty > 0:
                 service_obj = Service.query.get(s_id)
                 if service_obj:
                     new_bs = BookingService(
                         booking_id=booking.id,
+                        room_id=room.id,
                         service_id=s_id,
                         quantity=qty,
                         price_at_booking=service_obj.price 
                     )
                     db.session.add(new_bs)
+                    
+                    # Trừ kho theo số lượng mới
+                    inventory_service.deduct_inventory(s_id, qty)
         
         db.session.commit()
-        return jsonify({'success': True, 'msg': 'Đã cập nhật dịch vụ!'})
+        return jsonify({'success': True, 'msg': 'Đã cập nhật dịch vụ (Kho đã được cân bằng)!'})
 
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'msg': str(e)})
+
+
+# =======================================================
+# 9. LẤY THÔNG TIN HÓA ĐƠN ĐOÀN (MỚI THÊM)
+# =======================================================
+@booking_bp.route('/api/bookings/<int:booking_id>/group_billing', methods=['GET'])
+@login_required
+def get_group_billing(booking_id):
+    try:
+        include_tax_raw = request.args.get('include_tax', 'false')
+        include_tax = str(include_tax_raw).strip().lower() in ['1', 'true', 'yes', 'on']
+        tax_rate = 0.08
+
+        booking = Booking.query.get_or_404(booking_id)
+
+        all_rooms = BookingRoom.query.filter(
+            BookingRoom.booking_id == booking_id
+        ).order_by(BookingRoom.id.asc()).all()
+
+        active_rooms = [r for r in all_rooms if r.status in ['booked', 'checked_in']]
+        if not all_rooms:
+            return jsonify({'success': False, 'msg': 'Booking này chưa có phòng nào.'})
+
+        room_details = []
+        total_room_fee_all = 0
+        total_service_fee_all = 0
+        full_total_all_rooms = 0
+
+        all_booking_services = BookingService.query.filter_by(booking_id=booking.id).all()
+
+        services_by_room = {}
+        service_summary_map = {}
+        for svc in all_booking_services:
+            price = float(svc.price_at_booking or (svc.service.price if svc.service else 0))
+            qty = int(svc.quantity or 0)
+            total = price * qty
+            name = svc.service.name if svc.service else f"DV#{svc.service_id}"
+
+            room_key = svc.room_id
+            if room_key not in services_by_room:
+                services_by_room[room_key] = []
+            services_by_room[room_key].append({
+                'service_id': svc.service_id,
+                'name': name,
+                'quantity': qty,
+                'price': price,
+                'total': total
+            })
+
+            sum_key = svc.service_id
+            if sum_key not in service_summary_map:
+                service_summary_map[sum_key] = {
+                    'service_id': svc.service_id,
+                    'name': name,
+                    'quantity': 0,
+                    'total': 0.0
+                }
+            service_summary_map[sum_key]['quantity'] += qty
+            service_summary_map[sum_key]['total'] += total
+
+        for br in all_rooms:
+            include_in_settlement = br.status in ['booked', 'checked_in']
+            room_services = services_by_room.get(br.room_id, [])
+            service_fee = sum(float(x['total']) for x in room_services)
+
+            if include_in_settlement:
+                check_in = br.check_in_actual if br.check_in_actual else br.check_in_expected
+                check_out = datetime.now()
+
+                room_fee, breakdown = calculate_complex_hotel_bill(
+                    check_in=check_in,
+                    check_out=check_out,
+                    room=br.room,
+                    rental_type=br.rental_type,
+                    expected_check_in=br.check_in_expected,
+                    expected_check_out=br.check_out_expected
+                )
+                subtotal = room_fee + service_fee
+                total_room_fee_all += room_fee
+                total_service_fee_all += service_fee
+            else:
+                breakdown = []
+                if br.final_amount is not None:
+                    subtotal = float(br.final_amount)
+                    room_fee = max(0.0, subtotal - service_fee)
+                else:
+                    room_fee = 0.0
+                    subtotal = service_fee
+
+            full_total_all_rooms += subtotal
+
+            status_label_map = {
+                'booked': 'Đã đặt',
+                'checked_in': 'Đang ở',
+                'checked_out': 'Đã trả',
+                'cancelled': 'Đã hủy'
+            }
+
+            room_details.append({
+                'room_id': br.room_id,
+                'room_name': br.room.room_number if br.room else f"Phòng {br.room_id}",
+                'status': br.status,
+                'status_label': status_label_map.get(br.status, br.status or '--'),
+                'include_in_settlement': include_in_settlement,
+                'room_fee': room_fee,
+                'service_fee': service_fee,
+                'subtotal': subtotal,
+                'service_items': room_services,
+                'breakdown': breakdown  # Bao gồm chi tiết phụ thu sớm/muộn
+            })
+
+        grand_total = total_room_fee_all + total_service_fee_all
+        tax_amount = round(grand_total * tax_rate, 2) if include_tax else 0.0
+        deposit = float(booking.prepaid_amount or 0)
+        final_total = (grand_total + tax_amount) - deposit
+
+        customer_phone = booking.customer.phone if booking.customer and booking.customer.phone else '--'
+        created_at_text = booking.created_at.strftime('%H:%M %d/%m/%Y') if booking.created_at else '--'
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'booking_code': booking.code,
+                'customer_name': booking.customer.name if booking.customer else 'Khách đoàn',
+                'customer_phone': customer_phone,
+                'booking_note': booking.note or '',
+                'booking_status': booking.status,
+                'created_at': created_at_text,
+                'rooms': room_details,
+                'service_summary': list(service_summary_map.values()),
+                'total_room_fee': total_room_fee_all,
+                'total_service_fee': total_service_fee_all,
+                'full_total_all_rooms': full_total_all_rooms,
+                'active_room_count': len(active_rooms),
+                'total_room_count': len(all_rooms),
+                'include_tax': include_tax,
+                'tax_rate': int(tax_rate * 100),
+                'tax_amount': tax_amount,
+                'grand_total': grand_total,
+                'deposit': deposit,
+                'final_total': final_total
+            }
+        })
+
+    except Exception as e:
+        print(f"Lỗi lấy bill đoàn: {e}")
+        return jsonify({'success': False, 'msg': 'Lỗi hệ thống: ' + str(e)})
+
+
+# =======================================================
+# 10. XÁC NHẬN THANH TOÁN ĐOÀN (CÁCH 3 - GIỮ CỌC ĐẾN CUỐI)
+# =======================================================
+@booking_bp.route('/api/bookings/<int:booking_id>/group_checkout', methods=['POST'])
+@login_required
+def process_group_checkout(booking_id):
+    try:
+        data = request.get_json() or {}
+        include_tax_raw = data.get('include_tax', False)
+        include_tax = str(include_tax_raw).strip().lower() in ['1', 'true', 'yes', 'on']
+        tax_rate = 0.08
+
+        booking = Booking.query.get_or_404(booking_id)
+        
+        active_rooms = BookingRoom.query.filter(
+            BookingRoom.booking_id == booking_id,
+            BookingRoom.status.in_(['booked', 'checked_in'])
+        ).all()
+
+        room_totals = []
+        total_before_tax = 0.0
+        now = datetime.now()
+
+        for br in active_rooms:
+            br.status = 'checked_out'
+            br.check_out_actual = now
+            
+            # Tính tiền phòng
+            check_in = br.check_in_actual if br.check_in_actual else br.check_in_expected
+            room_fee, _ = calculate_complex_hotel_bill(
+                check_in, now, br.room,
+                rental_type=br.rental_type, 
+                expected_check_in=br.check_in_expected, 
+                expected_check_out=br.check_out_expected
+            )
+            
+            # Tính tiền dịch vụ (BỔ SUNG ĐỂ HÓA ĐƠN ĐƯỢC CHUẨN XÁC NHẤT)
+            service_fee = 0
+            room_services = BookingService.query.filter_by(booking_id=booking.id, room_id=br.room_id).all()
+            for svc in room_services:
+                service_fee += (svc.quantity * float(svc.price_at_booking or svc.service.price))
+            
+            room_base_total = room_fee + service_fee
+            room_totals.append({
+                'booking_room': br,
+                'base_total': room_base_total
+            })
+            total_before_tax += room_base_total
+            
+            if br.room:
+                br.room.status = 'available'
+                br.room.clean_status = 'dirty'
+
+        total_tax_amount = round(total_before_tax * tax_rate, 2) if include_tax else 0.0
+        total_remaining_amount = total_before_tax + total_tax_amount
+
+        allocated_tax = 0.0
+        for idx, info in enumerate(room_totals):
+            br = info['booking_room']
+            base_total = float(info['base_total'] or 0.0)
+
+            if total_tax_amount > 0 and total_before_tax > 0:
+                if idx == len(room_totals) - 1:
+                    tax_share = round(total_tax_amount - allocated_tax, 2)
+                else:
+                    tax_share = round(total_tax_amount * (base_total / total_before_tax), 2)
+                    allocated_tax += tax_share
+            else:
+                tax_share = 0.0
+
+            info['tax_share'] = tax_share
+            br.final_amount = base_total + tax_share
+
+        # XỬ LÝ TRỪ CỌC: dùng prepaid_amount còn lại ở cấp booking.
+        group_deposit = float(booking.prepaid_amount or 0)
+        final_amount_to_pay = total_remaining_amount - group_deposit
+
+        booking.status = 'completed' 
+        booking.payment_status = 'paid'
+        booking.updated_at = now
+        # CẬP NHẬT TỔNG TIỀN ĐƠN (Cho đoàn)
+        booking.total_amount = total_remaining_amount
+        all_rooms_of_booking = BookingRoom.query.filter_by(booking_id=booking.id).all()
+        for br in all_rooms_of_booking:
+            br.room_deposit_amount = 0
+        booking.prepaid_amount = 0
+        
+        # --- GHI NHẬN DOANH THU VÀO SỔ QUỸ (CASHIER) ---
+        if total_remaining_amount > 0 and final_amount_to_pay > 0:
+            if total_tax_amount > 0 and total_remaining_amount > 0:
+                tax_ratio = total_tax_amount / total_remaining_amount
+                actual_tax_payment = round(final_amount_to_pay * tax_ratio, 2)
+                actual_settlement_payment = round(final_amount_to_pay - actual_tax_payment, 2)
+            else:
+                actual_tax_payment = 0.0
+                actual_settlement_payment = final_amount_to_pay
+
+            if actual_settlement_payment > 0:
+                payment_service.record_group_settlement(
+                    booking_id=booking.id,
+                    amount=actual_settlement_payment,
+                    payment_method='cash',
+                    note="Thanh toán tổng kết đoàn (Gồm tiền phòng và dịch vụ)",
+                    created_at=now,
+                )
+
+            if actual_tax_payment > 0:
+                if total_tax_amount > 0:
+                    allocated_tax_payment = 0.0
+                    taxable_rooms = [x for x in room_totals if float(x.get('tax_share') or 0.0) > 0]
+
+                    for idx, info in enumerate(taxable_rooms):
+                        br = info['booking_room']
+                        room_tax_share = float(info.get('tax_share') or 0.0)
+
+                        if idx == len(taxable_rooms) - 1:
+                            room_tax_payment = round(actual_tax_payment - allocated_tax_payment, 2)
+                        else:
+                            room_tax_payment = round(actual_tax_payment * (room_tax_share / total_tax_amount), 2)
+                            allocated_tax_payment += room_tax_payment
+
+                        if room_tax_payment <= 0:
+                            continue
+
+                        room_number = br.room.room_number if br.room else br.room_id
+                        payment_service.record_room_payment(
+                            booking_id=booking.id,
+                            amount=room_tax_payment,
+                            payment_method='cash',
+                            payment_type='tax_payment',
+                            note=f"Thuế VAT 8% phòng {room_number} (đoàn {booking.code})",
+                            created_at=now,
+                        )
+                else:
+                    payment_service.record_room_payment(
+                        booking_id=booking.id,
+                        amount=actual_tax_payment,
+                        payment_method='cash',
+                        payment_type='tax_payment',
+                        note=f"Thuế VAT 8% đoàn {booking.code}",
+                        created_at=now,
+                    )
+            
+        elif final_amount_to_pay < 0:
+            # Hoàn tiền cọc thừa cho khách
+            payment_service.record_refund(
+                booking_id=booking.id,
+                refund_amount=abs(final_amount_to_pay),
+                payment_method='cash',
+                note="Hoàn cọc thừa cho đoàn",
+                created_at=now,
+            )
+
+        db.session.commit()
+        
+        return jsonify({
+            'success': True, 
+            'msg': 'Thanh toán đoàn thành công!',
+            'data': {
+                'total_bill': total_remaining_amount, 
+                'tax_amount': total_tax_amount,
+                'group_deposit': group_deposit,                     
+                'final_amount_to_pay': final_amount_to_pay          
+            }
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Lỗi thanh toán đoàn: {e}")
+        return jsonify({'success': False, 'msg': 'Lỗi thanh toán: ' + str(e)})

@@ -1,12 +1,258 @@
 {% extends "layouts/base.html" %}
+
 {% block content %}
-<div class="top-bar"><h5 class="page-title">QUẢN LÝ KHO</h5></div>
-<div class="main-area">
-    <div class="card-box">
-        <table class="table">
-            <thead><tr><th>Mã SP</th><th>Tên hàng</th><th>Tồn kho</th><th>Đơn vị</th></tr></thead>
-            <tbody><tr><td>SP01</td><td>Nước suối</td><td>120</td><td>Chai</td></tr></tbody>
-        </table>
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h5 class="fw-bold text-primary m-0"><i class="fas fa-boxes me-2"></i>QUẢN LÝ KHO HÀNG</h5>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('expense.index') }}">
+                <i class="fas fa-money-bill-wave me-1"></i> Sang trang Chi phí
+            </a>
+            <button class="btn btn-primary btn-sm" onclick="openAddModal()">
+                <i class="fas fa-plus me-1"></i> Thêm vật tư
+            </button>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Mã</th>
+                        <th>Tên vật tư</th>
+                        <th>ĐVT</th>
+                        <th class="text-center">Tồn kho</th>
+                        <th class="text-center">Ngưỡng</th>
+                        <th>Dịch vụ liên kết</th>
+                        <th class="text-center">Trạng thái</th>
+                        <th class="text-end">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody id="warehouse-tbody">
+                    <tr><td colspan="8" class="text-center text-muted py-4">Đang tải...</td></tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
+
+<!-- Modal Thêm/Sửa -->
+<div class="modal fade" id="itemModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="modal-title"><i class="fas fa-box me-2"></i>Thêm vật tư</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="item-id">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Mã vật tư</label>
+                    <input type="text" class="form-control" id="item-code" placeholder="VD: KH01">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Tên vật tư</label>
+                    <input type="text" class="form-control" id="item-name" placeholder="VD: Khăn tắm lớn">
+                </div>
+                <div class="row">
+                    <div class="col-4 mb-3">
+                        <label class="form-label fw-bold">Đơn vị</label>
+                        <input type="text" class="form-control" id="item-unit" value="cái">
+                    </div>
+                    <div class="col-4 mb-3">
+                        <label class="form-label fw-bold">Số lượng</label>
+                        <input type="number" class="form-control" id="item-quantity" value="0">
+                    </div>
+                    <div class="col-4 mb-3">
+                        <label class="form-label fw-bold">Ngưỡng cảnh báo</label>
+                        <input type="number" class="form-control" id="item-min" value="10">
+                    </div>
+                </div>
+                <small class="text-muted d-block mb-3">Giá nhập được quản lý tại trang Chi phí khi đồng bộ vào kho.</small>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Liên kết dịch vụ <small class="text-muted">(Tự trừ kho khi khách gọi)</small></label>
+                    <select class="form-select" id="item-service"><option value="">-- Không liên kết --</option></select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary" onclick="saveItem()"><i class="fas fa-save me-1"></i> Lưu</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nhập kho -->
+<div class="modal fade" id="restockModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="fas fa-truck me-2"></i>Nhập thêm kho</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="restock-id">
+                <p>Vật tư: <strong id="restock-name">...</strong></p>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Số lượng nhập thêm</label>
+                    <input type="number" class="form-control" id="restock-qty" min="1" value="1">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-success" onclick="confirmRestock()"><i class="fas fa-check me-1"></i> Xác nhận</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let allItems = [];
+
+document.addEventListener('DOMContentLoaded', () => { loadItems(); loadServices(); });
+
+function loadItems() {
+    fetch('/api/warehouse').then(r => r.json()).then(data => {
+        allItems = data;
+        renderTable(data);
+    });
+}
+
+function loadServices() {
+    fetch('/api/services').then(r => r.json()).then(data => {
+        const sel = document.getElementById('item-service');
+        sel.innerHTML = '<option value="">-- Không liên kết --</option>';
+        data.forEach(s => { sel.innerHTML += `<option value="${s.id}">${s.name}</option>`; });
+    }).catch(() => {});
+}
+
+function renderTable(items) {
+    const tbody = document.getElementById('warehouse-tbody');
+    if (!items.length) { tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">Chưa có vật tư nào</td></tr>'; return; }
+    
+    tbody.innerHTML = items.map(item => {
+        let badge = '';
+        if (item.status === 'critical') badge = '<span class="badge bg-danger">Hết hàng</span>';
+        else if (item.status === 'low') badge = '<span class="badge bg-warning text-dark">Sắp hết</span>';
+        else badge = '<span class="badge bg-success">Đủ hàng</span>';
+        
+        return `<tr>
+            <td><code>${item.code}</code></td>
+            <td class="fw-bold">${item.name}</td>
+            <td>${item.unit}</td>
+            <td class="text-center fw-bold ${item.status === 'critical' ? 'text-danger' : ''}">${item.quantity}</td>
+            <td class="text-center text-muted">${item.min_quantity}</td>
+            <td>
+                ${item.service_name
+                    ? `<span><i class="fas fa-link text-primary me-1"></i>${item.service_name}</span>
+                       <button class="btn btn-sm btn-link text-danger p-0 ms-2" onclick="unlinkService(${item.id})" title="Gỡ liên kết"><i class="fas fa-unlink"></i></button>`
+                    : '<span class="text-muted">Không liên kết</span>'}
+            </td>
+            <td class="text-center">${badge}</td>
+            <td class="text-end">
+                <button class="btn btn-sm btn-outline-success me-1" onclick="openRestock(${item.id}, '${item.name}')" title="Nhập kho"><i class="fas fa-truck"></i></button>
+                <button class="btn btn-sm btn-outline-primary me-1" onclick="editItem(${item.id})" title="Sửa"><i class="fas fa-edit"></i></button>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteItem(${item.id})" title="Xóa"><i class="fas fa-trash"></i></button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function openAddModal() {
+    document.getElementById('item-id').value = '';
+    document.getElementById('item-code').value = '';
+    document.getElementById('item-name').value = '';
+    document.getElementById('item-unit').value = 'cái';
+    document.getElementById('item-quantity').value = 0;
+    document.getElementById('item-min').value = 10;
+    document.getElementById('item-service').value = '';
+    document.getElementById('modal-title').textContent = 'Thêm vật tư';
+    new bootstrap.Modal(document.getElementById('itemModal')).show();
+}
+
+function editItem(id) {
+    const item = allItems.find(i => i.id === id);
+    if (!item) return;
+    document.getElementById('item-id').value = item.id;
+    document.getElementById('item-code').value = item.code;
+    document.getElementById('item-name').value = item.name;
+    document.getElementById('item-unit').value = item.unit;
+    document.getElementById('item-quantity').value = item.quantity;
+    document.getElementById('item-min').value = item.min_quantity;
+    document.getElementById('item-service').value = item.service_id || '';
+    document.getElementById('modal-title').textContent = 'Sửa vật tư';
+    new bootstrap.Modal(document.getElementById('itemModal')).show();
+}
+
+function saveItem() {
+    const id = document.getElementById('item-id').value;
+    const payload = {
+        code: document.getElementById('item-code').value,
+        name: document.getElementById('item-name').value,
+        unit: document.getElementById('item-unit').value,
+        quantity: document.getElementById('item-quantity').value,
+        min_quantity: document.getElementById('item-min').value,
+        service_id: document.getElementById('item-service').value || null
+    };
+    const url = id ? `/api/warehouse/${id}` : '/api/warehouse';
+    const method = id ? 'PUT' : 'POST';
+    
+    fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) })
+    .then(r => r.json()).then(res => {
+        alert(res.msg);
+        if (res.success) { bootstrap.Modal.getInstance(document.getElementById('itemModal')).hide(); loadItems(); }
+    });
+}
+
+function openRestock(id, name) {
+    document.getElementById('restock-id').value = id;
+    document.getElementById('restock-name').textContent = name;
+    document.getElementById('restock-qty').value = 1;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('restockModal')).show();
+}
+
+function confirmRestock() {
+    const id = document.getElementById('restock-id').value;
+    const qty = document.getElementById('restock-qty').value;
+    fetch(`/api/warehouse/${id}/restock`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({quantity: qty}) })
+    .then(r => r.json()).then(res => {
+        alert(res.msg);
+        if (res.success) { bootstrap.Modal.getInstance(document.getElementById('restockModal')).hide(); loadItems(); }
+    });
+}
+
+function deleteItem(id) {
+    if (!confirm('Xóa vật tư này?')) return;
+    fetch(`/api/warehouse/${id}`, { method: 'DELETE' }).then(r => r.json()).then(res => {
+        alert(res.msg); if (res.success) loadItems();
+    });
+}
+
+function unlinkService(id) {
+    const item = allItems.find(i => i.id === id);
+    if (!item) return;
+    if (!confirm('Gỡ liên kết dịch vụ của vật tư này?')) return;
+
+    const payload = {
+        code: item.code,
+        name: item.name,
+        unit: item.unit,
+        quantity: item.quantity,
+        min_quantity: item.min_quantity,
+        service_id: null
+    };
+
+    fetch(`/api/warehouse/${id}`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    }).then(r => r.json()).then(res => {
+        alert(res.msg);
+        if (res.success) loadItems();
+    });
+}
+</script>
 {% endblock %}

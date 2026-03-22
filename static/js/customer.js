@@ -60,7 +60,7 @@ function openModal(id = null, name = '', phone = '', cccd = '', email = '', addr
 
     document.getElementById('modalTitle').innerText = id ? 'Cập nhật Khách Hàng' : 'Thêm Khách Mới';
     
-    new bootstrap.Modal(document.getElementById('customerModal')).show();
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('customerModal')).show();
 }
 
 // 4. LƯU KHÁCH HÀNG

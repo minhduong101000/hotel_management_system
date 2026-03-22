@@ -1,0 +1,179 @@
+{% extends "layouts/base.html" %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold text-primary m-0"><i class="fas fa-chart-line me-2"></i>BÁO CÁO DOANH THU</h5>
+        <div class="d-flex gap-2 align-items-center">
+            <select id="period-select" class="form-select form-select-sm" style="width:150px" onchange="onPeriodChange()">
+                <option value="today">Hôm nay</option>
+                <option value="week">7 ngày qua</option>
+                <option value="month" selected>Tháng này</option>
+                <option value="custom">Tùy chọn</option>
+            </select>
+            <div id="custom-range" class="d-flex gap-1" style="display:none !important;">
+                <input type="date" id="date-start" class="form-control form-control-sm">
+                <input type="date" id="date-end" class="form-control form-control-sm">
+                <button class="btn btn-sm btn-primary" onclick="loadRevenue()">Xem</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100 bg-primary bg-opacity-10">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <small class="text-muted text-uppercase fw-bold">Doanh thu (Hóa đơn)</small>
+                            <h4 class="fw-bold text-primary mb-0" id="stat-revenue">0</h4>
+                        </div>
+                        <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center text-white" style="width:48px;height:48px">
+                            <i class="fas fa-file-invoice fa-lg"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100 bg-success bg-opacity-10">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <small class="text-muted text-uppercase fw-bold">Thực thu (Tiền mặt)</small>
+                            <h4 class="fw-bold text-success mb-0" id="stat-cash">0</h4>
+                        </div>
+                        <div class="bg-success rounded-circle d-flex align-items-center justify-content-center text-white" style="width:48px;height:48px">
+                            <i class="fas fa-hand-holding-usd fa-lg"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100 bg-dark bg-opacity-10">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <small class="text-muted text-uppercase fw-bold">Lợi nhuận dự tính</small>
+                            <h4 class="fw-bold text-dark mb-0" id="stat-profit">0</h4>
+                        </div>
+                        <div class="bg-dark rounded-circle d-flex align-items-center justify-content-center text-white" style="width:48px;height:48px">
+                            <i class="fas fa-chart-pie fa-lg"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <!-- Chart -->
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white fw-bold"><i class="fas fa-chart-bar me-2 text-primary"></i>Biểu đồ Doanh thu theo ngày</div>
+                <div class="card-body">
+                    <canvas id="revenueChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+        <!-- Top rooms -->
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white fw-bold"><i class="fas fa-trophy me-2 text-warning"></i>Top phòng doanh thu</div>
+                <div class="card-body p-0">
+                    <table class="table table-sm mb-0">
+                        <thead class="table-light"><tr><th>Phòng</th><th class="text-center">Lượt</th><th class="text-end">Doanh thu</th></tr></thead>
+                        <tbody id="top-rooms-body"><tr><td colspan="3" class="text-center text-muted py-3">Đang tải...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+let chartInstance = null;
+
+document.addEventListener('DOMContentLoaded', () => loadRevenue());
+
+function onPeriodChange() {
+    const val = document.getElementById('period-select').value;
+    document.getElementById('custom-range').style.display = val === 'custom' ? 'flex' : 'none';
+    if (val !== 'custom') loadRevenue();
+}
+
+function fmtMoney(n) { return new Intl.NumberFormat('vi-VN').format(Math.round(n)); }
+
+function loadRevenue() {
+    const period = document.getElementById('period-select').value;
+    let url = `/api/reports/revenue?period=${period}`;
+    if (period === 'custom') {
+        url += `&start=${document.getElementById('date-start').value}&end=${document.getElementById('date-end').value}`;
+    }
+    
+    fetch(url).then(r => r.json()).then(res => {
+        if (!res.success) { alert(res.msg); return; }
+        const d = res.data;
+        
+        document.getElementById('stat-revenue').textContent = fmtMoney(d.room_revenue) + ' đ';
+        document.getElementById('stat-cash').textContent = fmtMoney(d.total_net_payment) + ' đ';
+        document.getElementById('stat-profit').textContent = fmtMoney(d.net_profit) + ' đ';
+        
+        // Chart
+        if (chartInstance) chartInstance.destroy();
+        const ctx = document.getElementById('revenueChart').getContext('2d');
+        chartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: d.chart.map(c => c.date),
+                datasets: [
+                    {
+                        label: 'Doanh thu',
+                        data: d.chart.map(c => c.revenue),
+                        backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                        borderColor: 'rgb(59, 130, 246)',
+                        borderWidth: 1, borderRadius: 4
+                    }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { 
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) label += ': ';
+                                if (context.parsed.y !== null) label += fmtMoney(context.parsed.y) + ' đ';
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: { 
+                    y: { 
+                        beginAtZero: true, 
+                        ticks: { callback: v => fmtMoney(v) } 
+                    } 
+                }
+            }
+        });
+        
+        // Top rooms
+        const tbody = document.getElementById('top-rooms-body');
+        if (!d.top_rooms.length) { tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3">Chưa có dữ liệu</td></tr>'; return; }
+        tbody.innerHTML = d.top_rooms.map((r, i) => `<tr>
+            <td><span class="badge ${i===0?'bg-warning text-dark':i===1?'bg-secondary':'bg-light text-dark'} me-1">${i+1}</span>${r.room_number}</td>
+            <td class="text-center">${r.count}</td>
+            <td class="text-end fw-bold text-success">${fmtMoney(r.total)}</td>
+        </tr>`).join('');
+    });
+}
+</script>
+{% endblock %}

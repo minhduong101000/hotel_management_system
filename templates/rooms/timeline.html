@@ -4,27 +4,31 @@
 <link href="https://unpkg.com/vis-timeline/styles/vis-timeline-graph2d.min.css" rel="stylesheet" type="text/css" />
 
 <div class="container-fluid p-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h4 class="fw-bold text-primary"><i class="fas fa-stream"></i> SƠ ĐỒ TIMELINE</h4>
+    <div class="timeline-header mb-3">
+        <div class="timeline-title">
+            <i class="fas fa-stream"></i> SƠ ĐỒ TIMELINE
+        </div>
         
-        <div class="d-flex gap-2 align-items-center">
-            <div class="d-none d-md-block me-3">
-                <span class="badge" style="background: #3498db;">Đặt trước</span>
-                <span class="badge" style="background: #e67e22;">Đang ở</span>
-                <span class="badge" style="background: #95a5a6;">Đã trả</span>
-                <span class="badge" style="background: #e74c3c;">Đã hủy</span>
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+            <div class="legend-bar d-none d-md-flex">
+                <span class="legend-item legend-booked"><i class="far fa-calendar-check"></i> Đặt trước</span>
+                <span class="legend-item legend-active"><i class="fas fa-bed"></i> Đang ở</span>
+                <span class="legend-item legend-hourly"><i class="fas fa-clock"></i> Theo giờ</span>
+                <span class="legend-item legend-checkout"><i class="fas fa-check-circle"></i> Đã trả</span>
+                <span class="legend-item legend-cancel"><i class="fas fa-ban"></i> Đã hủy</span>
+                <span class="legend-item legend-group"><i class="fas fa-users"></i> Đoàn</span>
             </div>
 
-            <button class="btn btn-sm btn-success fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#groupBookingModal">
+            <button class="btn btn-sm btn-success fw-bold shadow-sm" style="border-radius: 20px; padding: 5px 16px;" data-bs-toggle="modal" data-bs-target="#groupBookingModal">
                 <i class="fas fa-users-cog"></i> Đặt Đoàn
             </button>
-            <button class="btn btn-sm btn-outline-primary ms-1" onclick="loadTimeline()">
+            <button class="btn btn-sm btn-outline-primary" style="border-radius: 20px; padding: 5px 14px;" onclick="loadTimeline()">
                 <i class="fas fa-sync"></i> Refresh
             </button>
         </div>
     </div>
 
-    <div class="card shadow-sm border-0">
+    <div class="card timeline-card">
         <div class="card-body p-0">
             <div id="visualization" style="width: 100%; min-height: 550px;"></div>
         </div>
@@ -44,39 +48,87 @@
                         <li class="nav-item"><button class="nav-link active fw-bold" id="tab-daily" data-bs-toggle="tab" data-bs-target="#panel-daily" type="button" onclick="setRentalType('daily')">THEO NGÀY</button></li>
                         <li class="nav-item"><button class="nav-link fw-bold" id="tab-hourly" data-bs-toggle="tab" data-bs-target="#panel-hourly" type="button" onclick="setRentalType('hourly')">THEO GIỜ</button></li>
                     </ul>
-                    <input type="hidden" id="bk-type" value="daily">
                     
-                    <div class="row mb-2">
-                        <div class="col-6"><label>SĐT</label><input type="text" class="form-control" id="bk-phone"></div>
-                        <div class="col-6"><label>Tên</label><input type="text" class="form-control" id="bk-name"></div>
+                    <input type="hidden" id="bk-type" value="daily">
+                    <input type="hidden" id="bk-room-id" value="">
+                    
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label small mb-1 fw-bold text-secondary">SĐT</label>
+                            <input type="text" class="form-control shadow-sm border-secondary-subtle" id="bk-phone" autocomplete="off" placeholder="Số điện thoại...">
+                        </div>
+                        <div class="col-md-4">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="form-label small mb-0 fw-bold text-secondary">Tên <span class="text-danger">*</span></label>
+                                <button type="button" class="btn btn-xs btn-outline-success border-0 py-0 px-2 fw-bold" style="font-size: 0.75rem;" onclick="openQRScanner('single')">
+                                    <i class="fas fa-qrcode me-1"></i>QUÉT QR
+                                </button>
+                            </div>
+                            <input type="text" class="form-control shadow-sm border-secondary-subtle" id="bk-name" autocomplete="off" placeholder="Họ và tên...">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small mb-1 fw-bold text-secondary">Số CCCD</label>
+                            <input type="text" class="form-control shadow-sm border-secondary-subtle" id="bk-cccd" autocomplete="off" placeholder="Số định danh...">
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label small mb-1 fw-bold text-secondary">Địa chỉ cư trú</label>
+                            <input type="text" class="form-control shadow-sm border-secondary-subtle" id="bk-address" autocomplete="off" placeholder="Tỉnh / Thành phố...">
+                        </div>
                     </div>
                     <div class="row mb-2">
                         <div class="col-6">
-                            <label class="text-danger fw-bold">Tiền Cọc</label>
-                            <input type="number" class="form-control text-danger fw-bold" id="bk-deposit" placeholder="0">
+                            <div class="mb-3" id="deposit-section">
+                                <label class="form-label">Tiền cọc (VNĐ)</label>
+                                <input type="number" class="form-control" id="bk-deposit" placeholder="0">
+                                
+                                <div id="quick-deposit-buttons" class="mt-2">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="calculateQuickDeposit(0.5)">Cọc 50%</button>
+                                    <button type="button" class="btn btn-sm btn-outline-success" onclick="calculateQuickDeposit(1)">Cọc 100%</button>
+                                </div>
+                                
+                                <small id="deposit-hint" class="text-muted d-block mt-1"></small>
+                            </div>
                         </div>
-                        <div class="col-6"><label>Ghi chú</label><input type="text" class="form-control" id="bk-note"></div>
+                        <div class="col-6"><label>Ghi chú</label><input type="text" class="form-control" id="bk-note" autocomplete="off"></div>
                     </div>
 
                     <div class="tab-content mt-3">
                         <div class="tab-pane fade show active" id="panel-daily">
-                            <div class="row">
-                                <div class="col-6"><label>Vào</label><input type="datetime-local" class="form-control" id="bk-daily-in"></div>
-                                <div class="col-6"><label>Ra</label><input type="datetime-local" class="form-control" id="bk-daily-out"></div>
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <label class="form-label small mb-1 fw-bold text-secondary">Thời gian vào</label>
+                                    <input type="datetime-local" class="form-control shadow-sm border-primary-subtle" id="bk-daily-in">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small mb-1 fw-bold text-secondary">Thời gian ra (dự kiến)</label>
+                                    <input type="datetime-local" class="form-control shadow-sm border-danger-subtle" id="bk-daily-out">
+                                </div>
                             </div>
                         </div>
                         <div class="tab-pane fade" id="panel-hourly">
-                            <div class="row">
-                                <div class="col-6"><label>Vào</label><input type="datetime-local" class="form-control" id="bk-hourly-in" onchange="updateHourlyEnd()"></div>
-                                <div class="col-6"><label>Ra</label><input type="datetime-local" class="form-control" id="bk-hourly-out"></div>
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <label class="form-label small mb-1 fw-bold text-secondary">Thời gian vào</label>
+                                    <input type="datetime-local" class="form-control shadow-sm border-primary-subtle" id="bk-hourly-in" onchange="updateHourlyEnd()">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small mb-1 fw-bold text-secondary">Thời gian ra (dự kiến)</label>
+                                    <input type="datetime-local" class="form-control shadow-sm border-danger-subtle" id="bk-hourly-out" readonly>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </form>
             </div>
-            <div class="modal-footer d-flex justify-content-between">
-                <button type="button" class="btn btn-outline-primary fw-bold" onclick="submitFullBooking('booked')">Lưu Đặt Trước</button>
-                <button type="button" class="btn btn-success fw-bold px-4" onclick="submitFullBooking('checked_in')">Vào Ở Ngay</button>
+            <div class="modal-footer bg-light border-top shadow-sm d-flex justify-content-between">
+                <button type="button" class="btn btn-outline-primary fw-bold px-3 shadow-sm" onclick="submitFullBooking('booked')">
+                    <i class="fas fa-calendar-check me-1"></i> LƯU ĐẶT TRƯỚC
+                </button>
+                <button type="button" class="btn btn-success fw-bold px-4 shadow" onclick="submitFullBooking('checked_in')">
+                    <i class="fas fa-sign-in-alt me-1"></i> VÀO Ở NGAY
+                </button>
             </div>
         </div>
     </div>
@@ -92,14 +144,36 @@
             <div class="modal-body">
                 <input type="hidden" id="edit-booking-id">
                 <input type="hidden" id="edit-booking-room-id">
-                <div class="row mb-2">
-                    <div class="col-6"><label>Khách hàng</label><input type="text" class="form-control bg-light" id="edit-customer" readonly></div>
-                    <div class="col-6"><label>Phòng</label><select class="form-select" id="edit-room-select"></select></div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-7">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="form-label small mb-0 fw-bold text-secondary">Họ tên khách hàng</label>
+                            <button type="button" class="btn btn-xs btn-outline-success border-0 py-0 px-2 fw-bold" style="font-size: 0.75rem;" onclick="openQRScanner('edit')">
+                                <i class="fas fa-qrcode me-1"></i>QUÉT QR
+                            </button>
+                        </div>
+                        <input type="text" class="form-control shadow-sm border-secondary-subtle" id="edit-customer" autocomplete="off" placeholder="Nhập tên khách...">
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label small mb-1 fw-bold text-secondary">Phòng</label>
+                        <select class="form-select shadow-sm border-secondary-subtle" id="edit-room-select"></select>
+                    </div>
+                </div>
+                
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1 fw-bold text-secondary">Số CCCD / Passport</label>
+                        <input type="text" class="form-control shadow-sm border-secondary-subtle" id="edit-cccd" autocomplete="off" placeholder="Số định danh...">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small mb-1 fw-bold text-secondary">Địa chỉ</label>
+                        <input type="text" class="form-control shadow-sm border-secondary-subtle" id="edit-address" autocomplete="off" placeholder="Tỉnh/Thành phố...">
+                    </div>
                 </div>
                 
                 <div class="mb-3">
-                    <label class="fw-bold">Trạng thái</label>
-                    <select class="form-select" id="edit-status" onchange="toggleRefundSection()">
+                    <label class="form-label small mb-1 fw-bold text-secondary">Trạng thái đặt phòng</label>
+                    <select class="form-select shadow-sm border-warning-subtle fw-bold" id="edit-status" onchange="toggleRefundSection()">
                         <option value="pending">Chờ cọc</option>
                         <option value="booked">Đã cọc (Đặt trước)</option>
                         <option value="checked_in">Đang ở</option>
@@ -113,8 +187,9 @@
                 </div>
 
                 <div class="mb-3">
-                    <label class="fw-bold text-danger">Tiền cọc gốc</label>
-                    <input type="number" class="form-control text-danger fw-bold" id="edit-deposit">
+                    <label class="form-label small mb-1 fw-bold text-danger">Tiền đặt cọc (VNĐ)</label>
+                    <input type="number" class="form-control text-danger fw-bold shadow-sm" id="edit-deposit" placeholder="0">
+                    <div class="mt-1"><small class="text-muted"><i class="fas fa-info-circle me-1"></i>Khoản cọc được trừ trực tiếp khi thanh toán.</small></div>
                 </div>
 
                 <div id="refund-section" class="bg-danger bg-opacity-10 p-3 rounded border border-danger" style="display: none;">
@@ -144,11 +219,192 @@
                     <input type="hidden" id="refund-amount-value" value="0">
                 </div>
                 </div>
-            <div class="modal-footer d-flex justify-content-between">
-                <button type="button" class="btn btn-success fw-bold" onclick="openCheckoutFromTimeline()">
-                    <i class="fas fa-money-bill-wave"></i> Thanh toán
+            <div class="modal-footer bg-light border-top shadow-sm d-flex justify-content-between p-2">
+                <div class="d-flex gap-1 flex-wrap">
+                    <button type="button" class="btn btn-sm btn-outline-dark fw-bold" onclick="openBookingDetailModal()" title="Xem chi tiết hóa đơn">
+                        <i class="fas fa-clipboard-list"></i> Chi tiết
+                    </button>
+                    
+                    <button type="button" id="btn-checkin-timeline" class="btn btn-sm btn-primary fw-bold" style="display: none;" onclick="performCheckInFromTimeline()">
+                        <i class="fas fa-sign-in-alt"></i> Nhận phòng
+                    </button>
+
+                    <button type="button" id="btn-checkout-timeline" class="btn btn-sm btn-success fw-bold" style="display: none;" onclick="openCheckoutFromTimeline()">
+                        <i class="fas fa-money-bill-wave"></i> Thanh toán lẻ
+                    </button>
+                    
+                    <button type="button" id="btn-group-checkout" class="btn btn-sm btn-warning fw-bold text-dark" style="display: none;" onclick="openGroupCheckout()">
+                        <i class="fas fa-users"></i> T.Toán đoàn
+                    </button>
+                </div>
+                
+                <button type="button" class="btn btn-primary px-3 fw-bold shadow-sm" onclick="saveBookingChanges()">
+                    <i class="fas fa-save me-1"></i> LƯU LẠI
                 </button>
-                <button type="button" class="btn btn-primary fw-bold" onclick="saveBookingChanges()">LƯU THAY ĐỔI</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="bookingDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content bd-pos-modal">
+            <div class="modal-header bd-pos-header">
+                <div class="d-flex align-items-center gap-3">
+                    <h5 class="modal-title fw-bold mb-0">
+                        <span id="bd-room-title">---</span>
+                        <small class="text-muted"> | </small>
+                        <span id="bd-room-name" class="text-dark">---</span>
+                    </h5>
+                    <span class="badge rounded-pill text-bg-success" id="bd-duration-badge">Đang sử dụng: 0 ngày</span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-sm btn-primary" id="bd-checkout-direct-btn" onclick="openCheckoutFromTimeline()">
+                        Trả phòng
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal" aria-label="Close">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="modal-body p-0">
+                <input type="hidden" id="bd-booking-id">
+                <input type="hidden" id="bd-booking-room-id">
+                <input type="hidden" id="bd-room-number">
+                <input type="hidden" id="bd-status">
+                <input type="hidden" id="bd-deposit">
+                <input type="hidden" id="bd-summary-code">
+                <input type="hidden" id="bd-created-at">
+                <input type="hidden" id="bd-total-amount">
+                <input type="hidden" id="bd-prepaid-amount">
+                <input type="hidden" id="bd-customer-name">
+                <input type="hidden" id="bd-customer-phone">
+
+                <div class="row g-0 bd-pos-layout">
+                    <div class="col-xl-3 col-lg-4 bd-sidebar border-end">
+                        <div class="p-3 border-bottom bg-white bd-sidebar-tab-bar">
+                            <div class="btn-group w-100" role="group" aria-label="Sidebar tabs">
+                                <button type="button" class="btn btn-outline-success active" id="bd-tab-services" onclick="bdSwitchSidebarTab('services')">
+                                    Sản phẩm/Dịch vụ
+                                </button>
+                                <button type="button" class="btn btn-outline-success" id="bd-tab-rooms" onclick="bdSwitchSidebarTab('rooms')">
+                                    Danh sách (<span id="bd-group-room-count">0</span>)
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="bd-sidebar-tab-content">
+                            <div id="bd-sidebar-pane-services" class="bd-sidebar-pane p-3">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h6 class="fw-bold text-success mb-0">Sản phẩm/Dịch vụ</h6>
+                                    <span class="fw-bold text-dark">Danh sách (<span id="bd-service-count">0</span>)</span>
+                                </div>
+                                <div class="input-group input-group-sm mb-2">
+                                    <span class="input-group-text bg-white"><i class="fas fa-search"></i></span>
+                                    <input type="text" class="form-control" id="bd-service-search" placeholder="Tìm theo tên dịch vụ" oninput="bdFilterServiceCatalog()">
+                                </div>
+                                <div id="bd-service-note" class="alert alert-warning py-2 px-2 small mb-2">
+                                    Chỉ thêm dịch vụ khi phòng ở trạng thái Đang ở.
+                                </div>
+                                <div id="bd-service-catalog-grid" class="row g-2"></div>
+                            </div>
+
+                            <div id="bd-sidebar-pane-rooms" class="bd-sidebar-pane p-3 d-none">
+                                <div id="bd-group-room-list" class="list-group list-group-flush border rounded"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-xl-9 col-lg-8 bd-main-panel d-flex flex-column">
+                        <div class="p-3 border-bottom bg-white">
+                            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+                                <div>
+                                    <h6 class="fw-bold mb-1">
+                                        <span id="bd-booking-code">-</span>
+                                    </h6>
+                                    <small class="text-muted">Khách: <span id="bd-customer-label">-</span></small>
+                                </div>
+                                <div class="text-end small text-muted">
+                                    <div>Tạo lúc: <span id="bd-created-label">-</span></div>
+                                    <div>Cọc còn lại: <strong id="bd-prepaid-label" class="text-danger">0 đ</strong></div>
+                                </div>
+                            </div>
+
+                            <div class="mb-2">
+                                <input type="text" class="form-control" id="bd-note" placeholder="Nhập ghi chú ...">
+                            </div>
+
+                            <div class="row g-2">
+                                <div class="col-md-2 col-6">
+                                    <label class="form-label small text-muted mb-1">Hình thức</label>
+                                    <select class="form-select" id="bd-rental-type" disabled>
+                                        <option value="daily">Ngày</option>
+                                        <option value="hourly">Giờ</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2 col-6">
+                                    <label class="form-label small text-muted mb-1">Phòng</label>
+                                    <select class="form-select" id="bd-room-select"></select>
+                                </div>
+                                <div class="col-md-3 col-6">
+                                    <label class="form-label small text-muted mb-1">Nhận phòng</label>
+                                    <input type="datetime-local" class="form-control" id="bd-checkin">
+                                </div>
+                                <div class="col-md-3 col-6">
+                                    <label class="form-label small text-muted mb-1">Trả phòng</label>
+                                    <input type="datetime-local" class="form-control" id="bd-checkout">
+                                </div>
+                                <div class="col-md-2 col-12">
+                                    <label class="form-label small text-muted mb-1">Lưu trú</label>
+                                    <div class="form-control bg-light" id="bd-stay-duration">0 ngày</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="p-3 flex-grow-1 overflow-auto">
+                            <div class="table-responsive">
+                                <table class="table table-bordered align-middle mb-0 bd-invoice-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 70px;">STT</th>
+                                            <th>Hạng mục</th>
+                                            <th style="width: 120px;" class="text-center">Số lượng</th>
+                                            <th style="width: 140px;" class="text-end">Đơn giá</th>
+                                            <th style="width: 160px;" class="text-end">Thành tiền</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="bd-invoice-table-body"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="border-top bg-white py-3 px-3 d-flex justify-content-between align-items-center">
+                            <button type="button" class="btn btn-link text-decoration-none fw-bold p-0" onclick="focusServiceSidebar()">
+                                <i class="fas fa-plus-circle me-1"></i> Sản phẩm, dịch vụ
+                            </button>
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="fw-bold text-success">Tổng tiền</span>
+                                <span class="fw-bold fs-5 text-success" id="bd-invoice-total">0 đ</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-outline-dark" onclick="bdPrintInvoice()">
+                    <i class="fas fa-print me-1"></i> In hóa đơn
+                </button>
+                <button type="button" class="btn btn-outline-primary" onclick="saveBookingChangesFromDetail()">Lưu</button>
+                <button type="button" class="btn btn-success" id="bd-save-services-btn" onclick="saveBookingServicesFromDetail()">Lưu dịch vụ</button>
+                <button type="button" class="btn btn-warning text-dark" id="bd-group-pay-btn" onclick="openGroupCheckoutFromDetail()" style="display: none;">
+                    <i class="fas fa-users me-1"></i> Thanh toán đoàn
+                </button>
+                <button type="button" class="btn btn-primary" id="bd-pay-now-btn" onclick="openCheckoutFromTimeline()">
+                    <i class="fas fa-money-check-alt me-1"></i> Thanh toán ngay
+                </button>
             </div>
         </div>
     </div>
@@ -238,6 +494,19 @@
                         <span>Tổng cộng hóa đơn:</span>
                         <span id="co-total-bill" class="fw-bold fs-5">0 đ</span>
                     </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="form-check form-switch m-0">
+                            <input class="form-check-input" type="checkbox" id="co-tax-toggle">
+                            <label class="form-check-label" for="co-tax-toggle">Thêm thuế VAT 8%</label>
+                        </div>
+                        <span id="co-tax-status" class="small text-muted">Đang tắt</span>
+                    </div>
+
+                    <div id="tax-section" class="d-flex justify-content-between mb-2 text-primary" style="display: none;">
+                        <span><i class="fas fa-receipt me-1"></i>Thuế VAT (8%):</span>
+                        <span id="co-tax-amount" class="fw-bold">0 đ</span>
+                    </div>
                     
                     <div id="deposit-section" class="d-flex justify-content-between mb-2 text-danger" style="display: none;">
                         <span><i class="fas fa-minus-circle me-1"></i>Đã đặt cọc:</span>
@@ -256,12 +525,74 @@
                 </div>
                 
                 <input type="hidden" id="co-amount-raw">
+                <input type="hidden" id="co-tax-amount-raw" value="0">
             </div>
 
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy bỏ</button>
                 <button type="button" class="btn btn-success fw-bold px-4 py-2" onclick="confirmCheckout()">
                     <i class="fas fa-check-circle me-2"></i> XÁC NHẬN THANH TOÁN
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="groupCheckoutModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title fw-bold"><i class="fas fa-users"></i> HÓA ĐƠN ĐOÀN: <span id="gc-booking-code">...</span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Khách hàng:</strong> <span id="gc-customer-name">...</span></p>
+                
+                <table class="table table-bordered mt-3 text-center align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="text-start">Phòng</th>
+                            <th class="text-end">Tiền phòng</th>
+                            <th class="text-end">Tiền dịch vụ</th>
+                            <th class="text-end">Phụ thu</th>
+                            <th class="text-end fw-bold">Tổng cộng</th>
+                        </tr>
+                    </thead>
+                    <tbody id="gc-room-list">
+                        </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="4" class="fw-bold text-end text-muted">TỔNG TIỀN PHÒNG & DỊCH VỤ:</td>
+                            <td class="fw-bold text-end" id="gc-grand-total">0 đ</td>
+                        </tr>
+                        <tr>
+                            <td colspan="4" class="fw-bold text-end text-primary">
+                                <div class="d-inline-flex align-items-center gap-2">
+                                    <span>THUẾ VAT (8%):</span>
+                                    <div class="form-check form-switch m-0">
+                                        <input class="form-check-input" type="checkbox" id="gc-tax-toggle">
+                                        <label class="form-check-label small" for="gc-tax-toggle">Bật</label>
+                                    </div>
+                                    <span id="gc-tax-status" class="small text-muted">Đang tắt</span>
+                                </div>
+                            </td>
+                            <td class="fw-bold text-end text-primary" id="gc-tax-amount">0 đ</td>
+                        </tr>
+                        <tr>
+                            <td colspan="4" class="fw-bold text-end text-danger">ĐÃ ĐẶT CỌC:</td>
+                            <td class="fw-bold text-end text-danger" id="gc-deposit">- 0 đ</td>
+                        </tr>
+                        <tr class="bg-light">
+                            <td colspan="4" class="fw-bold fs-5 text-end">KHÁCH CẦN TRẢ:</td>
+                            <td class="fw-bold fs-4 text-end text-success" id="gc-final-total">0 đ</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy bỏ</button>
+                <button type="button" class="btn btn-success fw-bold" data-role="group-checkout-confirm" onclick="submitGroupCheckout()">
+                    <i class="fas fa-check-circle"></i> XÁC NHẬN THANH TOÁN ĐOÀN
                 </button>
             </div>
         </div>
@@ -312,27 +643,49 @@
                         </div>
                     </div>
 
-                    <div class="card border-0 shadow-sm p-3">
-                        <h6 class="text-success fw-bold mb-2">3. Thông tin Trưởng đoàn</h6>
-                        <div class="row mb-2">
-                            <div class="col-md-6">
-                                <label class="form-label small">Tên Trưởng đoàn <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" name="group_name" required>
+                    <div class="card border-0 shadow-sm p-4 mb-3 rounded-4 bg-white">
+                         <h6 class="text-success fw-bold mb-3 border-bottom pb-2">
+                             <i class="fas fa-user-tie me-2"></i>Thông tin Trưởng đoàn
+                         </h6>
+                         <div class="row g-3 mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold text-secondary mb-1">Số điện thoại <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control shadow-sm border-secondary-subtle" name="group_phone" id="group_phone" required autocomplete="off" placeholder="Nhập SĐT...">
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label small">Số điện thoại <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" name="group_phone" required>
+                            <div class="col-md-4">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label class="form-label small mb-0 fw-bold text-secondary">Trưởng đoàn <span class="text-danger">*</span></label>
+                                    <button type="button" class="btn btn-xs btn-outline-success border-0 py-0 px-2 fw-bold" style="font-size: 0.75rem;" onclick="openQRScanner('group')">
+                                        <i class="fas fa-qrcode me-1"></i>QUÉT QR
+                                    </button>
+                                </div>
+                                <input type="text" class="form-control shadow-sm border-secondary-subtle" name="group_name" id="group_name" required autocomplete="off" placeholder="Tên trưởng đoàn...">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-bold text-secondary mb-1">Số CCCD</label>
+                                <input type="text" class="form-control shadow-sm border-secondary-subtle" name="group_cccd" id="group_cccd" autocomplete="off" placeholder="Số CCCD...">
+                            </div>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-md-12">
+                                <label class="form-label small fw-bold text-secondary mb-1">Địa chỉ cư trú</label>
+                                <input type="text" class="form-control shadow-sm border-secondary-subtle" name="group_address" id="group_address" autocomplete="off" placeholder="Địa chỉ thường trú / tạm trú...">
                             </div>
                         </div>
 
                         <div class="row mb-2">
                             <div class="col-md-6">
                                 <label class="form-label small">Tiền cọc Tổng (VND)</label>
-                                <input type="number" class="form-control fw-bold text-danger" name="total_deposit" value="0">
+                                <div class="input-group">
+                                    <input type="number" class="form-control fw-bold text-danger" name="total_deposit" id="group_total_deposit" placeholder="0">
+                                    <button class="btn btn-outline-danger" type="button" onclick="calculateGroupQuickDeposit(0.5)">50%</button>
+                                    <button class="btn btn-outline-danger" type="button" onclick="calculateGroupQuickDeposit(1)">100%</button>
+                                </div>
+                                <small class="text-muted" id="group-deposit-hint" style="font-size: 0.75rem;"></small>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label small">Ghi chú</label>
-                                <input type="text" class="form-control" name="note" placeholder="VD: Đoàn công ty...">
+                                <input type="text" class="form-control" name="note" id="group_note" placeholder="VD: Đoàn công ty..." autocomplete="off">
                             </div>
                         </div>
                     </div>
@@ -349,10 +702,32 @@
     </div>
 </div>
 
+<!-- Modal quét mã QR CCCD -->
+<div class="modal fade" id="qrScannerModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title"><i class="fas fa-qrcode me-2"></i> Quét mã QR CCCD</h5>
+                <button type="button" class="btn-close btn-close-white" aria-label="Close" onclick="closeQRScanner()"></button>
+            </div>
+            <div class="modal-body p-0 text-center bg-light">
+                <div id="qr-reader" style="width: 100%; border: none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary w-100 fw-bold" onclick="closeQRScanner()">
+                    <i class="fas fa-times me-2"></i> Hủy
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
 <script src="https://unpkg.com/vis-timeline/standalone/umd/vis-timeline-graph2d.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+<script src="{{ url_for('static', filename='js/qr_scanner.js') }}"></script>
 <script src="{{ url_for('static', filename='js/timeline_manager.js') }}"></script>
 <script src="{{ url_for('static', filename='js/checkout.js') }}"></script>
 <script src="{{ url_for('static', filename='js/group_booking.js') }}"></script>

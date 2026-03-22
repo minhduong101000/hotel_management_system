@@ -37,9 +37,17 @@
             
             <li class="menu-item">
                 <a href="{{ url_for('billing.index') }}" class="{{ 'active' if 'billing' in request.endpoint else '' }}">
-                    <i class="fas fa-cash-register"></i><span>Thu ngân</span>
+                    <i class="fas fa-file-invoice"></i><span>Hóa đơn cũ</span>
                 </a>
             </li>
+            
+            {% if current_user.role == 'admin' %}
+            <li class="menu-item">
+                <a href="{{ url_for('cashier.cashier') }}" class="{{ 'active' if 'cashier' in request.endpoint else '' }}">
+                    <i class="fas fa-cash-register text-success"></i><span class="text-success fw-bold">Sổ Quỹ</span>
+                </a>
+            </li>
+            {% endif %}
             
             <li class="menu-header">DỊCH VỤ & KHO</li>
 
@@ -66,9 +74,16 @@
             </li>
             
             {% if current_user.role == 'admin' %}
-                <li class="menu-header">QUẢN TRỊ VIÊN</li> <li class="menu-item">
+                <li class="menu-header">QUẢN TRỊ VIÊN</li>
+                <li class="menu-item">
                     <a href="{{ url_for('report.revenue') }}" class="{{ 'active' if 'report' in request.endpoint else '' }}">
-                        <i class="fas fa-chart-line"></i><span>Báo cáo</span>
+                        <i class="fas fa-chart-line"></i><span>Doanh thu</span>
+                    </a>
+                </li>
+
+                <li class="menu-item">
+                    <a href="{{ url_for('expense.index') }}" class="{{ 'active' if 'expense' in request.endpoint else '' }}">
+                        <i class="fas fa-money-bill-wave"></i><span>Chi phí</span>
                     </a>
                 </li>
                 

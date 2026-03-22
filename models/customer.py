@@ -5,7 +5,7 @@ class Customer(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    phone = db.Column(db.String(15), unique=True, nullable=False)
+    phone = db.Column(db.String(15), nullable=True)
     email = db.Column(db.String(100), unique=True)
     cccd = db.Column(db.String(12), unique=True) # Căn cước công dân
     address = db.Column(db.String(255))

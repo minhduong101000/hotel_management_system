@@ -1,0 +1,154 @@
+from __future__ import annotations
+
+from datetime import datetime
+from decimal import Decimal
+from typing import Optional
+
+from extensions import db
+from models.payment import Payment
+
+
+def _to_decimal_amount(amount) -> Decimal:
+    if amount is None:
+        return Decimal("0")
+    # Payment.amount is Numeric; keep cents if provided.
+    return Decimal(str(amount))
+
+
+def _now(dt: Optional[datetime]) -> datetime:
+    return dt if dt is not None else datetime.now()
+
+
+def _create_payment(
+    *,
+    booking_id: int,
+    amount,
+    payment_type: str,
+    note: str,
+    payment_method: str = "cash",
+    created_at: Optional[datetime] = None,
+    flush: bool = False,
+) -> Payment:
+    payment = Payment(
+        booking_id=booking_id,
+        amount=_to_decimal_amount(amount),
+        payment_method=payment_method,
+        payment_type=payment_type,
+        note=note,
+        created_at=_now(created_at),
+    )
+    db.session.add(payment)
+    if flush:
+        db.session.flush()
+    return payment
+
+
+def record_deposit(
+    *,
+    booking_id: int,
+    amount,
+    note: str,
+    payment_method: str = "cash",
+    created_at: Optional[datetime] = None,
+    flush: bool = False,
+) -> Payment:
+    return _create_payment(
+        booking_id=booking_id,
+        amount=amount,
+        payment_method=payment_method,
+        payment_type="deposit",
+        note=note,
+        created_at=created_at,
+        flush=flush,
+    )
+
+
+def record_room_payment(
+    *,
+    booking_id: int,
+    amount,
+    note: str,
+    payment_method: str = "cash",
+    created_at: Optional[datetime] = None,
+    flush: bool = False,
+    payment_type: str = "room_payment",
+) -> Payment:
+    """Record a payment line for room/service settlement.
+
+    Default payment_type is "room_payment"; controllers may pass "service_payment".
+    """
+    return _create_payment(
+        booking_id=booking_id,
+        amount=amount,
+        payment_method=payment_method,
+        payment_type=payment_type,
+        note=note,
+        created_at=created_at,
+        flush=flush,
+    )
+
+
+def record_refund(
+    *,
+    booking_id: int,
+    refund_amount,
+    note: str,
+    payment_method: str = "cash",
+    created_at: Optional[datetime] = None,
+    flush: bool = False,
+) -> Payment:
+    """Record a refund as a negative amount in Payment (cashflow semantics)."""
+    amt = abs(_to_decimal_amount(refund_amount))
+    return _create_payment(
+        booking_id=booking_id,
+        amount=-amt,
+        payment_method=payment_method,
+        payment_type="refund",
+        note=note,
+        created_at=created_at,
+        flush=flush,
+    )
+
+
+def record_cancellation_fee(
+    *,
+    booking_id: int,
+    amount,
+    note: str,
+    payment_method: str = "cash",
+    created_at: Optional[datetime] = None,
+    flush: bool = False,
+) -> Payment:
+    """Record a cancellation fee note.
+
+    Legacy behavior stores 0 amount because the money is retained from an existing deposit.
+    """
+    return _create_payment(
+        booking_id=booking_id,
+        amount=_to_decimal_amount(amount),
+        payment_method=payment_method,
+        payment_type="cancellation_fee",
+        note=note,
+        created_at=created_at,
+        flush=flush,
+    )
+
+
+def record_group_settlement(
+    *,
+    booking_id: int,
+    amount,
+    note: str,
+    payment_method: str = "cash",
+    created_at: Optional[datetime] = None,
+    flush: bool = False,
+) -> Payment:
+    return _create_payment(
+        booking_id=booking_id,
+        amount=amount,
+        payment_method=payment_method,
+        payment_type="settlement",
+        note=note,
+        created_at=created_at,
+        flush=flush,
+    )

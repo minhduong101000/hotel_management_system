@@ -188,7 +188,7 @@ function openRuleModal() {
     document.getElementById('rule-form').reset();
     document.querySelectorAll('input[name="daycheck"]').forEach(cb => cb.checked = true);
     document.querySelector('#ruleModal .modal-title').innerHTML = '<i class="fas fa-plus-circle me-2"></i>THÊM GIÁ MỚI';
-    new bootstrap.Modal(document.getElementById('ruleModal')).show();
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('ruleModal')).show();
 }
 
 function editRule(id) {
@@ -215,7 +215,7 @@ function editRule(id) {
     }
     
     document.querySelector('#ruleModal .modal-title').innerHTML = `<i class="fas fa-edit me-2"></i>CẬP NHẬT: ${rule.name}`;
-    new bootstrap.Modal(document.getElementById('ruleModal')).show();
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('ruleModal')).show();
 }
 
 function saveRule() {

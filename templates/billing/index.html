@@ -1,15 +1,401 @@
 {% extends "layouts/base.html" %}
+
+{% block title %}Hóa Đơn Cũ - Hotel POS{% endblock %}
+{% block page_title %}Lịch sử Hóa đơn{% endblock %}
+
 {% block content %}
-<div class="top-bar"><h5 class="page-title">THU NGÂN</h5></div>
-<div class="main-area">
-    <div class="card-box">
-        <h5>Hóa đơn chờ thanh toán</h5>
-        <table class="table table-striped mt-3">
-            <thead><tr><th>#</th><th>Phòng</th><th>Khách</th><th>Tổng tiền</th><th>Thao tác</th></tr></thead>
-            <tbody>
-                <tr><td>1</td><td>102</td><td>Nguyễn Văn A</td><td>500,000</td><td><button class="btn btn-sm btn-success">Thanh toán</button></td></tr>
-            </tbody>
-        </table>
+<div class="row mb-4">
+    <div class="col-12 col-md-8">
+        <div class="input-group shadow-sm">
+            <span class="input-group-text bg-white border-end-0 text-muted small">Từ</span>
+            <input type="date" id="billing-start-date" class="form-control border-start-0 border-end-0" onchange="loadBillingList()">
+            <span class="input-group-text bg-white border-start-0 border-end-0 text-muted small">Đến</span>
+            <input type="date" id="billing-end-date" class="form-control border-start-0" onchange="loadBillingList()">
+            <button class="btn btn-primary px-4 fw-bold" onclick="loadBillingList()"><i class="fas fa-filter me-2"></i>Lọc Khoảng Ngày</button>
+            <button class="btn btn-outline-secondary" onclick="resetFilter()">Xóa Lọc</button>
+        </div>
     </div>
 </div>
+
+<!-- Invoice List Table -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Mã HĐ</th>
+                        <th>Phòng</th>
+                        <th>Khách Hàng</th>
+                        <th>Ngày Thanh Toán</th>
+                        <th class="text-end">Tiền Cọc</th>
+                        <th class="text-end">Tổng Hóa Đơn</th>
+                        <th class="text-center">Trạng thái</th>
+                        <th class="text-center pe-4">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody id="billing-table-body">
+                    <tr><td colspan="7" class="text-center py-5 text-muted">Đang tải danh sách...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL CHI TIẾT HÓA ĐƠN -->
+<div class="modal fade" id="invoiceModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-dark text-white py-3">
+                <h5 class="modal-title fw-bold"><i class="fas fa-file-invoice-dollar me-2"></i> CHI TIẾT HÓA ĐƠN <span id="md-invoice-code"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-3" id="invoice-print-area">
+                <div class="receipt-paper" id="receipt-paper">
+                    <div class="logo-wrap">
+                        <img src="{{ config.HOTEL_LOGO_URL }}" alt="logo" onerror="this.style.display='none'">
+                    </div>
+                    <div class="center hotel-name">{{ config.HOTEL_NAME }}</div>
+                    <div class="center muted">{{ config.HOTEL_BRANCH }}</div>
+                    <div class="center muted">{{ config.HOTEL_ADDRESS }}</div>
+                    <div class="center muted">{{ config.HOTEL_PHONE }}</div>
+
+                    <div class="line"></div>
+                    <div class="center voucher-title">PHIEU THANH TOAN</div>
+                    <div class="line"></div>
+
+                    <div class="meta-row">
+                        <span>Ma HD:</span>
+                        <strong id="md-invoice-code-print">--</strong>
+                    </div>
+                    <div class="meta-row">
+                        <span>Ngay in:</span>
+                        <span id="md-print-time">--</span>
+                    </div>
+                    <div class="meta-row">
+                        <span>Khach:</span>
+                        <span id="md-customer-name">--</span>
+                    </div>
+
+                    <div class="line"></div>
+
+                    <div class="section-title">PHONG</div>
+                    <table class="receipt-table mb-2">
+                        <thead>
+                            <tr>
+                                <th>Phong</th>
+                                <th class="text-center">Loai</th>
+                                <th class="text-right">Tien</th>
+                            </tr>
+                        </thead>
+                        <tbody id="md-rooms-body"></tbody>
+                    </table>
+
+                    <div class="section-title">DICH VU</div>
+                    <table class="receipt-table mb-2">
+                        <thead>
+                            <tr>
+                                <th>Dich vu</th>
+                                <th class="text-center">SL</th>
+                                <th class="text-right">Tien</th>
+                            </tr>
+                        </thead>
+                        <tbody id="md-services-body"></tbody>
+                    </table>
+
+                    <div id="md-cancel-section" class="cancel-box" style="display:none;">
+                        <div class="sum-row"><span>Ly do:</span><span id="md-cancel-reason">--</span></div>
+                        <div class="sum-row"><span>Coc goc:</span><span id="md-original-deposit">0 đ</span></div>
+                        <div class="sum-row"><span>% hoan:</span><span id="md-refund-percent">0%</span></div>
+                        <div class="sum-row"><span>% phi:</span><span id="md-fee-percent">0%</span></div>
+                        <div class="sum-row"><span>So tien hoan:</span><strong id="md-refund-amount">0 đ</strong></div>
+                    </div>
+
+                    <div class="line"></div>
+
+                    <div class="sum-row">
+                        <span>Tong bill:</span>
+                        <strong id="md-total-bill">0 đ</strong>
+                    </div>
+                    <div id="md-tax-row" class="sum-row" style="display:none;">
+                        <span id="md-tax-label">Thue VAT:</span>
+                        <strong id="md-tax-amount">0 đ</strong>
+                    </div>
+                    <div class="sum-row">
+                        <span>Da coc:</span>
+                        <strong id="md-prepaid">0 đ</strong>
+                    </div>
+                    <div class="sum-row total">
+                        <span>THUC THU:</span>
+                        <strong id="md-final-payment">0 đ</strong>
+                    </div>
+
+                    <div class="line"></div>
+                    <div class="center muted">Cam on quy khach!</div>
+                    <div class="center muted">{{ config.HOTEL_NAME }}</div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-outline-primary" onclick="window.print()"><i class="fas fa-print me-2"></i>In Hóa Đơn</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', loadBillingList);
+
+function loadBillingList() {
+    const start = document.getElementById('billing-start-date').value;
+    const end = document.getElementById('billing-end-date').value;
+    const tbody = document.getElementById('billing-table-body');
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-5 text-muted"><div class="spinner-border spinner-border-sm text-primary me-2"></div> Đang tải dữ liệu...</td></tr>';
+
+    let url = `/api/billing/list?start=${start}&end=${end}`;
+
+    fetch(url)
+        .then(res => res.json())
+        .then(data => {
+            if (!data.success) { alert(data.msg); return; }
+            renderTable(data.data);
+        })
+        .catch(err => { console.error(err); alert("Lỗi kết nối máy chủ"); });
+}
+
+function resetFilter() {
+    document.getElementById('billing-start-date').value = '';
+    document.getElementById('billing-end-date').value = '';
+    loadBillingList();
+}
+
+function fmtMoney(num) {
+    return new Intl.NumberFormat('vi-VN').format(num) + ' đ';
+}
+
+function renderTable(bookings) {
+    const tbody = document.getElementById('billing-table-body');
+    tbody.innerHTML = '';
+    
+    if (bookings.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-5 text-muted">Không tìm thấy hóa đơn nào phù hợp.</td></tr>';
+        return;
+    }
+
+    bookings.forEach(b => {
+        let statusBadge = '';
+        if (b.status === 'checked_out' || b.status === 'completed') {
+            statusBadge = '<span class="badge bg-success-subtle text-success border border-success-subtle">Hoàn tất</span>';
+        } else if (b.status === 'cancelled') {
+            statusBadge = '<span class="badge bg-danger-subtle text-danger border border-danger-subtle">Đã hủy</span>';
+        } else {
+            statusBadge = '<span class="badge bg-primary-subtle text-primary border border-primary-subtle">Đang ở (Có phòng trả)</span>';
+        }
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td class="ps-4 fw-bold text-primary">#${b.code}</td>
+            <td class="fw-semibold">P.${b.room_number}</td>
+            <td>${b.customer_name}</td>
+            <td class="text-muted"><small>${b.date}</small></td>
+            <td class="text-end text-info">${fmtMoney(b.prepaid_amount)}</td>
+            <td class="text-end fw-bold">${fmtMoney(b.total_amount)}</td>
+            <td class="text-center">${statusBadge}</td>
+            <td class="text-center pe-4">
+                <button class="btn btn-sm btn-outline-primary shadow-sm px-3" onclick="viewDetail(${b.id})">
+                    <i class="fas fa-eye me-1"></i> Chi tiết
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function viewDetail(id) {
+    fetch(`/api/billing/detail/${id}?type=room`)
+        .then(res => res.json())
+        .then(data => {
+            if (!data.success) { alert(data.msg); return; }
+            fillModal(data.data);
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('invoiceModal')).show();
+        });
+}
+
+function fillModal(info) {
+    document.getElementById('md-invoice-code').innerText = info.code;
+    document.getElementById('md-invoice-code-print').innerText = info.code;
+    document.getElementById('md-print-time').innerText = new Date().toLocaleString('vi-VN');
+    document.getElementById('md-customer-name').innerText = info.customer;
+    
+    // Render Rooms
+    const rBody = document.getElementById('md-rooms-body');
+    rBody.innerHTML = '';
+    info.rooms.forEach(r => {
+        const isDaily = String(r.rental_type || '').toLowerCase().includes('ngày') || String(r.rental_type || '').toLowerCase().includes('daily');
+        const checkInText = isDaily ? String(r.check_in || '').split(' ')[0] : (r.check_in || '');
+        const checkOutText = isDaily ? String(r.check_out || '').split(' ')[0] : (r.check_out || '');
+
+        rBody.innerHTML += `
+            <tr>
+                <td>
+                    <div class="fw-bold">P.${r.room_number}</div>
+                    <div class="item-note">${checkInText} - ${checkOutText}</div>
+                </td>
+                <td>${r.rental_type}</td>
+                <td class="text-end fw-bold">${fmtMoney(r.amount)}</td>
+            </tr>
+        `;
+    });
+
+    // Render Services
+    const sBody = document.getElementById('md-services-body');
+    sBody.innerHTML = '';
+    if (info.services.length === 0) {
+        sBody.innerHTML = '<tr><td colspan="3" class="text-center py-2 text-muted">Khong dung dich vu</td></tr>';
+    } else {
+        info.services.forEach(s => {
+            sBody.innerHTML += `
+                <tr>
+                    <td>${s.name}</td>
+                    <td class="text-center">${s.quantity}</td>
+                    <td class="text-end fw-bold">${fmtMoney(s.total)}</td>
+                </tr>
+            `;
+        });
+    }
+
+    document.getElementById('md-total-bill').innerText = fmtMoney(info.total_amount);
+    const taxAmount = Number(info.tax_amount || 0);
+    const taxRate = Number(info.tax_rate || 8);
+    const taxRow = document.getElementById('md-tax-row');
+    document.getElementById('md-tax-label').innerText = `Thue VAT (${taxRate}%):`;
+    document.getElementById('md-tax-amount').innerText = fmtMoney(taxAmount);
+    taxRow.style.display = taxAmount > 0 ? 'flex' : 'none';
+    document.getElementById('md-prepaid').innerText = fmtMoney(info.prepaid_amount);
+    document.getElementById('md-final-payment').innerText = fmtMoney(info.final_payment);
+
+    const cancelSection = document.getElementById('md-cancel-section');
+    const cancelInfo = info.cancellation_detail;
+    if (cancelInfo && cancelInfo.is_cancelled) {
+        cancelSection.style.display = 'block';
+        document.getElementById('md-cancel-reason').innerText = cancelInfo.reason || 'Đã hủy phòng';
+        document.getElementById('md-original-deposit').innerText = fmtMoney(cancelInfo.original_deposit || 0);
+        document.getElementById('md-refund-percent').innerText = `${Math.round(cancelInfo.refund_percent || 0)}%`;
+        document.getElementById('md-fee-percent').innerText = `${Math.round(cancelInfo.fee_percent || 0)}%`;
+        document.getElementById('md-refund-amount').innerText = fmtMoney(cancelInfo.refund_amount || 0);
+    } else {
+        cancelSection.style.display = 'none';
+    }
+}
+</script>
+<style>
+@media print {
+    @page {
+        size: A5 portrait;
+        margin: 6mm;
+    }
+
+    body * { visibility: hidden; }
+    #invoice-print-area, #invoice-print-area * { visibility: visible; }
+
+    #invoice-print-area {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 148mm;
+        border: none;
+        box-shadow: none;
+        padding: 0 !important;
+        margin: 0;
+    }
+
+    #receipt-paper {
+        width: 136mm !important;
+        border: 0 !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .btn-close, .modal-footer { display: none !important; }
+}
+
+.receipt-paper {
+    width: 148mm;
+    margin: 0 auto;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 6px 18px rgba(17, 24, 39, 0.08);
+    padding: 8mm;
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 12px;
+    line-height: 1.35;
+    color: #111827;
+}
+
+.center { text-align: center; }
+.muted { color: #6b7280; }
+.line { border-top: 1px dashed #d1d5db; margin: 6px 0; }
+
+.hotel-name { font-weight: 700; font-size: 13px; text-transform: uppercase; }
+.voucher-title { font-weight: 700; margin-top: 4px; }
+.section-title { font-weight: 700; margin: 6px 0 2px; }
+
+.logo-wrap {
+    text-align: center;
+    margin-bottom: 4px;
+}
+
+.logo-wrap img {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+}
+
+.meta-row,
+.sum-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 2px 0;
+}
+
+.sum-row.total {
+    font-weight: 700;
+    font-size: 13px;
+}
+
+.receipt-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.receipt-table th,
+.receipt-table td {
+    padding: 3px 0;
+    vertical-align: top;
+}
+
+.receipt-table th {
+    border-bottom: 1px dashed #d1d5db;
+}
+
+.text-right { text-align: right; }
+.text-center { text-align: center; }
+
+.item-note {
+    font-size: 11px;
+    color: #6b7280;
+}
+
+.cancel-box {
+    border: 1px dashed #fca5a5;
+    background: #fef2f2;
+    padding: 4px;
+    margin-top: 4px;
+}
+</style>
 {% endblock %}

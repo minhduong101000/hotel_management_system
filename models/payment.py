@@ -1,8 +1,11 @@
 from extensions import db
-from datetime import datetime
 
 class Payment(db.Model):
     __tablename__ = 'payments'
+
+    __table_args__ = (
+        db.Index('ix_payments_booking_id', 'booking_id'),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
     
@@ -13,7 +16,7 @@ class Payment(db.Model):
     payment_method = db.Column(db.String(50), default='cash')
     payment_type = db.Column(db.String(50), default='settlement') # deposit, settlement
     note = db.Column(db.Text, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.now)
+    created_at = db.Column(db.DateTime, default=db.func.now())
 
     # Relationship
     booking = db.relationship('Booking', back_populates='payments')

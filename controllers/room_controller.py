@@ -16,7 +16,7 @@ from models.booking_room import BookingRoom
 # ====================================================
 # 2. IMPORT SERVICE (Logic tính giá)
 # ====================================================
-from controllers.pricing_service import get_effective_room_prices
+from services.pricing_service import get_effective_room_prices
 
 room_bp = Blueprint('room', __name__)
 
@@ -58,19 +58,25 @@ def get_rooms():
         active_map = {br.room_id: br for br in active_booking_rooms}
 
         # 3. Lấy danh sách phòng SẮP CÓ KHÁCH (Booked)
-        # Cũng nên load customer để hiển thị ai sắp đến
         upcoming_booking_rooms = BookingRoom.query.options(
              joinedload(BookingRoom.booking).joinedload(Booking.customer)
         ).filter(
             BookingRoom.status == 'booked', 
-            BookingRoom.check_in_expected >= now,
             BookingRoom.check_in_expected <= limit_time
         ).all()
         
         upcoming_map = {}
+        waiting_map = {} # Những phòng đã quá giờ check-in mà chưa đến
+        
         for br in upcoming_booking_rooms:
-            if br.room_id not in upcoming_map:
-                upcoming_map[br.room_id] = br
+            if br.check_in_expected < now:
+                # Quá giờ check-in dự kiến -> Chờ nhận phòng
+                if br.room_id not in waiting_map:
+                    waiting_map[br.room_id] = br
+            else:
+                # Sắp đến (trong vòng 24h)
+                if br.room_id not in upcoming_map:
+                    upcoming_map[br.room_id] = br
 
         # 4. Tổng hợp dữ liệu
         rooms_list = []
@@ -95,6 +101,7 @@ def get_rooms():
                 'check_in_time': '',
                 'rental_type': None,
                 'upcoming': None,
+                'waiting': None,  # Mới: Chờ nhận phòng (phòng trống nhưng có khách đặt đã quá giờ)
                 
                 # --- THÊM DATA KHÁCH HÀNG ---
                 'customer': None,      # Object chứa full info (để popup)
@@ -113,6 +120,11 @@ def get_rooms():
                     room_data['check_out_expected'] = br.check_out_expected.strftime('%H:%M %d/%m')
                 
                 room_data['rental_type'] = br.rental_type
+                room_data['booking_id'] = br.booking_id
+                
+                # Kiểm tra đoàn: booking có nhiều hơn 1 phòng
+                room_count = BookingRoom.query.filter_by(booking_id=br.booking_id).count()
+                room_data['is_group'] = room_count > 1
                 
                 # LẤY INFO KHÁCH HÀNG
                 if br.booking and br.booking.customer:
@@ -129,9 +141,15 @@ def get_rooms():
                 
                 count_occupied += 1
 
-            # --- CASE B: Sắp có khách ---
+            # --- CASE B: Sắp có khách hoặc Chờ nhận phòng ---
             elif r.status == 'available':
-                if r.id in upcoming_map:
+                if r.id in waiting_map:
+                    br = waiting_map[r.id]
+                    room_data['waiting'] = br.check_in_expected.strftime('%H:%M %d/%m')
+                    if br.booking and br.booking.customer:
+                         room_data['customer_name'] = f"Chờ: {br.booking.customer.name}"
+                
+                elif r.id in upcoming_map:
                     br = upcoming_map[r.id]
                     if br.check_in_expected:
                         room_data['upcoming'] = br.check_in_expected.strftime('%H:%M')
@@ -230,7 +248,7 @@ def search_available_rooms():
         # --- 2. LẤY PHÒNG TRỐNG ---
         available_rooms = Room.query.filter(
             Room.id.notin_(occupied_room_ids),
-            Room.status != 'maintenance' 
+            Room.status != 'maintenance'
         ).all()
 
         # --- 3. GOM NHÓM & TÍNH GIÁ ---
@@ -259,3 +277,66 @@ def search_available_rooms():
     except Exception as e:
         print(f"Lỗi tìm phòng: {e}")
         return jsonify({'success': False, 'msg': 'Lỗi Server: ' + str(e)})
+    
+@room_bp.route('/api/bookings/calculate-price', methods=['POST'])
+@login_required
+def api_calculate_price():
+    """
+    API Tính nhanh tổng tiền phòng dựa vào ngày giờ và loại hình thuê.
+    Dùng để gọi từ giao diện và tự động tính tiền cọc.
+    """
+    try:
+        data = request.json
+        room_id = data.get('room_id')
+        check_in_str = data.get('check_in')
+        check_out_str = data.get('check_out')
+        rental_type = data.get('rental_type') # 'daily' hoặc 'hourly'
+
+        if not all([room_id, check_in_str, check_out_str]):
+            return jsonify({'success': False, 'msg': 'Thiếu thông tin tính giá!'})
+
+        # 1. Lấy thông tin phòng từ DB
+        room = Room.query.get(room_id)
+        if not room:
+            return jsonify({'success': False, 'msg': 'Không tìm thấy phòng!'})
+
+        # 2. Parse ngày giờ từ frontend (Input type="datetime-local" có dạng YYYY-MM-DDTHH:MM)
+        check_in = datetime.strptime(check_in_str[0:16].replace('T', ' '), '%Y-%m-%d %H:%M')
+        check_out = datetime.strptime(check_out_str[0:16].replace('T', ' '), '%Y-%m-%d %H:%M')
+
+        if check_in >= check_out:
+            return jsonify({'success': False, 'msg': 'Giờ trả phòng phải sau giờ nhận phòng!'})
+
+        # 3. Gọi Service lấy giá theo hệ thống (Dùng ngày check-in làm mốc lấy giá)
+        effective_prices = get_effective_room_prices(room, check_in)
+        
+        total_amount = 0
+        
+        # 4. Tính toán tổng tiền
+        if rental_type == 'daily':
+            # Thuê theo ngày: Tính số đêm
+            delta = check_out.date() - check_in.date()
+            nights = delta.days if delta.days > 0 else 1
+            # Lấy giá đêm từ dictionary trả về của hàm get_effective_room_prices
+            p_night = effective_prices.get('p_night', 0)
+            total_amount = p_night * nights
+            
+        elif rental_type == 'hourly':
+            # Thuê theo giờ: Tính số giờ (Làm tròn lên hoặc giữ nguyên tùy logic của bạn)
+            delta_hours = (check_out - check_in).total_seconds() / 3600.0
+            hours = max(1, round(delta_hours, 1)) # Tính tối thiểu 1 giờ
+            
+            # GIẢ SỬ dict effective_prices có key 'p_hour'. 
+            # Nếu chưa có, bạn có thể tự thêm trong hàm get_effective_room_prices hoặc tự chia ở đây
+            p_hour = effective_prices.get('p_hour', effective_prices.get('p_night', 0) / 24) 
+            total_amount = p_hour * hours
+
+        return jsonify({
+            'success': True,
+            'total_amount': int(total_amount), # Làm tròn số tiền nguyên
+            'msg': 'Tính giá thành công'
+        })
+
+    except Exception as e:
+        print(f"Lỗi API Calculate Price: {e}")
+        return jsonify({'success': False, 'msg': f'Lỗi server: {str(e)}'})

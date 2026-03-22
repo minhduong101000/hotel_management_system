@@ -1,5 +1,4 @@
 from extensions import db
-from datetime import datetime
 
 
 class BookingService(db.Model):
@@ -14,7 +13,7 @@ class BookingService(db.Model):
     
     quantity = db.Column(db.Integer, default=1)
     price_at_booking = db.Column(db.Numeric(10, 2), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.now)
+    created_at = db.Column(db.DateTime, default=db.func.now())
 
     # Relationship
     booking = db.relationship('Booking', back_populates='services')

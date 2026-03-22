@@ -10,9 +10,6 @@ staff_bp = Blueprint('staff', __name__, url_prefix='/staff')
 @login_required
 @admin_required
 def index():
-    if current_user.role != 'admin':
-        flash('Bạn không có quyền truy cập!', 'error')
-        return redirect(url_for('room.map_view'))
 
     if request.method == 'POST':
         username = request.form.get('username')
@@ -39,8 +36,6 @@ def index():
 @login_required
 @admin_required
 def reset_password(user_id):
-    if current_user.role != 'admin':
-        return "Unauthorized", 403
         
     new_password = request.form.get('new_password')
     user = User.query.get_or_404(user_id)
@@ -52,12 +47,10 @@ def reset_password(user_id):
     
     return redirect(url_for('staff.index'))
 
-@staff_bp.route('/delete/<int:user_id>', methods=['GET'])
+@staff_bp.route('/delete/<int:user_id>', methods=['POST'])
 @login_required
 @admin_required
 def delete_user(user_id):
-    if current_user.role != 'admin':
-        return "Unauthorized", 403
 
     user = User.query.get_or_404(user_id)
     if user.id == current_user.id:

@@ -170,23 +170,251 @@ body:not(.login-page) {
 .st-dirty { background-color: var(--c-yellow); color: #fff; }
 
 /* =========================================
-   4. COMPONENT: TIMELINE
+   4. COMPONENT: TIMELINE (REDESIGNED)
    ========================================= */
+
+/* --- Container & Grid --- */
 #visualization {
-    border: 1px solid #dee2e6;
-    background: white;
+    border: none;
+    background: #fff;
+    border-radius: 12px;
+    overflow: hidden;
 }
-.vis-time-axis .vis-grid.vis-vertical { border-left: 1px solid #eee; }
+
+.vis-time-axis .vis-grid.vis-vertical { border-left: 1px solid #f0f0f5; }
+.vis-time-axis .vis-text { color: #64748b; font-weight: 500; font-size: 11px; }
+
 .vis-group:nth-child(even) .vis-label,
-.vis-group:nth-child(even) .vis-background { background-color: #f8f9fa; }
+.vis-group:nth-child(even) .vis-background { background-color: #f8fafc; }
+.vis-group:nth-child(odd) .vis-label,
+.vis-group:nth-child(odd) .vis-background { background-color: #ffffff; }
+
+.vis-label { border-right: 2px solid #e2e8f0 !important; }
 .vis-panel.vis-center { cursor: cell; }
 
+/* --- Thanh thời gian trên cùng --- */
+.vis-time-axis .vis-grid.vis-minor { border-color: #f1f5f9; }
+.vis-time-axis .vis-grid.vis-major { border-color: #e2e8f0; }
+
+/* --- Đường kẻ hiện tại (Current time) --- */
+.vis-current-time {
+    background-color: #ef4444 !important;
+    width: 2px !important;
+    z-index: 5;
+}
+
+/* --- BỌC ITEM CHUNG --- */
+.vis-item {
+    border-radius: 8px !important;
+    font-size: 12px;
+    font-weight: 500;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    transition: all 0.2s ease;
+    border: none !important;
+    overflow: hidden;
+}
+.vis-item:hover {
+    box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+    transform: translateY(-1px);
+    z-index: 10 !important;
+}
+
 .vis-item .vis-item-content {
-    padding: 4px 8px;
+    padding: 5px 10px;
     white-space: nowrap;
-    overflow: hidden; 
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.vis-item .vis-item-content i {
+    margin-right: 3px;
+    font-size: 11px;
+}
+
+/* --- BADGE KHÁCH ĐOÀN --- */
+.tl-group-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.35);
+    color: inherit;
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 10px;
+    font-weight: 700;
+    margin-right: 3px;
+    border: 1px solid rgba(255,255,255,0.4);
+    backdrop-filter: blur(2px);
+    line-height: 1;
+}
+
+.tl-group-badge i {
+    font-size: 9px !important;
+    margin-right: 0 !important;
+}
+
+/* --- Tên khách --- */
+.tl-name {
+    overflow: hidden;
     text-overflow: ellipsis;
 }
+
+/* --- Badge cảnh báo --- */
+.tl-badge-danger {
+    display: inline-block;
+    background: #fff;
+    color: #dc2626;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 4px;
+    margin-left: 4px;
+    animation: pulse-danger 1.5s infinite;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+@keyframes pulse-danger {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* =========================================
+   TIMELINE COLOR SYSTEM (Harmonious Palette)
+   ========================================= */
+
+/* --- KHÁCH THEO NGÀY - Đặt trước (Xanh Dương nhẹ) --- */
+.vis-item.tl-daily-booked {
+    background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%) !important;
+    color: #fff !important;
+    border-left: 3px solid #2563eb !important;
+}
+
+/* --- KHÁCH THEO NGÀY - Đang ở (Cam ấm) --- */
+.vis-item.tl-daily-active {
+    background: linear-gradient(135deg, #fb923c 0%, #f97316 100%) !important;
+    color: #fff !important;
+    border-left: 3px solid #ea580c !important;
+}
+
+/* --- KHÁCH THEO GIỜ - Đặt trước (Tím nhạt) --- */
+.vis-item.tl-hourly-booked {
+    background: linear-gradient(135deg, #c084fc 0%, #a855f7 50%) !important;
+    color: #fff !important;
+    border-left: 3px solid #9333ea !important;
+    border-style: dashed !important;
+    border-right: none !important;
+    border-top: none !important;
+    border-bottom: none !important;
+}
+
+/* --- KHÁCH THEO GIỜ - Đang ở (Tím đậm) --- */
+.vis-item.tl-hourly-active {
+    background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%) !important;
+    color: #fff !important;
+    border-left: 3px solid #6d28d9 !important;
+}
+
+/* --- ĐÃ TRẢ PHÒNG (Xám thanh lịch) --- */
+.vis-item.tl-checked-out {
+    background: linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%) !important;
+    color: #475569 !important;
+    border-left: 3px solid #64748b !important;
+    opacity: 0.7;
+}
+
+/* --- ĐÃ HỦY (Đỏ gạch chéo) --- */
+.vis-item.tl-cancelled {
+    background: repeating-linear-gradient(
+        45deg,
+        #fca5a5,
+        #fca5a5 8px,
+        #f87171 8px,
+        #f87171 16px
+    ) !important;
+    color: #7f1d1d !important;
+    border-left: 3px solid #dc2626 !important;
+    opacity: 0.55;
+    text-decoration: line-through;
+}
+.vis-item.tl-cancelled .tl-name {
+    text-decoration: line-through;
+}
+
+/* --- QUÁ GIỜ (Viền đỏ nhấp nháy) --- */
+.vis-item.tl-overstay {
+    box-shadow: 0 0 0 2px #dc2626, 0 0 12px rgba(220,38,38,0.4) !important;
+    animation: overstay-glow 2s infinite;
+}
+
+@keyframes overstay-glow {
+    0%, 100% { box-shadow: 0 0 0 2px #dc2626, 0 0 8px rgba(220,38,38,0.3); }
+    50% { box-shadow: 0 0 0 2px #dc2626, 0 0 18px rgba(220,38,38,0.6); }
+}
+
+/* =========================================
+   TIMELINE CARD & LEGEND
+   ========================================= */
+.timeline-card {
+    border-radius: 16px;
+    border: none;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+    overflow: hidden;
+}
+
+.timeline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.timeline-title {
+    font-weight: 800;
+    font-size: 1.3rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #1e293b;
+}
+.timeline-title i {
+    color: #3b82f6;
+    font-size: 1.1rem;
+}
+
+.legend-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #fff;
+    letter-spacing: 0.2px;
+}
+
+.legend-item i {
+    font-size: 10px;
+}
+
+.legend-booked   { background: linear-gradient(135deg, #60a5fa, #3b82f6); }
+.legend-active   { background: linear-gradient(135deg, #fb923c, #f97316); }
+.legend-hourly   { background: linear-gradient(135deg, #a855f7, #7c3aed); }
+.legend-checkout { background: linear-gradient(135deg, #cbd5e1, #94a3b8); color: #475569; }
+.legend-cancel   { background: linear-gradient(135deg, #fca5a5, #f87171); color: #7f1d1d; }
+.legend-group    { background: linear-gradient(135deg, #34d399, #10b981); }
 
 .hover-light { transition: all 0.2s; cursor: pointer; }
 .hover-light:hover { color: #fff !important; transform: scale(1.1); }
@@ -288,4 +516,114 @@ body.login-page {
     background-color: #d1e7dd;
     color: #0f5132;
     border: 1px solid #badbcc;
+}
+
+/* =========================================
+   BOOKING DETAIL (POS-LIKE)
+   ========================================= */
+.bd-pos-modal {
+    border: 0;
+    border-radius: 0;
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.bd-pos-header {
+    background: #f8f9fb;
+    border-bottom: 1px solid #e6ebf2;
+}
+
+.bd-pos-modal .modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.bd-pos-modal .modal-footer {
+    border-top: 1px solid #e6ebf2;
+    background: #fff;
+}
+
+.bd-pos-layout {
+    height: 100%;
+}
+
+.bd-sidebar {
+    background: #f5f7fb;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.bd-service-catalog-wrap {
+    max-height: calc(100vh - 225px);
+    overflow-y: auto;
+}
+
+.bd-sidebar-tab-bar {
+    flex: 0 0 auto;
+}
+
+.bd-sidebar-tab-content {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.bd-sidebar-pane {
+    height: 100%;
+    overflow-y: auto;
+}
+
+.bd-sidebar-tab-bar .btn-group .btn.active {
+    color: #198754;
+    background: #e8f6ee;
+    border-color: #9cd8b5;
+    font-weight: 700;
+}
+
+.bd-service-item {
+    border: 1px solid #dee3eb;
+    border-radius: 10px;
+    padding: 10px;
+    background: #fff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.bd-service-item:hover {
+    border-color: #8cc7a8;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.bd-main-panel {
+    background: #fff;
+    min-height: 0;
+}
+
+.bd-invoice-table thead th {
+    background: #f3f6fa;
+    color: #4b5563;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+}
+
+.bd-invoice-table td,
+.bd-invoice-table th {
+    vertical-align: middle;
+}
+
+@media (max-width: 991.98px) {
+    .bd-pos-layout {
+        height: auto;
+        min-height: 100%;
+    }
+
+    .bd-service-catalog-wrap {
+        max-height: 35vh;
+    }
 }

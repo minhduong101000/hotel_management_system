@@ -24,7 +24,7 @@ function openOrderModal(roomNumber) {
     // Mở Modal
     const modalEl = document.getElementById('orderModal');
     if(modalEl) {
-        const modal = new bootstrap.Modal(modalEl);
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
         modal.show();
     }
 
