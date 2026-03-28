@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // 1. TẢI DỮ LIỆU
 // ========================================================
 function loadData() {
-    fetch('/api/prices/all-data')
+    fetch(api('/api/prices/all-data'))
         .then(res => res.json())
         .then(data => {
             if (data.error) { alert(data.error); return; }
@@ -150,7 +150,7 @@ function updateBase(id) {
     const next = document.getElementById(`base-next-${id}`).value;
     
     // Gửi JSON khớp với API backend đã sửa
-    fetch('/api/prices/update-base', {
+    fetch(api('/api/prices/update-base'), {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ 
@@ -242,7 +242,7 @@ function saveRule() {
         return; 
     }
 
-    fetch('/api/prices/save-rule', {
+    fetch(api('/api/prices/save-rule'), {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(payload)
@@ -258,7 +258,7 @@ function saveRule() {
 
 function deleteRule(id) {
     if(confirm("Xóa luật giá này?")) {
-        fetch(`/api/prices/delete-rule/${id}`, {method: 'DELETE'})
+        fetch(api(`/api/prices/delete-rule/${id}`), {method: 'DELETE'})
         .then(res => res.json()).then(() => loadData());
     }
 }

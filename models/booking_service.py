@@ -5,6 +5,7 @@ class BookingService(db.Model):
     __tablename__ = 'booking_services'
 
     id = db.Column(db.Integer, primary_key=True)
+    hotel_id = db.Column(db.Integer, db.ForeignKey('hotels.id'), nullable=False)
     
     # Khóa ngoại
     booking_id = db.Column(db.Integer, db.ForeignKey('bookings.id'), nullable=False)

@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function loadCustomers() {
     const keyword = document.getElementById('search-input').value;
     // Gắn từ khóa vào URL API: /api/customers?q=abc
-    const url = keyword ? `/api/customers?q=${encodeURIComponent(keyword)}` : '/api/customers';
+    const url = api(keyword ? `/api/customers?q=${encodeURIComponent(keyword)}` : '/api/customers');
 
     fetch(url)
         .then(res => res.json())
@@ -79,7 +79,7 @@ function saveCustomer() {
         return;
     }
 
-    const url = id ? `/api/customers/${id}` : '/api/customers';
+    const url = api(id ? `/api/customers/${id}` : '/api/customers');
     const method = id ? 'PUT' : 'POST';
 
     fetch(url, {
@@ -107,7 +107,7 @@ function saveCustomer() {
 // 5. XÓA KHÁCH HÀNG
 function deleteCustomer(id) {
     if (confirm('Bạn có chắc chắn muốn xóa khách hàng này?')) {
-        fetch(`/api/customers/${id}`, { method: 'DELETE' })
+        fetch(api(`/api/customers/${id}`), { method: 'DELETE' })
             .then(res => res.json())
             .then(data => {
                 if (data.success) {

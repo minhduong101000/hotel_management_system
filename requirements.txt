@@ -5,3 +5,4 @@ pymysql
 Flask-Migrate
 python-dotenv
 email-validator
+Flask-Mail==0.9.1

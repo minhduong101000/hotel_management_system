@@ -3,7 +3,8 @@ from extensions import db
 class Room(db.Model):
     __tablename__ = 'rooms'
     id = db.Column(db.Integer, primary_key=True)
-    room_number = db.Column(db.String(10), unique=True, nullable=False)
+    hotel_id = db.Column(db.Integer, db.ForeignKey('hotels.id'), nullable=False)
+    room_number = db.Column(db.String(10), nullable=False)
     room_type = db.Column(db.String(20), nullable=False) # Standard, Deluxe, Suite
     
     # Giá mặc định

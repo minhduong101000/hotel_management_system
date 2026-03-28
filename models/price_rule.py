@@ -3,6 +3,7 @@ from extensions import db
 class PriceRule(db.Model):
     __tablename__ = 'price_rules'
     id = db.Column(db.Integer, primary_key=True)
+    hotel_id = db.Column(db.Integer, db.ForeignKey('hotels.id'), nullable=False)
     name = db.Column(db.String(100), nullable=False)
     room_type = db.Column(db.String(50), nullable=False)
     is_active = db.Column(db.Boolean, default=True)

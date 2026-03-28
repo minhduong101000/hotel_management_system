@@ -155,7 +155,7 @@ function loadBillingList() {
     const tbody = document.getElementById('billing-table-body');
     tbody.innerHTML = '<tr><td colspan="7" class="text-center py-5 text-muted"><div class="spinner-border spinner-border-sm text-primary me-2"></div> Đang tải dữ liệu...</td></tr>';
 
-    let url = `/api/billing/list?start=${start}&end=${end}`;
+    let url = api(`/api/billing/list?start=${start}&end=${end}`);
 
     fetch(url)
         .then(res => res.json())
@@ -215,7 +215,7 @@ function renderTable(bookings) {
 }
 
 function viewDetail(id) {
-    fetch(`/api/billing/detail/${id}?type=room`)
+    fetch(api(`/api/billing/detail/${id}?type=room`))
         .then(res => res.json())
         .then(data => {
             if (!data.success) { alert(data.msg); return; }

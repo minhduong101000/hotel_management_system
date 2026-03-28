@@ -200,7 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function loadServices() {
-    fetch('/api/services').then(r => r.json()).then(data => {
+    fetch(api('/api/services')).then(r => r.json()).then(data => {
         const linkSel = document.getElementById('wh-service');
         linkSel.innerHTML = '<option value="">-- Không liên kết --</option>';
         data.forEach(s => {
@@ -216,7 +216,7 @@ function loadServices() {
 }
 
 function loadWarehouseItems() {
-    fetch('/api/warehouse').then(r => r.json()).then(data => {
+    fetch(api('/api/warehouse')).then(r => r.json()).then(data => {
         warehouseItems = data || [];
         const sel = document.getElementById('wh-existing-item');
         sel.innerHTML = '<option value="">-- Tạo mới / nhập mã tay --</option>';
@@ -267,7 +267,7 @@ function loadExpenses() {
     const end = document.getElementById('filter-end').value;
     const cat = document.getElementById('filter-category').value;
 
-    let url = `/api/expenses?start=${start}&end=${end}`;
+    let url = api(`/api/expenses?start=${start}&end=${end}`);
     if (cat) url += `&category=${cat}`;
 
     fetch(url).then(r => r.json()).then(res => {
@@ -392,7 +392,7 @@ function saveExpense() {
         }
     }
 
-    fetch('/api/expenses', {
+    fetch(api('/api/expenses'), {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(payload)
@@ -411,7 +411,7 @@ function saveExpense() {
 
 function deleteExpense(id) {
     if (!confirm('Xóa chi phí này?')) return;
-    fetch(`/api/expenses/${id}`, { method: 'DELETE' })
+    fetch(api(`/api/expenses/${id}`), { method: 'DELETE' })
         .then(r => r.json())
         .then(res => {
             alert(res.msg);

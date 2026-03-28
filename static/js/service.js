@@ -30,7 +30,7 @@ function openOrderModal(roomNumber) {
 
     // Gọi API lấy Menu (Cache lại để đỡ gọi nhiều lần)
     if (serviceMenu.length === 0) {
-        fetch('/api/services')
+        fetch(api('/api/services'))
             .then(res => res.json())
             .then(data => {
                 serviceMenu = data;
@@ -174,7 +174,7 @@ function submitOrder() {
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
     }
 
-    fetch('/api/orders/add', {
+    fetch(api('/api/orders/add'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -230,7 +230,7 @@ function saveServiceChanges() {
     });
 
     // Gọi API cập nhật
-    fetch('/api/bookings/update_services', {
+    fetch(api('/api/bookings/update_services'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

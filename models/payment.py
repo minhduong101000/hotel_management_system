@@ -4,10 +4,11 @@ class Payment(db.Model):
     __tablename__ = 'payments'
 
     __table_args__ = (
-        db.Index('ix_payments_booking_id', 'booking_id'),
+        db.Index('ix_payments_hotel_booking', 'hotel_id', 'booking_id'),
     )
 
     id = db.Column(db.Integer, primary_key=True)
+    hotel_id = db.Column(db.Integer, db.ForeignKey('hotels.id'), nullable=False)
     
     booking_id = db.Column(db.Integer, db.ForeignKey('bookings.id'), nullable=False)
     # created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True) # Bật nếu cần track nhân viên

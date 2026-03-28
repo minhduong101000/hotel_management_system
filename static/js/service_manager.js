@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', loadServices);
 
 // 1. TẢI DANH SÁCH
 function loadServices() {
-    fetch('/api/services')
+    fetch(api('/api/services'))
         .then(res => res.json())
         .then(data => {
             const tbody = document.getElementById('service-table-body');
@@ -58,7 +58,7 @@ function saveService() {
         return;
     }
 
-    const url = id ? `/api/services/${id}` : '/api/services';
+    const url = api(id ? `/api/services/${id}` : '/api/services');
     const method = id ? 'PUT' : 'POST';
 
     fetch(url, {

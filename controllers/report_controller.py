@@ -110,42 +110,87 @@ def get_revenue_data():
         ).group_by(func.date(Expense.created_at)).all()
 
         # Tổ chức lại dữ liệu biểu đồ
+        from models.room import Room
+        total_rooms_count = Room.query.count() or 1
         chart_map = {}
+        
+        # Lấy danh sách booking active trong kỳ này một lần để tính occupancy cho từng ngày
+        active_bookings = BookingRoom.query.filter(
+            BookingRoom.status.in_(['checked_in', 'checked_out']),
+            BookingRoom.check_in_actual <= end_date,
+            func.coalesce(BookingRoom.check_out_actual, now) >= start_date
+        ).all()
+
+        # Tạo map cho tất cả các ngày trong khoảng (để biểu đồ không bị gãy)
+        temp_date = start_date
+        while temp_date <= end_date:
+            d_str = temp_date.strftime('%d/%m')
+            
+            # Tính occupancy cho ngày này
+            d_start = temp_date.replace(hour=0, minute=0, second=0)
+            d_end = temp_date.replace(hour=23, minute=59, second=59)
+            
+            occupied_nights_on_day = 0
+            for b in active_bookings:
+                if b.check_in_actual <= d_end and (b.check_out_actual or now) >= d_start:
+                    overlap_start = max(b.check_in_actual, d_start)
+                    overlap_end = min(b.check_out_actual or now, d_end)
+                    overlap_sec = (overlap_end - overlap_start).total_seconds()
+                    # 12h = 0.5 ngày lấp đầy
+                    occupied_nights_on_day += overlap_sec / 86400.0
+            
+            occ_rate = min(100.0, round((occupied_nights_on_day / total_rooms_count) * 100, 1))
+            
+            chart_map[d_str] = {
+                'revenue': 0, 
+                'expense': 0, 
+                'occupancy_rate': occ_rate
+            }
+            temp_date += timedelta(days=1)
+
         for r in daily_revenue:
             d_str = r.date.strftime('%d/%m')
-            chart_map[d_str] = {'revenue': float(r.revenue or 0), 'expense': 0}
+            if d_str in chart_map:
+                chart_map[d_str]['revenue'] = float(r.revenue or 0)
         
         for e in daily_expenses:
             d_str = e.date.strftime('%d/%m')
-            if d_str not in chart_map:
-                chart_map[d_str] = {'revenue': 0, 'expense': 0}
-            chart_map[d_str]['expense'] = float(e.expense or 0)
+            if d_str in chart_map:
+                chart_map[d_str]['expense'] = float(e.expense or 0)
 
         chart_data = []
-        for d_str in sorted(chart_map.keys()):
-            chart_data.append({
-                'date': d_str,
-                'revenue': chart_map[d_str]['revenue'],
-                'expense': chart_map[d_str]['expense']
-            })
+        for d_str in sorted(chart_map.keys(), key=lambda x: datetime.strptime(x, '%d/%m').replace(year=now.year)):
+            item = chart_map[d_str]
+            item['date'] = d_str
+            chart_data.append(item)
 
-        # ... (Top rooms extraction remains same)
+        # Tỷ lệ lấp đầy trung bình (Giữ lại để hiển thị nếu cần, hoặc bỏ qua)
+        num_days = (end_date - start_date).days or 1
+        total_available_room_nights = total_rooms_count * num_days
+        total_occupied_room_nights = sum([v['occupancy_rate'] * total_rooms_count / 100.0 for v in chart_map.values()])
+        occupancy_rate = min(100.0, round((total_occupied_room_nights / total_available_room_nights) * 100, 1))
+
+        # 8. Top rooms với category
         top_rooms = db.session.query(
             BookingRoom.room_id,
+            Room.room_number,
+            Room.room_type,
             func.count(BookingRoom.id).label('count'),
             func.sum(BookingRoom.final_amount).label('total')
-        ).join(Booking, Booking.id == BookingRoom.booking_id).filter(
+        ).join(Booking, Booking.id == BookingRoom.booking_id)\
+         .join(Room, Room.id == BookingRoom.id)\
+         .filter(
             BookingRoom.status.in_(['checked_out', 'cancelled']),
             finalized_time >= start_date,
             finalized_time <= end_date
-        ).group_by(BookingRoom.room_id).order_by(func.sum(BookingRoom.final_amount).desc()).limit(5).all()
-
+        ).group_by(BookingRoom.room_id, Room.room_number, Room.room_type)\
+         .order_by(func.sum(BookingRoom.final_amount).desc()).limit(5).all()
+ 
         top_rooms_data = []
         for tr in top_rooms:
-            from models.room import Room
-            room = Room.query.get(tr.room_id)
             top_rooms_data.append({
-                'room_number': room.room_number if room else f'#{tr.room_id}',
+                'room_number': tr.room_number,
+                'room_type': tr.room_type,
                 'count': tr.count,
                 'total': float(tr.total or 0)
             })
@@ -158,6 +203,7 @@ def get_revenue_data():
                 'total_expenses': float(total_expenses or 0),
                 'net_profit': float(room_revenue or 0) - float(total_expenses or 0),
                 'completed_bookings': completed_bookings,
+                'occupancy_rate': occupancy_rate,
                 'chart': chart_data,
                 'top_rooms': top_rooms_data,
                 'period': {

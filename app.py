@@ -1,5 +1,5 @@
-from flask import Flask, redirect, url_for
-from extensions import db, login_manager 
+from flask import Flask, redirect, url_for, g, abort
+from extensions import db, login_manager, mail 
 from flask_migrate import Migrate
 import warnings
 from models import User
@@ -7,6 +7,7 @@ from models.inventory_item import InventoryItem
 from models.expense import Expense
 from models.booking import Booking
 from models.booking_room import BookingRoom
+from models.hotel import Hotel
 from config import Config
 from sqlalchemy import inspect, text
 
@@ -33,6 +34,7 @@ app.config.from_object(Config)
 # --- 2. KHỞI TẠO EXTENSIONS ---
 db.init_app(app)
 login_manager.init_app(app)
+mail.init_app(app)
 migrate = Migrate(app, db)
 
 # --- [QUAN TRỌNG] CẤU HÌNH LOGIN MANAGER ---
@@ -49,26 +51,81 @@ def load_user(user_uniquifier):
     """
     return User.query.filter_by(fs_uniquifier=user_uniquifier).first()
 
-# --- 3. ĐĂNG KÝ BLUEPRINTS ---
-app.register_blueprint(auth_bp)
-app.register_blueprint(customer_bp)
-app.register_blueprint(room_bp)
-app.register_blueprint(timeline_bp)
-app.register_blueprint(service_bp)
-app.register_blueprint(billing_bp)
-app.register_blueprint(warehouse_bp)
-app.register_blueprint(staff_bp)
-app.register_blueprint(report_bp)
-app.register_blueprint(price_bp)
-app.register_blueprint(booking_bp)
-app.register_blueprint(expense_bp)
-app.register_blueprint(cashier_bp)
+# --- 3. ĐĂNG KÝ BLUEPRINTS VỚI TENANT PREFIX ---
+# Tất cả các route nghiệp vụ sẽ có tiền tố /<hotel_slug>/
+tenant_prefix = '/<hotel_slug>'
 
-# --- 4. ROUTES HỆ THỐNG ---
+app.register_blueprint(auth_bp, url_prefix=tenant_prefix)
+app.register_blueprint(customer_bp, url_prefix=f"{tenant_prefix}/customers")
+app.register_blueprint(room_bp, url_prefix=f"{tenant_prefix}/rooms")
+app.register_blueprint(timeline_bp, url_prefix=f"{tenant_prefix}/timeline")
+app.register_blueprint(service_bp, url_prefix=f"{tenant_prefix}/services")
+app.register_blueprint(billing_bp, url_prefix=f"{tenant_prefix}/billing")
+app.register_blueprint(warehouse_bp, url_prefix=f"{tenant_prefix}/warehouse")
+app.register_blueprint(staff_bp, url_prefix=f"{tenant_prefix}/staff")
+app.register_blueprint(report_bp, url_prefix=f"{tenant_prefix}/reports")
+app.register_blueprint(price_bp, url_prefix=f"{tenant_prefix}/prices")
+app.register_blueprint(booking_bp, url_prefix=f"{tenant_prefix}/bookings")
+app.register_blueprint(expense_bp, url_prefix=f"{tenant_prefix}/expenses")
+app.register_blueprint(cashier_bp, url_prefix=f"{tenant_prefix}/cashier")
+
+# --- 4. XỬ LÝ ĐA TENANT (URL SLUG) ---
+
+@app.url_value_preprocessor
+def pull_hotel_slug(endpoint, values):
+    """Lấy hotel_slug từ URL và đưa vào biến toàn cục g."""
+    if values and 'hotel_slug' in values:
+        g.hotel_slug = values.pop('hotel_slug')
+    elif 'hotel_slug' in g:
+        pass
+    else:
+        # Fallback if slug is somehow missing but we are in a tenant route
+        pass
+
+@app.url_defaults
+def add_language_code(endpoint, values):
+    """Auto-inject hotel_slug in url_for(...) and add cache-buster for static files"""
+    if 'hotel_slug' in values or not getattr(g, 'hotel_slug', None):
+        pass
+    else:
+        if app.url_map.is_endpoint_expecting(endpoint, 'hotel_slug'):
+            values['hotel_slug'] = g.hotel_slug
+
+    # Cache buster for static files
+    if endpoint == 'static':
+        import time
+        values['v'] = int(time.time() / 10) # Change every 10 seconds for dev/testing
+
+@app.context_processor
+def inject_hotel_slug():
+    """Đảm bảo hotel_slug luôn có sẵn cho template Jinja."""
+    return dict(hotel_slug=getattr(g, 'hotel_slug', ''))
+
+@app.before_request
+def load_current_hotel():
+    """Tải thông tin khách sạn hiện tại dựa trên slug và kiểm tra quyền truy cập."""
+    # Bỏ qua các endpoint không cần slug (static, index...)
+    if not getattr(g, 'hotel_slug', None):
+        return
+        
+    hotel = Hotel.query.filter_by(slug=g.hotel_slug, is_active=True).first()
+    if not hotel:
+        abort(404, description="Khách sạn không tồn tại hoặc đã ngừng hoạt động.")
+    
+    g.current_hotel = hotel
+    g.hotel_id = hotel.id
+
+    # RÀO CHẮN BẢO MẬT: Nếu đã login, phải thuộc khách sạn này (hoặc là Super Admin)
+    from flask_login import current_user
+    if current_user.is_authenticated:
+        if not current_user.is_super_admin and current_user.hotel_id != g.hotel_id:
+            abort(403, description="Bạn không có quyền truy cập vào khách sạn này.")
+
+# --- 5. ROUTES HỆ THỐNG ---
 @app.route('/')
 def index():
-    # Chuyển hướng về trang sơ đồ phòng sau khi vào trang chủ
-    return redirect(url_for('room.map_view')) 
+    # Mặc định chuyển về khách sạn 'central'
+    return redirect(url_for('room.map_view', hotel_slug='central')) 
 
 
 def ensure_schema_updates():

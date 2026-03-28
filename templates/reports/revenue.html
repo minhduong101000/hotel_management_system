@@ -21,7 +21,7 @@
 
     <!-- Stats Cards -->
     <div class="row g-3 mb-4">
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="card border-0 shadow-sm h-100 bg-primary bg-opacity-10">
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
@@ -36,7 +36,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
             <div class="card border-0 shadow-sm h-100 bg-success bg-opacity-10">
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
@@ -51,7 +51,22 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100 bg-warning bg-opacity-10">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <small class="text-muted text-uppercase fw-bold">Tổng chi phí</small>
+                            <h4 class="fw-bold text-warning mb-0" id="stat-expenses">0</h4>
+                        </div>
+                        <div class="bg-warning rounded-circle d-flex align-items-center justify-content-center text-white" style="width:48px;height:48px">
+                            <i class="fas fa-wallet fa-lg"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
             <div class="card border-0 shadow-sm h-100 bg-dark bg-opacity-10">
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
@@ -68,24 +83,41 @@
         </div>
     </div>
 
-    <div class="row g-3">
-        <!-- Chart -->
-        <div class="col-md-8">
+    <!-- Charts Row -->
+    <div class="row g-3 mb-4">
+        <!-- Revenue Chart -->
+        <div class="col-md-6">
             <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white fw-bold"><i class="fas fa-chart-bar me-2 text-primary"></i>Biểu đồ Doanh thu theo ngày</div>
+                <div class="card-header bg-white fw-bold d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-chart-bar me-2 text-primary"></i>Biểu đồ Doanh thu & Chi phí</span>
+                </div>
                 <div class="card-body">
-                    <canvas id="revenueChart" height="300"></canvas>
+                    <canvas id="revenueChart" height="250"></canvas>
                 </div>
             </div>
         </div>
-        <!-- Top rooms -->
-        <div class="col-md-4">
+        <!-- Occupancy Chart -->
+        <div class="col-md-6">
             <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-white fw-bold"><i class="fas fa-trophy me-2 text-warning"></i>Top phòng doanh thu</div>
+                <div class="card-header bg-white fw-bold">
+                    <span><i class="fas fa-bed me-2 text-warning"></i>Tỉ lệ lấp đầy phòng (%)</span>
+                </div>
+                <div class="card-body">
+                    <canvas id="occupancyChart" height="250"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <!-- Top rooms -->
+        <div class="col-md-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white fw-bold"><i class="fas fa-trophy me-2 text-warning"></i>Top phòng doanh thu cao nhất</div>
                 <div class="card-body p-0">
-                    <table class="table table-sm mb-0">
-                        <thead class="table-light"><tr><th>Phòng</th><th class="text-center">Lượt</th><th class="text-end">Doanh thu</th></tr></thead>
-                        <tbody id="top-rooms-body"><tr><td colspan="3" class="text-center text-muted py-3">Đang tải...</td></tr></tbody>
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light"><tr><th>Hạng</th><th>Số phòng</th><th>Loại phòng</th><th class="text-center">Số lượt booking</th><th class="text-end">Tổng doanh thu</th></tr></thead>
+                        <tbody id="top-rooms-body"><tr><td colspan="5" class="text-center text-muted py-3">Đang tải...</td></tr></tbody>
                     </table>
                 </div>
             </div>
@@ -97,7 +129,8 @@
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-let chartInstance = null;
+let revenueChart = null;
+let occupancyChart = null;
 
 document.addEventListener('DOMContentLoaded', () => loadRevenue());
 
@@ -111,7 +144,7 @@ function fmtMoney(n) { return new Intl.NumberFormat('vi-VN').format(Math.round(n
 
 function loadRevenue() {
     const period = document.getElementById('period-select').value;
-    let url = `/api/reports/revenue?period=${period}`;
+    let url = api(`/api/reports/revenue?period=${period}`);
     if (period === 'custom') {
         url += `&start=${document.getElementById('date-start').value}&end=${document.getElementById('date-end').value}`;
     }
@@ -122,12 +155,13 @@ function loadRevenue() {
         
         document.getElementById('stat-revenue').textContent = fmtMoney(d.room_revenue) + ' đ';
         document.getElementById('stat-cash').textContent = fmtMoney(d.total_net_payment) + ' đ';
+        document.getElementById('stat-expenses').textContent = fmtMoney(d.total_expenses) + ' đ';
         document.getElementById('stat-profit').textContent = fmtMoney(d.net_profit) + ' đ';
         
-        // Chart
-        if (chartInstance) chartInstance.destroy();
-        const ctx = document.getElementById('revenueChart').getContext('2d');
-        chartInstance = new Chart(ctx, {
+        // 1. Revenue & Expense Chart
+        if (revenueChart) revenueChart.destroy();
+        const ctxRev = document.getElementById('revenueChart').getContext('2d');
+        revenueChart = new Chart(ctxRev, {
             type: 'bar',
             data: {
                 labels: d.chart.map(c => c.date),
@@ -138,13 +172,20 @@ function loadRevenue() {
                         backgroundColor: 'rgba(59, 130, 246, 0.7)',
                         borderColor: 'rgb(59, 130, 246)',
                         borderWidth: 1, borderRadius: 4
+                    },
+                    {
+                        label: 'Chi phí',
+                        data: d.chart.map(c => c.expense),
+                        backgroundColor: 'rgba(239, 68, 68, 0.7)',
+                        borderColor: 'rgb(239, 68, 68)',
+                        borderWidth: 1, borderRadius: 4
                     }
                 ]
             },
             options: {
                 responsive: true, maintainAspectRatio: false,
                 plugins: { 
-                    legend: { display: false },
+                    legend: { position: 'top' },
                     tooltip: {
                         callbacks: {
                             label: function(context) {
@@ -157,21 +198,56 @@ function loadRevenue() {
                     }
                 },
                 scales: { 
+                    y: { beginAtZero: true, ticks: { callback: v => fmtMoney(v) } } 
+                }
+            }
+        });
+
+        // 2. Occupancy Rate Chart
+        if (occupancyChart) occupancyChart.destroy();
+        const ctxOcc = document.getElementById('occupancyChart').getContext('2d');
+        occupancyChart = new Chart(ctxOcc, {
+            type: 'line',
+            data: {
+                labels: d.chart.map(c => c.date),
+                datasets: [{
+                    label: 'Tỉ lệ lấp đầy (%)',
+                    data: d.chart.map(c => c.occupancy_rate),
+                    borderColor: 'rgb(245, 158, 11)',
+                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                    borderWidth: 3, fill: true, tension: 0.3, pointRadius: 4
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `Tỉ lệ: ${context.parsed.y}%`;
+                            }
+                        }
+                    }
+                },
+                scales: {
                     y: { 
-                        beginAtZero: true, 
-                        ticks: { callback: v => fmtMoney(v) } 
-                    } 
+                        beginAtZero: true, max: 100,
+                        ticks: { callback: v => v + '%' }
+                    }
                 }
             }
         });
         
         // Top rooms
         const tbody = document.getElementById('top-rooms-body');
-        if (!d.top_rooms.length) { tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-3">Chưa có dữ liệu</td></tr>'; return; }
+        if (!d.top_rooms.length) { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">Chưa có dữ liệu</td></tr>'; return; }
         tbody.innerHTML = d.top_rooms.map((r, i) => `<tr>
-            <td><span class="badge ${i===0?'bg-warning text-dark':i===1?'bg-secondary':'bg-light text-dark'} me-1">${i+1}</span>${r.room_number}</td>
+            <td><span class="badge ${i===0?'bg-warning text-dark':i===1?'bg-secondary':'bg-light text-dark'} ">Top ${i+1}</span></td>
+            <td class="fw-bold">${r.room_number}</td>
+            <td><small class="text-muted">${r.room_type || 'N/A'}</small></td>
             <td class="text-center">${r.count}</td>
-            <td class="text-end fw-bold text-success">${fmtMoney(r.total)}</td>
+            <td class="text-end fw-bold text-success">${fmtMoney(r.total)} đ</td>
         </tr>`).join('');
     });
 }

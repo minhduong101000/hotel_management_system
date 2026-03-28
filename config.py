@@ -15,3 +15,11 @@ class Config:
     HOTEL_PHONE = os.environ.get('HOTEL_PHONE', '0987 654 321')
     HOTEL_EMAIL = os.environ.get('HOTEL_EMAIL', 'contact@hotelpos.vn')
     HOTEL_LOGO_URL = os.environ.get('HOTEL_LOGO_URL', '/static/img/hotel-logo.png')
+    
+    # SMTP Config per automatic email notifications
+    MAIL_SERVER = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
+    MAIL_PORT = int(os.environ.get('MAIL_PORT', 587))
+    MAIL_USE_TLS = os.environ.get('MAIL_USE_TLS', 'True').lower() == 'true'
+    MAIL_USERNAME = os.environ.get('MAIL_USERNAME', 'xxx@gmail.com')
+    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
+    MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER', 'xxx@gmail.com')

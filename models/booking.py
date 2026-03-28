@@ -4,11 +4,12 @@ class Booking(db.Model):
     __tablename__ = 'bookings' # Lưu ý: SQL bạn để là bookings (số nhiều)
 
     __table_args__ = (
-        db.Index('ix_bookings_status', 'status'),
+        db.Index('ix_bookings_hotel_status', 'hotel_id', 'status'),
     )
 
     id = db.Column(db.Integer, primary_key=True)
-    code = db.Column(db.String(20), unique=True, nullable=False)
+    hotel_id = db.Column(db.Integer, db.ForeignKey('hotels.id'), nullable=False)
+    code = db.Column(db.String(20), nullable=False)
     
     # Khóa ngoại: Khách hàng
     customer_id = db.Column(db.Integer, db.ForeignKey('customers.id'), nullable=False)

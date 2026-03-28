@@ -45,7 +45,7 @@ function checkOut(roomNumber, bookingId = null) {
     }
 
     // Gọi API xem trước hóa đơn
-    fetch('/api/rooms/preview_checkout', {
+    fetch(api('/api/rooms/preview_checkout'), {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(payload)
@@ -235,7 +235,7 @@ function changeServiceQty(serviceId, changeValue, currentQty) {
     
     document.body.style.cursor = 'wait';
 
-    fetch('/api/bookings/update_service_quantity', {
+    fetch(api('/api/bookings/update_service_quantity'), {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
@@ -285,7 +285,7 @@ function confirmCheckout() {
         payload.booking_id = currentBookingId;
     }
 
-    fetch('/api/rooms/checkout', {
+    fetch(api('/api/rooms/checkout'), {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(payload)
@@ -368,7 +368,7 @@ function openGroupCheckout(passedBookingId = null) {
     currentBookingId = bookingId;
 
     const query = groupCheckoutIncludeTax ? '?include_tax=true' : '?include_tax=false';
-    fetch(`/api/bookings/${bookingId}/group_billing${query}`)
+    fetch(api(`/api/bookings/${bookingId}/group_billing${query}`))
         .then(response => response.json())
         .then(res => {
             if (!res.success) { alert(res.msg); return; }
@@ -485,7 +485,7 @@ function submitGroupCheckout() {
     }
 
     // Gọi API Backend để Checkout
-    fetch(`/api/bookings/${currentBookingId}/group_checkout`, {
+    fetch(api(`/api/bookings/${currentBookingId}/group_checkout`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

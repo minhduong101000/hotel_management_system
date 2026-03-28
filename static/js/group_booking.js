@@ -72,7 +72,7 @@ function searchRoomsForGroup() {
     `;
 
     // Gọi API
-    fetch('/api/rooms/search', {
+    fetch(api('/api/rooms/search'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -314,7 +314,7 @@ function submitGroupBooking() {
         note: note
     };
 
-    fetch('/api/bookings/group_create', {
+    fetch(api('/api/bookings/group_create'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -360,7 +360,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (phone.length < 4) return;
 
             debounceTimer = setTimeout(() => {
-                fetch(`/api/customers?q=${phone}`)
+                fetch(api(`/api/customers?q=${phone}`))
                     .then(res => res.json())
                     .then(data => {
                         const exactMatch = data.find(c => c.phone === phone);

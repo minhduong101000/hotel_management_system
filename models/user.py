@@ -11,6 +11,10 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(20), default='staff') # 'admin' hoặc 'staff'
     
+    # Multi-tenant fields
+    hotel_id = db.Column(db.Integer, db.ForeignKey('hotels.id'), nullable=True)
+    is_super_admin = db.Column(db.Boolean, default=False)
+    
     # Cột này dùng để xử lý việc "Đăng xuất từ xa"
     # Mỗi khi đổi mật khẩu, ta sẽ tạo lại mã mới cho cột này
     fs_uniquifier = db.Column(db.String(64), unique=True, nullable=False, default=lambda: str(uuid.uuid4()))

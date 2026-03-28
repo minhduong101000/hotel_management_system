@@ -159,7 +159,7 @@ function loadCashierData() {
         return;
     }
 
-    let url = `/api/reports/cashier?period=${period}`;
+    let url = api(`/api/reports/cashier?period=${period}`);
     if (period === 'custom') {
         url += `&start=${start}&end=${end}`;
     }
@@ -250,7 +250,7 @@ function renderTable(records) {
 
 <script>
 function openDepositInvoice(bookingId) {
-    window.open(`/api/bookings/${bookingId}/deposit-invoice`, '_blank');
+    window.open(api(`/api/bookings/${bookingId}/deposit-invoice`), '_blank');
 }
 
 function printDepositInvoice() {
@@ -259,7 +259,7 @@ function printDepositInvoice() {
         alert('Vui lòng nhập Booking ID hợp lệ!');
         return;
     }
-    window.open(`/api/bookings/${bookingId}/deposit-invoice`, '_blank');
+    window.open(api(`/api/bookings/${bookingId}/deposit-invoice`), '_blank');
 }
 </script>
 

@@ -1,4 +1,5 @@
 from .user import User
+from .hotel import Hotel
 from .room import Room
 from .customer import Customer
 from .booking import Booking
@@ -8,5 +9,5 @@ from .service import Service
 from .payment import Payment
 from .price_rule import PriceRule
 
-__all__ = ['User', 'Room', 'Customer', 'Booking', 'BookingRoom', 
+__all__ = ['User', 'Hotel', 'Room', 'Customer', 'Booking', 'BookingRoom', 
            'BookingService', 'Service', 'Payment', 'PriceRule']

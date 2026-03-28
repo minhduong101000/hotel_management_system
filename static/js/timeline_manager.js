@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // 1. LOAD TIMELINE (VIS.JS)
 // ========================================================
 function loadTimeline() {
-    fetch('/api/bookings/timeline')
+    fetch(api('/api/bookings/timeline'))
         .then(res => res.json())
         .then(data => {
             // Lưu map để dùng khi click tạo mới
@@ -152,7 +152,7 @@ function submitFullBooking(status) {
 
     if(!data.phone) { alert("Vui lòng nhập Số điện thoại khách!"); return; }
 
-    fetch('/api/bookings/create', {
+    fetch(api('/api/bookings/create'), {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(data)
@@ -181,7 +181,7 @@ function openEditModal(bookingRoomId, bookingId) {
     document.getElementById('edit-booking-id').value = bookingId || ''; 
 
     // Bước 1: Load danh sách phòng
-    fetch('/api/rooms').then(r => r.json()).then(rData => {
+    fetch(api('/api/rooms')).then(r => r.json()).then(rData => {
         const sel = document.getElementById('edit-room-select');
         sel.innerHTML = '';
         let rooms = rData.rooms || rData; 
@@ -190,7 +190,7 @@ function openEditModal(bookingRoomId, bookingId) {
         });
 
         // Bước 2: Lấy chi tiết BookingRoom (để điền giờ cụ thể của phòng này)
-        return fetch('/api/bookings/' + bookingRoomId); 
+        return fetch(api('/api/bookings/' + bookingRoomId)); 
     }).then(r => r.json()).then(data => {
         if (data.success === false) {
             alert(data.msg || 'Không thể mở booking này.');
@@ -269,7 +269,7 @@ function saveBookingChanges() {
         const isForceMajeure = chkForce ? chkForce.checked : false;
         const refundPercent = document.getElementById('refund-percent').value || 0;
 
-        fetch('/api/bookings/cancel', {
+        fetch(api('/api/bookings/cancel'), {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
@@ -305,7 +305,7 @@ function saveBookingChanges() {
             customer_address: document.getElementById('edit-address').value
         };
 
-        fetch('/api/bookings/update', {
+        fetch(api('/api/bookings/update'), {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(data)
@@ -480,7 +480,7 @@ async function bdApplyLiveRoomPricing(detail) {
     }
 
     try {
-        const res = await fetch('/api/rooms/preview_checkout', {
+        const res = await fetch(api('/api/rooms/preview_checkout'), {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
@@ -722,9 +722,9 @@ async function openBookingDetailModal() {
 
     try {
         const [detailRes, roomsRes, catalogRes] = await Promise.all([
-            fetch('/api/bookings/' + bookingRoomId),
-            fetch('/api/rooms'),
-            fetch('/api/bookings/services-catalog')
+            fetch(api('/api/bookings/' + bookingRoomId)),
+            fetch(api('/api/rooms')),
+            fetch(api('/api/bookings/services-catalog'))
         ]);
 
         const detail = await detailRes.json();
@@ -871,7 +871,7 @@ function saveBookingChangesFromDetail() {
         deposit: document.getElementById('bd-deposit').value,
     };
 
-    fetch('/api/bookings/update', {
+    fetch(api('/api/bookings/update'), {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(payload)
@@ -911,7 +911,7 @@ function saveBookingServicesFromDetail() {
             quantity: Number(x.quantity),
         }));
 
-    fetch('/api/bookings/update_services', {
+    fetch(api('/api/bookings/update_services'), {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
@@ -946,7 +946,7 @@ function addRoomToExistingBooking() {
     const checkIn = document.getElementById('edit-checkin').value;
     const checkOut = document.getElementById('edit-checkout').value;
 
-    fetch('/api/bookings/add-room', {
+    fetch(api('/api/bookings/add-room'), {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
@@ -1039,7 +1039,7 @@ async function calculateQuickDeposit(percent = 0.5) {
 
     try {
         // Gọi API backend để lấy tổng tiền phòng
-        const response = await fetch('/api/bookings/calculate-price', {
+        const response = await fetch(api('/api/bookings/calculate-price'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1084,7 +1084,7 @@ function performCheckInFromTimeline() {
 
     if (!confirm(`Xác nhận nhận phòng ${roomNumber} cho khách?`)) return;
 
-    fetch('/api/rooms/checkin', {
+    fetch(api('/api/rooms/checkin'), {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ 

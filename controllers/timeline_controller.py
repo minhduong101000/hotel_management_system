@@ -1,4 +1,6 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, g
+from models.hotel import Hotel
+from services.notification_service import send_booking_notification
 from flask_login import login_required
 from sqlalchemy.orm import joinedload
 from extensions import db
@@ -505,6 +507,14 @@ def create_booking():
 
         db.session.add(new_br)
         db.session.commit()
+
+        # --- GỬI EMAIL THÔNG BÁO CHO CHỦ KHÁCH SẠN ---
+        try:
+            hotel = Hotel.query.get(g.hotel_id)
+            if hotel:
+                send_booking_notification(new_booking, hotel)
+        except Exception as mail_err:
+            print(f"Error triggering email notification: {mail_err}")
         
         return jsonify({'success': True, 'msg': 'Tạo booking thành công!', 'code': code})
         

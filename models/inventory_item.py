@@ -4,8 +4,13 @@ class InventoryItem(db.Model):
     __tablename__ = 'inventory_items'
 
     id = db.Column(db.Integer, primary_key=True)
-    code = db.Column(db.String(20), unique=True, nullable=False)
+    hotel_id = db.Column(db.Integer, db.ForeignKey('hotels.id'), nullable=False)
+    code = db.Column(db.String(20), nullable=False)
     name = db.Column(db.String(100), nullable=False)
+    
+    __table_args__ = (
+        db.UniqueConstraint('hotel_id', 'code', name='_hotel_inv_code_uc'),
+    )
     unit = db.Column(db.String(20), default='cái')  # cái, chai, gói, kg...
     quantity = db.Column(db.Integer, default=0)
     min_quantity = db.Column(db.Integer, default=10)  # Ngưỡng cảnh báo hết hàng

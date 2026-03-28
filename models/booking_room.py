@@ -4,11 +4,12 @@ class BookingRoom(db.Model):
     __tablename__ = 'booking_rooms'
 
     __table_args__ = (
-        db.Index('ix_booking_rooms_status', 'status'),
-        db.Index('ix_booking_rooms_booking_id_status', 'booking_id', 'status'),
+        db.Index('ix_booking_rooms_hotel_status', 'hotel_id', 'status'),
+        db.Index('ix_booking_rooms_hotel_booking_status', 'hotel_id', 'booking_id', 'status'),
     )
 
     id = db.Column(db.Integer, primary_key=True)
+    hotel_id = db.Column(db.Integer, db.ForeignKey('hotels.id'), nullable=False)
     
     # Khóa ngoại
     booking_id = db.Column(db.Integer, db.ForeignKey('bookings.id'), nullable=False)

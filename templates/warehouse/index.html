@@ -115,14 +115,14 @@ let allItems = [];
 document.addEventListener('DOMContentLoaded', () => { loadItems(); loadServices(); });
 
 function loadItems() {
-    fetch('/api/warehouse').then(r => r.json()).then(data => {
+    fetch(api('/api/warehouse')).then(r => r.json()).then(data => {
         allItems = data;
         renderTable(data);
     });
 }
 
 function loadServices() {
-    fetch('/api/services').then(r => r.json()).then(data => {
+    fetch(api('/api/services')).then(r => r.json()).then(data => {
         const sel = document.getElementById('item-service');
         sel.innerHTML = '<option value="">-- Không liên kết --</option>';
         data.forEach(s => { sel.innerHTML += `<option value="${s.id}">${s.name}</option>`; });
@@ -197,7 +197,7 @@ function saveItem() {
         min_quantity: document.getElementById('item-min').value,
         service_id: document.getElementById('item-service').value || null
     };
-    const url = id ? `/api/warehouse/${id}` : '/api/warehouse';
+    const url = api(id ? `/api/warehouse/${id}` : '/api/warehouse');
     const method = id ? 'PUT' : 'POST';
     
     fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) })
@@ -217,7 +217,7 @@ function openRestock(id, name) {
 function confirmRestock() {
     const id = document.getElementById('restock-id').value;
     const qty = document.getElementById('restock-qty').value;
-    fetch(`/api/warehouse/${id}/restock`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({quantity: qty}) })
+    fetch(api(`/api/warehouse/${id}/restock`), { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({quantity: qty}) })
     .then(r => r.json()).then(res => {
         alert(res.msg);
         if (res.success) { bootstrap.Modal.getInstance(document.getElementById('restockModal')).hide(); loadItems(); }
@@ -226,7 +226,7 @@ function confirmRestock() {
 
 function deleteItem(id) {
     if (!confirm('Xóa vật tư này?')) return;
-    fetch(`/api/warehouse/${id}`, { method: 'DELETE' }).then(r => r.json()).then(res => {
+    fetch(api(`/api/warehouse/${id}`), { method: 'DELETE' }).then(r => r.json()).then(res => {
         alert(res.msg); if (res.success) loadItems();
     });
 }
@@ -245,7 +245,7 @@ function unlinkService(id) {
         service_id: null
     };
 
-    fetch(`/api/warehouse/${id}`, {
+    fetch(api(`/api/warehouse/${id}`), {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(payload)

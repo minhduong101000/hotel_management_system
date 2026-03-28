@@ -24,15 +24,19 @@ def login():
             flash('Tên đăng nhập hoặc mật khẩu không đúng.', 'danger')
             return redirect(url_for('auth.login'))
         
+        # 3b. KIỂM TRA TENANT (User phải thuộc khách sạn này hoặc là super admin)
+        from flask import g
+        if not user.is_super_admin and user.hotel_id != g.hotel_id:
+            flash('Tài khoản của bạn không thuộc khách sạn này.', 'warning')
+            return redirect(url_for('auth.login'))
+        
         # 4. Thực hiện đăng nhập
-        # remember=True: Giữ đăng nhập kể cả khi tắt trình duyệt (dựa trên cookie)
         login_user(user, remember=remember)
 
-        # 5. Xử lý chuyển hướng (Redirect) an toàn
-        # Nếu user bị đá ra khi đang vào trang nào đó, sau khi login sẽ quay lại đúng trang đó
+        # 5. Xử lý chuyển hướng
         next_page = request.args.get('next')
         if not next_page or urlparse(next_page).netloc != '':
-            next_page = url_for('room.map_view') # Trang mặc định sau khi login
+            next_page = url_for('room.map_view')
             
         return redirect(next_page)
 

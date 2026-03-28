@@ -4,11 +4,16 @@ class Customer(db.Model):
     __tablename__ = 'customers'
     
     id = db.Column(db.Integer, primary_key=True)
+    hotel_id = db.Column(db.Integer, db.ForeignKey('hotels.id'), nullable=False)
     name = db.Column(db.String(100), nullable=False)
     phone = db.Column(db.String(15), nullable=True)
-    email = db.Column(db.String(100), unique=True)
-    cccd = db.Column(db.String(12), unique=True) # Căn cước công dân
+    email = db.Column(db.String(100))
+    cccd = db.Column(db.String(12)) # Căn cước công dân
     address = db.Column(db.String(255))
+    
+    __table_args__ = (
+        db.UniqueConstraint('hotel_id', 'cccd', name='_hotel_cccd_uc'),
+    )
     
     # Quan hệ: Một khách có nhiều đơn đặt phòng
     bookings = db.relationship('Booking', back_populates='customer', lazy=True)

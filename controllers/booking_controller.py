@@ -1,4 +1,6 @@
-from flask import Blueprint, jsonify, request, render_template
+from flask import Blueprint, jsonify, request, render_template, g
+from models.hotel import Hotel
+from services.notification_service import send_booking_notification
 from flask_login import login_required
 from extensions import db
 from datetime import datetime, timedelta
@@ -797,6 +799,15 @@ def create_group_booking():
                     br.room_deposit_original = share
 
             db.session.commit()
+
+            # --- GỬI EMAIL THÔNG BÁO CHO CHỦ KHÁCH SẠN ---
+            try:
+                hotel = Hotel.query.get(g.hotel_id)
+                if hotel:
+                    send_booking_notification(new_booking, hotel)
+            except Exception as mail_err:
+                print(f"Error triggering email notification: {mail_err}")
+
             msg = f"Đã đặt {success_count} phòng thành công."
             if errors:
                 msg += f" (Bỏ qua {len(errors)} phòng do trùng lịch)."

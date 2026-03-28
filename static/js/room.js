@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // 1. TẢI DỮ LIỆU TỪ SERVER
 // ==========================================
 function loadRoomsData() {
-    fetch('/api/rooms')
+    fetch(api('/api/rooms'))
         .then(res => {
             if (!res.ok) throw new Error(`Server Error: ${res.status}`);
             return res.json();
@@ -190,7 +190,7 @@ function renderGrid() {
 
 function checkIn(roomNumber, roomId) {
     console.log(roomNumber, roomId);
-    fetch(`/api/bookings/upcoming/${roomId}`)
+    fetch(api(`/api/bookings/upcoming/${roomId}`))
         .then(res => res.json())
         .then(data => {
             if (data.has_booking) {
@@ -212,7 +212,7 @@ function checkIn(roomNumber, roomId) {
 
 function performCheckIn(roomNumber, bookingId) {
     console.log(roomNumber, bookingId);
-    fetch('/api/rooms/checkin', {
+    fetch(api('/api/rooms/checkin'), {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ number: roomNumber, booking_id: bookingId })
@@ -283,7 +283,7 @@ function submitFullBooking(status) {
         checkOut = document.getElementById('bk-hourly-out').value;
     }
 
-    fetch('/api/bookings/create', {
+    fetch(api('/api/bookings/create'), {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
@@ -331,7 +331,7 @@ function setRentalType(type) {
 function cleanRoom(number) {
     if(!confirm("Xác nhận đã dọn xong phòng " + number + "?")) return;
     
-    fetch('/api/rooms/clean', {
+    fetch(api('/api/rooms/clean'), {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ number: number })
