@@ -80,8 +80,11 @@ def get_rooms():
             notices_map[br.room_id].append({
                 "booking_room_id": br.id,
                 "type": notice_type,
-                "check_in_expected": br.check_in_expected.strftime('%H:%M %d/%m') if br.check_in_expected else "",
-                "customer_name": customer_name
+                "status": br.status,
+                "guest_name": customer_name,
+                "check_in_expected": br.check_in_expected.strftime('%Y-%m-%dT%H:%M') if br.check_in_expected else "",
+                "check_out_expected": br.check_out_expected.strftime('%Y-%m-%dT%H:%M') if br.check_out_expected else "",
+                "deposit": float(br.room_deposit_amount or 0)
             })
             
             if br.check_in_expected < now:
@@ -208,7 +211,7 @@ def clean_room():
         room.clean_status = 'cleaned' 
         
         # Chỉ chuyển sang 'available' nếu KHÔNG có khách đang ở
-        is_occupied = db.session.query(BookingRoom).filter(
+        is_occupied = tenant_query(BookingRoom).filter(
             BookingRoom.room_id == room.id,
             BookingRoom.status == 'checked_in' 
         ).first()
@@ -312,7 +315,7 @@ def api_calculate_price():
             return jsonify({'success': False, 'msg': 'Thiếu thông tin tính giá!'})
 
         # 1. Lấy thông tin phòng từ DB
-        room = tenant_query(Room).get(room_id)
+        room = tenant_query(Room).filter_by(id=room_id).first()
         if not room:
             return jsonify({'success': False, 'msg': 'Không tìm thấy phòng!'})
 

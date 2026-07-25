@@ -1,3 +1,4 @@
+from services.tenant_service import tenant_query, tenant_get_or_404
 from flask import Blueprint, render_template, jsonify, request
 from flask_login import login_required
 from extensions import db
@@ -24,7 +25,7 @@ def get_billing_list():
         end_str = request.args.get('end', '')
         from sqlalchemy import func
         finalized_time = func.coalesce(BookingRoom.check_out_actual, Booking.updated_at)
-        query = BookingRoom.query.join(Booking, Booking.id == BookingRoom.booking_id).filter(
+        query = Bookingtenant_query(Room).join(Booking, Booking.id == BookingRoom.booking_id).filter(
             BookingRoom.status.in_(['checked_out', 'cancelled'])
         )
         
@@ -69,13 +70,13 @@ def get_billing_detail(entry_id):
         detail_type = request.args.get('type', 'booking')
 
         if detail_type == 'room':
-            br = BookingRoom.query.get_or_404(entry_id)
+            br = Bookingtenant_get_or_404(Room, entry_id)
             booking = br.booking
 
             if not booking:
                 return jsonify({'success': False, 'msg': 'Không tìm thấy đơn gốc của phòng này.'})
 
-            services = BookingService.query.filter_by(
+            services = Bookingtenant_query(Service).filter_by(
                 booking_id=booking.id,
                 room_id=br.room_id
             ).all()
@@ -94,7 +95,7 @@ def get_billing_detail(entry_id):
 
             room_number = br.room.room_number if br.room else 'N/A'
 
-            tax_payment_q = Payment.query.filter(
+            tax_payment_q = tenant_query(Payment).filter(
                 Payment.booking_id == booking.id,
                 Payment.payment_type == 'tax_payment',
                 Payment.note.like(f"%phòng {room_number}%")
@@ -106,7 +107,7 @@ def get_billing_detail(entry_id):
             if room_only_amount < 0:
                 room_only_amount = 0
 
-            room_payment_q = Payment.query.filter(
+            room_payment_q = tenant_query(Payment).filter(
                 Payment.booking_id == booking.id,
                 Payment.note.like(f"%phòng {room_number}%")
             )
@@ -247,12 +248,12 @@ def get_billing_detail(entry_id):
                 }
             })
 
-        booking = Booking.query.get_or_404(entry_id)
+        booking = tenant_get_or_404(Booking, entry_id)
         
         # 1. Chi tiết phòng
         rooms_data = []
         for br in booking.rooms:
-            room_services = BookingService.query.filter_by(booking_id=booking.id, room_id=br.room_id).all()
+            room_services = Bookingtenant_query(Service).filter_by(booking_id=booking.id, room_id=br.room_id).all()
             service_total = sum(float((x.quantity or 0) * float(x.price_at_booking or 0)) for x in room_services)
             room_only_amount = float(br.final_amount or 0) - service_total
             if room_only_amount < 0:

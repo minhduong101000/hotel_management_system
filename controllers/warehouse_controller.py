@@ -1,3 +1,4 @@
+from services.tenant_service import tenant_query, tenant_get_or_404
 from flask import Blueprint, render_template, jsonify, request
 from flask_login import login_required
 from extensions import db
@@ -25,7 +26,7 @@ def _validate_service_link(item_name, service_id):
     if not service_id:
         return True, ''
 
-    service = Service.query.get(service_id)
+    service = tenant_query(Service).filter_by(id=service_id).first()
     if not service:
         return False, 'Dịch vụ liên kết không tồn tại.'
 
@@ -48,7 +49,7 @@ def index():
 @warehouse_bp.route('/api/warehouse')
 @login_required
 def get_items():
-    items = InventoryItem.query.order_by(InventoryItem.id.desc()).all()
+    items = tenant_query(InventoryItem).order_by(InventoryItem.id.desc()).all()
     return jsonify([item.to_dict() for item in items])
 
 # --- API: THÊM MỚI ---
@@ -84,7 +85,7 @@ def add_item():
 def update_item(item_id):
     try:
         data = request.get_json()
-        item = InventoryItem.query.get(item_id)
+        item = tenant_query(InventoryItem).filter_by(id=item_id).first()
         if not item:
             return jsonify({'success': False, 'msg': 'Không tìm thấy vật tư!'})
 
@@ -118,7 +119,7 @@ def restock_item(item_id):
         if qty <= 0:
             return jsonify({'success': False, 'msg': 'Số lượng nhập phải > 0'})
         
-        item = InventoryItem.query.get(item_id)
+        item = tenant_query(InventoryItem).filter_by(id=item_id).first()
         if not item:
             return jsonify({'success': False, 'msg': 'Không tìm thấy vật tư!'})
         
@@ -134,7 +135,7 @@ def restock_item(item_id):
 @login_required
 def delete_item(item_id):
     try:
-        item = InventoryItem.query.get(item_id)
+        item = tenant_query(InventoryItem).filter_by(id=item_id).first()
         if not item:
             return jsonify({'success': False, 'msg': 'Không tìm thấy!'})
         db.session.delete(item)

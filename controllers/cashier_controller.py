@@ -1,3 +1,4 @@
+from services.tenant_service import tenant_query, tenant_get_or_404
 from flask import Blueprint, render_template, jsonify, request
 from flask_login import login_required
 from decorators import admin_required
@@ -44,13 +45,13 @@ def get_cashier_data():
             end_date = now
 
         # 1. Lấy các khoản thu/hoàn tiền từ Payment
-        payments_query = Payment.query.filter(
+        payments_query = tenant_query(Payment).filter(
             Payment.created_at >= start_date,
             Payment.created_at <= end_date
         ).all()
 
         # 2. Lấy các khoản chi từ Expense
-        expenses_query = Expense.query.filter(
+        expenses_query = tenant_query(Expense).filter(
             Expense.created_at >= start_date,
             Expense.created_at <= end_date
         ).all()

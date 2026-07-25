@@ -295,7 +295,7 @@ def get_booking_detail(id):
     customer = br.booking.customer
     booking = br.booking
 
-    room_services = BookingService.query.filter_by(
+    room_services = Bookingtenant_query(Service).filter_by(
         booking_id=br.booking_id,
         room_id=br.room_id
     ).all()
@@ -543,7 +543,7 @@ def update_booking_timeline():
         start_str = data.get('start')
         end_str = data.get('end')
 
-        br = tenant_query(BookingRoom).get(br_id)
+        br = tenant_query(BookingRoom).filter_by(id=br_id).first()
         if not br: return jsonify({'success': False, 'msg': 'Không tìm thấy booking'})
         if br.status in ['checked_out', 'cancelled'] or (br.booking and br.booking.status in ['completed', 'cancelled']):
             return jsonify({'success': False, 'msg': 'Booking đã hoàn tất/hủy, không thể chỉnh sửa timeline.'})
@@ -556,8 +556,8 @@ def update_booking_timeline():
 
         # 1. Xử lý đổi phòng (Nếu user kéo sang dòng khác)
         if new_room_id and int(new_room_id) != br.room_id:
-            old_room = tenant_query(Room).get(br.room_id)
-            new_room = tenant_query(Room).get(new_room_id)
+            old_room = tenant_query(Room).filter_by(id=br.room_id).first()
+            new_room = tenant_query(Room).filter_by(id=new_room_id).first()
             
             # Chỉ cho đổi nếu phòng mới còn trống (Logic đơn giản check status hiện tại)
             # (Nâng cao: Cần check trùng lịch trong khoảng thời gian đó)
@@ -642,11 +642,11 @@ def cancel_booking():
         target_br = None
         
         if booking_room_id_raw:
-            target_br = tenant_query(BookingRoom).get(int(booking_room_id_raw))
+            target_br = tenant_query(BookingRoom).filter_by(id=int(booking_room_id_raw).first())
             if target_br:
                 booking = target_br.booking
         elif booking_id_raw:
-            booking = tenant_query(Booking).get(int(booking_id_raw))
+            booking = tenant_query(Booking).filter_by(id=int(booking_id_raw).first())
 
         if not booking:
             return jsonify({'success': False, 'msg': 'Không tìm thấy thông tin đơn đặt phòng.'})
@@ -745,7 +745,7 @@ def cancel_booking():
             br.room_deposit_amount = 0
 
             # Trả lại trạng thái cho phòng vật lý
-            room = tenant_query(Room).get(br.room_id)
+            room = tenant_query(Room).filter_by(id=br.room_id).first()
             if room:
                 room.status = 'available'
 
@@ -862,7 +862,7 @@ def update_booking():
         # (Cập nhật tiền cọc chung cho cả đoàn nếu có thay đổi)
         # ---------------------------------------------------------
         if booking_id:
-            booking = tenant_query(Booking).get(booking_id)
+            booking = tenant_query(Booking).filter_by(id=booking_id).first()
 
         # ---------------------------------------------------------
         # BƯỚC 2: CẬP NHẬT CHI TIẾT PHÒNG (BookingRoom)
@@ -871,7 +871,7 @@ def update_booking():
         
         # Ưu tiên tìm đích danh dòng BookingRoom cần sửa
         if booking_room_id:
-            br = tenant_query(BookingRoom).get(booking_room_id)
+            br = tenant_query(BookingRoom).filter_by(id=booking_room_id).first()
         
         # Fallback: Nếu frontend cũ không gửi booking_room_id thì mới tìm theo booking_id
         elif booking_id:
@@ -950,14 +950,14 @@ def update_booking():
         # A. Nếu thay đổi phòng (VD: Đổi từ phòng 101 -> 102)
         if old_room_id != new_room_id:
             # 1. Trả phòng cũ về 'available' (nếu nó đang occupied bởi đơn này)
-            room_old = tenant_query(Room).get(old_room_id)
+            room_old = tenant_query(Room).filter_by(id=old_room_id).first()
             if room_old and room_old.status == 'occupied':
                 # Chỉ set available nếu đơn này đang chiếm giữ
                 # (Logic kỹ hơn là check xem có booking nào khác đang check-in không, nhưng tạm làm đơn giản)
                 room_old.status = 'available'
             
             # 2. Set phòng mới thành status tương ứng
-            room_new = tenant_query(Room).get(new_room_id)
+            room_new = tenant_query(Room).filter_by(id=new_room_id).first()
             if room_new:
                 if new_status == 'checked_in':
                     room_new.status = 'occupied'
@@ -965,7 +965,7 @@ def update_booking():
 
         # B. Nếu không đổi phòng, chỉ đổi trạng thái (VD: Check-in)
         else:
-            room_current = tenant_query(Room).get(new_room_id)
+            room_current = tenant_query(Room).filter_by(id=new_room_id).first()
             if room_current:
                 if new_status == 'checked_in':
                     room_current.status = 'occupied'
@@ -979,7 +979,7 @@ def update_booking():
         # Đồng bộ cọc booking theo tổng cọc các phòng chưa hủy.
         booking_scope_id = booking_id if booking_id else br.booking_id
         if booking_scope_id:
-            booking_scope = tenant_query(Booking).get(booking_scope_id)
+            booking_scope = tenant_query(Booking).filter_by(id=booking_scope_id).first()
             if booking_scope:
                 remain_deposit = db.session.query(db.func.coalesce(db.func.sum(BookingRoom.room_deposit_amount), 0)).filter(
                     BookingRoom.booking_id == booking_scope.id,

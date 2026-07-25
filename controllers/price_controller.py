@@ -1,3 +1,4 @@
+from services.tenant_service import tenant_query, tenant_get_or_404
 from flask import Blueprint, render_template, jsonify, request
 from flask_login import login_required
 from decorators import admin_required
@@ -24,7 +25,7 @@ def index():
 def get_all_data():
     try:
         # A. Lấy giá Base của Phòng
-        rooms = Room.query.all()
+        rooms = tenant_query(Room).all()
         rooms_data = []
         for r in rooms:
             rooms_data.append({
@@ -47,7 +48,7 @@ def get_all_data():
         # B. Lấy danh sách Luật giá
         # LƯU Ý: Bạn cần đảm bảo model PriceRule cũng có các cột tương ứng
         # Nếu PriceRule chưa đổi tên cột, hãy sửa model PriceRule giống Room
-        rules = PriceRule.query.order_by(PriceRule.priority.desc()).all()
+        rules = tenant_query(PriceRule).order_by(PriceRule.priority.desc()).all()
         rules_data = []
         for rule in rules:
             # Kiểm tra xem PriceRule dùng tên cột nào (giả sử bạn đã đồng bộ tên cột với Room)
@@ -83,7 +84,7 @@ def get_all_data():
 def update_base_price():
     try:
         data = request.get_json()
-        room = Room.query.get(data.get('id'))
+        room = tenant_query(Room).filter_by(id=data.get('id').first())
         
         if room:
             # 1. Cập nhật giá ngày
@@ -132,7 +133,7 @@ def save_rule():
 
         if rule_id:
             # === UPDATE ===
-            rule = PriceRule.query.get(rule_id)
+            rule = tenant_query(PriceRule).filter_by(id=rule_id).first()
             if not rule: return jsonify({'success': False, 'msg': 'Lỗi ID'})
             
             rule.name = data['name']
@@ -175,7 +176,7 @@ def save_rule():
 @admin_required
 def delete_rule(id):
     try:
-        rule = PriceRule.query.get(id)
+        rule = tenant_query(PriceRule).filter_by(id=id).first()
         if rule:
             db.session.delete(rule)
             db.session.commit()

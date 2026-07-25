@@ -36,6 +36,15 @@ def test_rooms_api_returns_correct_notices(client, seed_hotels, login_as):
     assert br_a.id in notice_ids
     assert br_a2.id in notice_ids
     
+    # Check exact fields in one notice
+    n1 = next(n for n in room_data["notices"] if n["booking_room_id"] == br_a.id)
+    assert "type" in n1
+    assert "status" in n1
+    assert "guest_name" in n1
+    assert "check_in_expected" in n1
+    assert "check_out_expected" in n1
+    assert "deposit" in n1
+    
     # ensure it doesn't leak hotel_b
     hotel_b = seed_hotels[1]
     br_b = seed_hotels[5]

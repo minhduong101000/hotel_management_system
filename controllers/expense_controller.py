@@ -1,3 +1,4 @@
+from services.tenant_service import tenant_query, tenant_get_or_404
 from flask import Blueprint, render_template, jsonify, request
 from flask_login import login_required, current_user
 from decorators import admin_required
@@ -35,7 +36,7 @@ def _validate_service_link(item_name, service_id):
     if not service_id:
         return True, ''
 
-    service = Service.query.get(service_id)
+    service = tenant_query(Service).filter_by(id=service_id).first()
     if not service:
         return False, 'Dịch vụ liên kết không tồn tại.'
 
@@ -64,7 +65,7 @@ def get_expenses():
         end_str = request.args.get('end')
         category = request.args.get('category')
         
-        query = Expense.query
+        query = tenant_query(Expense)
         
         if start_str:
             query = query.filter(Expense.expense_date >= datetime.strptime(start_str, '%Y-%m-%d').date())
@@ -85,7 +86,7 @@ def get_expenses():
             row['inventory_name'] = None
             row['inventory_service_name'] = None
             if inv_code:
-                inv_item = InventoryItem.query.filter_by(code=inv_code).first()
+                inv_item = tenant_query(InventoryItem).filter_by(code=inv_code).first()
                 if inv_item:
                     row['inventory_name'] = inv_item.name
                     row['inventory_service_name'] = inv_item.service.name if inv_item.service else None
@@ -136,7 +137,7 @@ def add_expense():
 
                 # Nếu đã chọn service_id thì cập nhật service đó. Nếu chưa có thì tạo service mới.
                 if service_id:
-                    service_obj = Service.query.get(service_id)
+                    service_obj = tenant_query(Service).filter_by(id=service_id).first()
                     if not service_obj:
                         return jsonify({'success': False, 'msg': 'Dịch vụ để đồng bộ không tồn tại.'})
 
@@ -155,7 +156,7 @@ def add_expense():
                     if service_price <= 0:
                         return jsonify({'success': False, 'msg': 'Giá dịch vụ phải lớn hơn 0 khi đồng bộ dịch vụ.'})
 
-                    existing_service = Service.query.filter_by(name=service_name).first()
+                    existing_service = tenant_query(Service).filter_by(name=service_name).first()
                     if existing_service:
                         existing_service.price = int(round(service_price))
                         service_id = existing_service.id
@@ -174,7 +175,7 @@ def add_expense():
             if qty <= 0:
                 return jsonify({'success': False, 'msg': 'Số lượng nhập kho phải lớn hơn 0.'})
 
-            item = InventoryItem.query.filter_by(code=item_code).first()
+            item = tenant_query(InventoryItem).filter_by(code=item_code).first()
             if item:
                 item.name = item_name
                 item.unit = unit or item.unit
@@ -218,7 +219,7 @@ def add_expense():
 @admin_required
 def delete_expense(expense_id):
     try:
-        expense = Expense.query.get(expense_id)
+        expense = tenant_query(Expense).filter_by(id=expense_id).first()
         if not expense:
             return jsonify({'success': False, 'msg': 'Không tìm thấy!'})
         db.session.delete(expense)

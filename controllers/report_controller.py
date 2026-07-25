@@ -1,3 +1,4 @@
+from services.tenant_service import tenant_query, tenant_get_or_404
 from flask import Blueprint, render_template, jsonify, request
 from flask_login import login_required
 from decorators import admin_required
@@ -77,7 +78,7 @@ def get_revenue_data():
         ).scalar()
 
         # 3. Số booking hoàn thành
-        completed_bookings = Booking.query.filter(
+        completed_bookings = tenant_query(Booking).filter(
             Booking.status == 'completed',
             Booking.updated_at >= start_date,
             Booking.updated_at <= end_date
@@ -111,11 +112,11 @@ def get_revenue_data():
 
         # Tổ chức lại dữ liệu biểu đồ
         from models.room import Room
-        total_rooms_count = Room.query.count() or 1
+        total_rooms_count = tenant_query(Room).count() or 1
         chart_map = {}
         
         # Lấy danh sách booking active trong kỳ này một lần để tính occupancy cho từng ngày
-        active_bookings = BookingRoom.query.filter(
+        active_bookings = Bookingtenant_query(Room).filter(
             BookingRoom.status.in_(['checked_in', 'checked_out']),
             BookingRoom.check_in_actual <= end_date,
             func.coalesce(BookingRoom.check_out_actual, now) >= start_date

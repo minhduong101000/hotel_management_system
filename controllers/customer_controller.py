@@ -1,3 +1,4 @@
+from services.tenant_service import tenant_query, tenant_get_or_404
 from flask import Blueprint, render_template, jsonify, request
 from flask_login import login_required
 from sqlalchemy import or_
@@ -18,7 +19,7 @@ def index():
 def get_customers():
     keyword = request.args.get('q', '').strip() # Lấy từ khóa tìm kiếm
     
-    query = Customer.query
+    query = tenant_query(Customer)
     
     if keyword:
         # Logic tìm kiếm: Tìm trong Tên HOẶC SĐT HOẶC CCCD
@@ -59,7 +60,7 @@ def add_customer():
 @login_required
 def update_customer(id):
     data = request.get_json()
-    cus = Customer.query.get(id)
+    cus = tenant_query(Customer).filter_by(id=id).first()
     if cus:
         try:
             cus.name = data['name']
@@ -79,7 +80,7 @@ def update_customer(id):
 @customer_bp.route('/api/customers/<int:id>', methods=['DELETE'])
 @login_required
 def delete_customer(id):
-    cus = Customer.query.get(id)
+    cus = tenant_query(Customer).filter_by(id=id).first()
     if cus:
         db.session.delete(cus)
         db.session.commit()

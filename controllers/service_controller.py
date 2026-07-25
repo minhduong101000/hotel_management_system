@@ -1,3 +1,4 @@
+from services.tenant_service import tenant_query, tenant_get_or_404
 from flask import Blueprint, render_template, jsonify, request
 from flask_login import login_required
 from decorators import admin_required
@@ -18,7 +19,7 @@ def index():
 @login_required
 @admin_required
 def get_services():
-    services = Service.query.order_by(Service.id.desc()).all() # Mới nhất lên đầu
+    services = tenant_query(Service).order_by(Service.id.desc()).all() # Mới nhất lên đầu
     return jsonify([s.to_dict() for s in services])
 
 # 3. API: THÊM MỚI
@@ -44,7 +45,7 @@ def add_service():
 @admin_required
 def update_service(id):
     data = request.get_json()
-    service = Service.query.get(id)
+    service = tenant_query(Service).filter_by(id=id).first()
     if service:
         service.name = data['name']
         service.price = data['price']
@@ -57,7 +58,7 @@ def update_service(id):
 @login_required
 @admin_required
 def delete_service(id):
-    service = Service.query.get(id)
+    service = tenant_query(Service).filter_by(id=id).first()
     if service:
         db.session.delete(service)
         db.session.commit()

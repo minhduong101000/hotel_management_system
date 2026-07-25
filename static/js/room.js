@@ -137,38 +137,18 @@ function renderGrid() {
         
         // --- TRƯỜNG HỢP 3: PHÒNG TRỐNG (AVAILABLE) ---
         else if (room.status === 'available') {
-            let noticesHtml = '';
-            if (room.notices && room.notices.length > 0) {
-                noticesHtml = '<div class="mt-2 text-start w-100 px-2">';
-                room.notices.forEach(n => {
-                    let badgeClass = n.type === 'waiting' ? 'danger' : 'warning text-dark';
-                    let icon = n.type === 'waiting' ? 'fa-exclamation-circle' : 'fa-clock';
-                    let btnText = n.type === 'waiting' ? 'Chờ' : 'Sắp đến';
-                    noticesHtml += `
-                        <div class="d-flex justify-content-between align-items-center mb-1 pb-1 border-bottom border-secondary">
-                            <div style="line-height: 1.1">
-                                <span class="badge bg-${badgeClass} mb-1" title="${n.check_in_expected}"><i class="fas ${icon}"></i> ${btnText}</span><br>
-                                <small class="text-muted" style="font-size: 0.7rem;">${n.customer_name}</small>
-                            </div>
-                            <button class="btn btn-sm btn-primary py-0 px-2 shadow-sm" style="font-size: 0.75rem" onclick="event.stopPropagation(); performCheckIn(${n.booking_room_id})">Nhận</button>
-                        </div>
-                    `;
-                });
-                noticesHtml += '</div>';
-            }
-
             cardHtml = `
                 <div class="room-card st-free position-relative" style="height: 100%;">
                     <div class="rc-head">
                         <div><div class="rc-num">${room.number}</div><small>${room.type}</small></div>
                         <i class="fas fa-bed opacity-50"></i>
                     </div>
-                    <div class="rc-body p-1" style="overflow-y: auto; max-height: 120px;">
+                    <div class="rc-body p-1 d-flex flex-column" style="overflow-y: auto; max-height: 120px; align-items: stretch; justify-content: flex-start;">
                         <div class="text-center mb-1">
                             <h4 class="fw-light mb-0" style="font-size: 1.1rem;">${room.formatted_price}</h4>
                             <small>VNĐ/đêm</small>
                         </div>
-                        ${noticesHtml}
+                        <div class="notices-wrapper w-100 px-2 mt-1"></div>
                     </div>
                     <div class="rc-foot mt-auto">
                         <span onclick="checkIn('${room.number}', ${room.id})" class="btn-action">
@@ -189,8 +169,109 @@ function renderGrid() {
         const col = document.createElement('div');
         col.className = 'col-xl-2 col-lg-3 col-md-4 col-sm-6 mb-3'; 
         col.innerHTML = cardHtml;
+        
+        // --- Populate Notices Using DOM API for Security (XSS Prevention) ---
+        if (room.status === 'available' && room.notices && room.notices.length > 0) {
+            const noticesWrapper = col.querySelector('.notices-wrapper');
+            if (noticesWrapper) {
+                room.notices.forEach(n => {
+                    const noticeDiv = document.createElement('div');
+                    noticeDiv.className = 'd-flex justify-content-between align-items-center mb-1 pb-1 border-bottom border-secondary';
+                    
+                    const infoDiv = document.createElement('div');
+                    infoDiv.style.lineHeight = '1.1';
+                    
+                    const badge = document.createElement('span');
+                    const isWaiting = n.type === 'waiting';
+                    badge.className = `badge bg-${isWaiting ? 'danger' : 'warning text-dark'} mb-1`;
+                    badge.title = n.check_in_expected;
+                    
+                    const icon = document.createElement('i');
+                    icon.className = `fas ${isWaiting ? 'fa-exclamation-circle' : 'fa-clock'}`;
+                    badge.appendChild(icon);
+                    badge.appendChild(document.createTextNode(` ${isWaiting ? 'Chờ' : 'Sắp đến'}`));
+                    
+                    const br = document.createElement('br');
+                    
+                    const guestName = document.createElement('small');
+                    guestName.className = 'text-muted';
+                    guestName.style.fontSize = '0.7rem';
+                    guestName.textContent = n.guest_name;
+                    
+                    infoDiv.appendChild(badge);
+                    infoDiv.appendChild(br);
+                    infoDiv.appendChild(guestName);
+                    
+                    const actionBtn = document.createElement('button');
+                    actionBtn.className = 'btn btn-sm btn-primary py-0 px-2 shadow-sm';
+                    actionBtn.style.fontSize = '0.75rem';
+                    actionBtn.textContent = 'Menu';
+                    
+                    // Prevent card click
+                    actionBtn.onclick = function(e) {
+                        e.stopPropagation();
+                        showNoticePopover(actionBtn, n);
+                    };
+                    
+                    noticeDiv.appendChild(infoDiv);
+                    noticeDiv.appendChild(actionBtn);
+                    
+                    noticesWrapper.appendChild(noticeDiv);
+                });
+            }
+        }
+        
         grid.appendChild(col);
     });
+}
+
+function showNoticePopover(btn, notice) {
+    // Remove existing popovers
+    document.querySelectorAll('.notice-popover').forEach(p => p.remove());
+    
+    const popover = document.createElement('div');
+    popover.className = 'notice-popover position-absolute bg-white border rounded shadow p-2';
+    popover.style.zIndex = '1000';
+    popover.style.minWidth = '150px';
+    
+    // Position it near the button
+    const rect = btn.getBoundingClientRect();
+    popover.style.top = (window.scrollY + rect.bottom + 5) + 'px';
+    popover.style.left = (window.scrollX + rect.left - 100) + 'px'; // roughly align right
+    
+    // Check in btn
+    const checkInBtn = document.createElement('button');
+    checkInBtn.className = 'btn btn-sm btn-success w-100 mb-1';
+    checkInBtn.textContent = 'Nhận phòng';
+    checkInBtn.onclick = function() {
+        popover.remove();
+        performCheckIn(notice.booking_room_id);
+    };
+    
+    // Details btn
+    const detailsBtn = document.createElement('button');
+    detailsBtn.className = 'btn btn-sm btn-info w-100 text-white';
+    detailsBtn.textContent = 'Xem chi tiết';
+    detailsBtn.onclick = function() {
+        popover.remove();
+        window.location.href = `../timeline?booking_room_id=${notice.booking_room_id}`; 
+    };
+    
+    popover.appendChild(checkInBtn);
+    popover.appendChild(detailsBtn);
+    
+    // Close when clicking outside
+    const closeHandler = function(e) {
+        if (!popover.contains(e.target) && e.target !== btn) {
+            popover.remove();
+            document.removeEventListener('click', closeHandler);
+        }
+    };
+    setTimeout(() => {
+        document.addEventListener('click', closeHandler);
+    }, 10);
+    
+    document.body.appendChild(popover);
 }
 
 // ==========================================
