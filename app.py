@@ -26,106 +26,97 @@ from controllers.booking_controller import booking_bp
 from controllers.expense_controller import expense_bp
 from controllers.cashier_controller import cashier_bp
 
-app = Flask(__name__)
+def create_app(test_config=None):
+    app = Flask(__name__)
 
-# --- 1. CẤU HÌNH APP ---
-app.config.from_object(Config)
+    # --- 1. CẤU HÌNH APP ---
+    app.config.from_object(Config)
+    if test_config:
+        app.config.update(test_config)
 
-# --- 2. KHỞI TẠO EXTENSIONS ---
-db.init_app(app)
-login_manager.init_app(app)
-mail.init_app(app)
-migrate = Migrate(app, db)
+    # --- 2. KHỞI TẠO EXTENSIONS ---
+    db.init_app(app)
+    login_manager.init_app(app)
+    mail.init_app(app)
+    Migrate(app, db)
 
-# --- [QUAN TRỌNG] CẤU HÌNH LOGIN MANAGER ---
-# Đường dẫn đến hàm login (tên blueprint.tên hàm)
-login_manager.login_view = 'auth.login' 
-login_manager.login_message = "Vui lòng đăng nhập để tiếp tục."
+    # --- [QUAN TRỌNG] CẤU HÌNH LOGIN MANAGER ---
+    login_manager.login_view = 'auth.login' 
+    login_manager.login_message = "Vui lòng đăng nhập để tiếp tục."
 
-@login_manager.user_loader
-def load_user(user_uniquifier):
-    """
-    Hàm này cực kỳ quan trọng cho bảo mật.
-    Nó tìm user dựa trên chuỗi `fs_uniquifier` thay vì ID.
-    Nếu Admin đổi mật khẩu -> chuỗi này đổi -> Session cũ vô hiệu -> Logout máy khác.
-    """
-    return User.query.filter_by(fs_uniquifier=user_uniquifier).first()
+    @login_manager.user_loader
+    def load_user(user_uniquifier):
+        return User.query.filter_by(fs_uniquifier=user_uniquifier).first()
 
-# --- 3. ĐĂNG KÝ BLUEPRINTS VỚI TENANT PREFIX ---
-# Tất cả các route nghiệp vụ sẽ có tiền tố /<hotel_slug>/
-tenant_prefix = '/<hotel_slug>'
+    # --- 3. ĐĂNG KÝ BLUEPRINTS VỚI TENANT PREFIX ---
+    tenant_prefix = '/<hotel_slug>'
 
-app.register_blueprint(auth_bp, url_prefix=tenant_prefix)
-app.register_blueprint(customer_bp, url_prefix=f"{tenant_prefix}/customers")
-app.register_blueprint(room_bp, url_prefix=f"{tenant_prefix}/rooms")
-app.register_blueprint(timeline_bp, url_prefix=f"{tenant_prefix}/timeline")
-app.register_blueprint(service_bp, url_prefix=f"{tenant_prefix}/services")
-app.register_blueprint(billing_bp, url_prefix=f"{tenant_prefix}/billing")
-app.register_blueprint(warehouse_bp, url_prefix=f"{tenant_prefix}/warehouse")
-app.register_blueprint(staff_bp, url_prefix=f"{tenant_prefix}/staff")
-app.register_blueprint(report_bp, url_prefix=f"{tenant_prefix}/reports")
-app.register_blueprint(price_bp, url_prefix=f"{tenant_prefix}/prices")
-app.register_blueprint(booking_bp, url_prefix=f"{tenant_prefix}/bookings")
-app.register_blueprint(expense_bp, url_prefix=f"{tenant_prefix}/expenses")
-app.register_blueprint(cashier_bp, url_prefix=f"{tenant_prefix}/cashier")
+    app.register_blueprint(auth_bp, url_prefix=tenant_prefix)
+    app.register_blueprint(customer_bp, url_prefix=f"{tenant_prefix}/customers")
+    app.register_blueprint(room_bp, url_prefix=f"{tenant_prefix}/rooms")
+    app.register_blueprint(timeline_bp, url_prefix=f"{tenant_prefix}/timeline")
+    app.register_blueprint(service_bp, url_prefix=f"{tenant_prefix}/services")
+    app.register_blueprint(billing_bp, url_prefix=f"{tenant_prefix}/billing")
+    app.register_blueprint(warehouse_bp, url_prefix=f"{tenant_prefix}/warehouse")
+    app.register_blueprint(staff_bp, url_prefix=f"{tenant_prefix}/staff")
+    app.register_blueprint(report_bp, url_prefix=f"{tenant_prefix}/reports")
+    app.register_blueprint(price_bp, url_prefix=f"{tenant_prefix}/prices")
+    app.register_blueprint(booking_bp, url_prefix=f"{tenant_prefix}/bookings")
+    app.register_blueprint(expense_bp, url_prefix=f"{tenant_prefix}/expenses")
+    app.register_blueprint(cashier_bp, url_prefix=f"{tenant_prefix}/cashier")
 
-# --- 4. XỬ LÝ ĐA TENANT (URL SLUG) ---
+    # --- 4. XỬ LÝ ĐA TENANT (URL SLUG) ---
+    @app.url_value_preprocessor
+    def pull_hotel_slug(endpoint, values):
+        if values and 'hotel_slug' in values:
+            g.hotel_slug = values.pop('hotel_slug')
+        elif 'hotel_slug' in g:
+            pass
+        else:
+            pass
 
-@app.url_value_preprocessor
-def pull_hotel_slug(endpoint, values):
-    """Lấy hotel_slug từ URL và đưa vào biến toàn cục g."""
-    if values and 'hotel_slug' in values:
-        g.hotel_slug = values.pop('hotel_slug')
-    elif 'hotel_slug' in g:
-        pass
-    else:
-        # Fallback if slug is somehow missing but we are in a tenant route
-        pass
+    @app.url_defaults
+    def add_language_code(endpoint, values):
+        if 'hotel_slug' in values or not getattr(g, 'hotel_slug', None):
+            pass
+        else:
+            if app.url_map.is_endpoint_expecting(endpoint, 'hotel_slug'):
+                values['hotel_slug'] = g.hotel_slug
 
-@app.url_defaults
-def add_language_code(endpoint, values):
-    """Auto-inject hotel_slug in url_for(...) and add cache-buster for static files"""
-    if 'hotel_slug' in values or not getattr(g, 'hotel_slug', None):
-        pass
-    else:
-        if app.url_map.is_endpoint_expecting(endpoint, 'hotel_slug'):
-            values['hotel_slug'] = g.hotel_slug
+        if endpoint == 'static':
+            import time
+            values['v'] = int(time.time() / 10)
 
-    # Cache buster for static files
-    if endpoint == 'static':
-        import time
-        values['v'] = int(time.time() / 10) # Change every 10 seconds for dev/testing
+    @app.context_processor
+    def inject_hotel_slug():
+        return dict(hotel_slug=getattr(g, 'hotel_slug', ''))
 
-@app.context_processor
-def inject_hotel_slug():
-    """Đảm bảo hotel_slug luôn có sẵn cho template Jinja."""
-    return dict(hotel_slug=getattr(g, 'hotel_slug', ''))
-
-@app.before_request
-def load_current_hotel():
-    """Tải thông tin khách sạn hiện tại dựa trên slug và kiểm tra quyền truy cập."""
-    # Bỏ qua các endpoint không cần slug (static, index...)
-    if not getattr(g, 'hotel_slug', None):
-        return
+    @app.before_request
+    def load_current_hotel():
+        if not getattr(g, 'hotel_slug', None):
+            return
+            
+        hotel = Hotel.query.filter_by(slug=g.hotel_slug, is_active=True).first()
+        if not hotel:
+            abort(404, description="Khách sạn không tồn tại hoặc đã ngừng hoạt động.")
         
-    hotel = Hotel.query.filter_by(slug=g.hotel_slug, is_active=True).first()
-    if not hotel:
-        abort(404, description="Khách sạn không tồn tại hoặc đã ngừng hoạt động.")
-    
-    g.current_hotel = hotel
-    g.hotel_id = hotel.id
+        g.current_hotel = hotel
+        g.hotel_id = hotel.id
 
-    # RÀO CHẮN BẢO MẬT: Nếu đã login, phải thuộc khách sạn này (hoặc là Super Admin)
-    from flask_login import current_user
-    if current_user.is_authenticated:
-        if not current_user.is_super_admin and current_user.hotel_id != g.hotel_id:
-            abort(403, description="Bạn không có quyền truy cập vào khách sạn này.")
+        from flask_login import current_user
+        if current_user.is_authenticated:
+            if not current_user.is_super_admin and current_user.hotel_id != g.hotel_id:
+                abort(403, description="Bạn không có quyền truy cập vào khách sạn này.")
 
-# --- 5. ROUTES HỆ THỐNG ---
-@app.route('/')
-def index():
-    # Mặc định chuyển về khách sạn 'central'
-    return redirect(url_for('room.map_view', hotel_slug='central')) 
+    # --- 5. ROUTES HỆ THỐNG ---
+    @app.route('/')
+    def index():
+        return redirect(url_for('room.map_view', hotel_slug='central')) 
+
+    return app
+
+app = create_app()
+
 
 
 def ensure_schema_updates():
