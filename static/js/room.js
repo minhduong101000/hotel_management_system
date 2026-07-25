@@ -137,33 +137,42 @@ function renderGrid() {
         
         // --- TRƯỜNG HỢP 3: PHÒNG TRỐNG (AVAILABLE) ---
         else if (room.status === 'available') {
-            let badgeHtml = '';
-            if (room.waiting) {
-                badgeHtml = `<div class="position-absolute top-0 end-0 m-1 badge bg-danger text-white shadow-sm" style="z-index: 10;">
-                                 <i class="fas fa-exclamation-circle"></i> Chờ: ${room.waiting}
-                               </div>`;
-            } else if (room.upcoming) {
-                badgeHtml = `<div class="position-absolute top-0 end-0 m-1 badge bg-warning text-dark shadow-sm" style="z-index: 10;">
-                                 <i class="fas fa-clock"></i> Sắp đến: ${room.upcoming}
-                               </div>`;
+            let noticesHtml = '';
+            if (room.notices && room.notices.length > 0) {
+                noticesHtml = '<div class="mt-2 text-start w-100 px-2">';
+                room.notices.forEach(n => {
+                    let badgeClass = n.type === 'waiting' ? 'danger' : 'warning text-dark';
+                    let icon = n.type === 'waiting' ? 'fa-exclamation-circle' : 'fa-clock';
+                    let btnText = n.type === 'waiting' ? 'Chờ' : 'Sắp đến';
+                    noticesHtml += `
+                        <div class="d-flex justify-content-between align-items-center mb-1 pb-1 border-bottom border-secondary">
+                            <div style="line-height: 1.1">
+                                <span class="badge bg-${badgeClass} mb-1" title="${n.check_in_expected}"><i class="fas ${icon}"></i> ${btnText}</span><br>
+                                <small class="text-muted" style="font-size: 0.7rem;">${n.customer_name}</small>
+                            </div>
+                            <button class="btn btn-sm btn-primary py-0 px-2 shadow-sm" style="font-size: 0.75rem" onclick="event.stopPropagation(); performCheckIn(${n.booking_room_id})">Nhận</button>
+                        </div>
+                    `;
+                });
+                noticesHtml += '</div>';
             }
 
             cardHtml = `
-                <div class="room-card st-free position-relative">
-                    ${badgeHtml}
+                <div class="room-card st-free position-relative" style="height: 100%;">
                     <div class="rc-head">
                         <div><div class="rc-num">${room.number}</div><small>${room.type}</small></div>
                         <i class="fas fa-bed opacity-50"></i>
                     </div>
-                    <div class="rc-body">
-                        <div class="text-center">
-                            <h4 class="fw-light mb-0">${room.formatted_price}</h4>
+                    <div class="rc-body p-1" style="overflow-y: auto; max-height: 120px;">
+                        <div class="text-center mb-1">
+                            <h4 class="fw-light mb-0" style="font-size: 1.1rem;">${room.formatted_price}</h4>
                             <small>VNĐ/đêm</small>
                         </div>
+                        ${noticesHtml}
                     </div>
-                    <div class="rc-foot">
+                    <div class="rc-foot mt-auto">
                         <span onclick="checkIn('${room.number}', ${room.id})" class="btn-action">
-                            <i class="fas fa-sign-in-alt"></i> Check-in
+                            <i class="fas fa-sign-in-alt"></i> Check-in Mới
                         </span>
                         <span>Sạch</span>
                     </div>
@@ -178,7 +187,7 @@ function renderGrid() {
         }
 
         const col = document.createElement('div');
-        col.className = 'col-xl-2 col-lg-3 col-md-4 col-sm-6'; 
+        col.className = 'col-xl-2 col-lg-3 col-md-4 col-sm-6 mb-3'; 
         col.innerHTML = cardHtml;
         grid.appendChild(col);
     });
@@ -190,24 +199,8 @@ function renderGrid() {
 
 function checkIn(roomNumber, roomId) {
     console.log(roomNumber, roomId);
-    fetch(api(`/api/bookings/upcoming/${roomId}`))
-        .then(res => res.json())
-        .then(data => {
-            if (data.has_booking) {
-                const typeText = data.rental_type === 'hourly' ? 'Theo Giờ' : 'Theo Ngày';
-                const msg = `⚠️ PHÁT HIỆN ĐẶT PHÒNG TRƯỚC\nPhòng: ${roomNumber}\nKhách hàng: ${data.customer_name}\nBạn có muốn Check-in cho khách này ngay bây giờ?`;
-
-                if (confirm(msg)) {
-                    performCheckIn(data.booking_room_id);
-                }
-            } else {
-                openBookingModal(roomNumber);
-            }
-        })
-        .catch(err => {
-            console.error(err);
-            openBookingModal(roomNumber);
-        });
+    // Bỏ check API upcoming vì thông tin notices đã được render trực tiếp trên UI
+    openBookingModal(roomNumber);
 }
 
 function performCheckIn(bookingRoomId) {

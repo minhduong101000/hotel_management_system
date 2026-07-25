@@ -64,12 +64,26 @@ def get_rooms():
         ).filter(
             BookingRoom.status == 'booked', 
             BookingRoom.check_in_expected <= limit_time
-        ).all()
+        ).order_by(BookingRoom.check_in_expected.asc()).all()
         
         upcoming_map = {}
         waiting_map = {} # Những phòng đã quá giờ check-in mà chưa đến
+        notices_map = {}
         
         for br in upcoming_booking_rooms:
+            if br.room_id not in notices_map:
+                notices_map[br.room_id] = []
+                
+            notice_type = "waiting" if br.check_in_expected < now else "upcoming"
+            customer_name = br.booking.customer.name if br.booking and br.booking.customer else "Khách"
+            
+            notices_map[br.room_id].append({
+                "booking_room_id": br.id,
+                "type": notice_type,
+                "check_in_expected": br.check_in_expected.strftime('%H:%M %d/%m') if br.check_in_expected else "",
+                "customer_name": customer_name
+            })
+            
             if br.check_in_expected < now:
                 # Quá giờ check-in dự kiến -> Chờ nhận phòng
                 if br.room_id not in waiting_map:
@@ -103,6 +117,7 @@ def get_rooms():
                 'rental_type': None,
                 'upcoming': None,
                 'waiting': None,  # Mới: Chờ nhận phòng (phòng trống nhưng có khách đặt đã quá giờ)
+                'notices': notices_map.get(r.id, []),
                 
                 # --- THÊM DATA KHÁCH HÀNG ---
                 'customer': None,      # Object chứa full info (để popup)
