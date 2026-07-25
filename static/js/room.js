@@ -198,7 +198,7 @@ function checkIn(roomNumber, roomId) {
                 const msg = `⚠️ PHÁT HIỆN ĐẶT PHÒNG TRƯỚC\nPhòng: ${roomNumber}\nKhách hàng: ${data.customer_name}\nBạn có muốn Check-in cho khách này ngay bây giờ?`;
 
                 if (confirm(msg)) {
-                    performCheckIn(roomNumber, data.booking_id);
+                    performCheckIn(data.booking_room_id);
                 }
             } else {
                 openBookingModal(roomNumber);
@@ -210,12 +210,12 @@ function checkIn(roomNumber, roomId) {
         });
 }
 
-function performCheckIn(roomNumber, bookingId) {
-    console.log(roomNumber, bookingId);
+function performCheckIn(bookingRoomId) {
+    console.log(bookingRoomId);
     fetch(api('/api/rooms/checkin'), {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ number: roomNumber, booking_id: bookingId })
+        body: JSON.stringify({ booking_room_id: bookingRoomId })
     })
     .then(res => res.json())
     .then(data => {

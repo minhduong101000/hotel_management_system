@@ -1088,9 +1088,7 @@ function performCheckInFromTimeline() {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ 
-            booking_room_id: bookingRoomId,
-            booking_id: bookingId,
-            number: roomNumber 
+            booking_room_id: parseInt(bookingRoomId)
         })
     })
     .then(res => res.json())

@@ -126,6 +126,7 @@ def get_upcoming_booking(room_id):
         return jsonify({
             'has_booking': True,
             'booking_id': parent_booking.id if parent_booking else None,
+            'booking_room_id': booking_room.id,
             'customer_name': customer_name,
             'check_in_time': booking_room.check_in_expected.strftime('%H:%M %d/%m'),
             'rental_type': booking_room.rental_type
@@ -138,51 +139,38 @@ def get_upcoming_booking(room_id):
 @booking_bp.route('/api/rooms/checkin', methods=['POST'])
 @login_required
 def checkin_room():
-    req_data = request.get_json()
-    room_number = req_data.get('number')
+    req_data = request.get_json(silent=True) or {}
     booking_room_id = req_data.get('booking_room_id')
+    if not isinstance(booking_room_id, int):
+        return jsonify(success=False, msg="Thiếu booking_room_id hợp lệ."), 400
 
-    room = tenant_query(Room).filter(Room.room_number == room_number).first()
-    if not room: 
-        return jsonify({'success': False, 'msg': 'Phòng không tồn tại.'})
+    booking_room = tenant_get_or_404(BookingRoom, booking_room_id)
+    room = booking_room.room
     
+    if booking_room.status != 'booked':
+        return jsonify({'success': False, 'msg': 'Trạng thái không hợp lệ để check-in.'}), 400
+        
     if room.clean_status == 'dirty': 
-        return jsonify({'success': False, 'msg': 'Phòng đang bẩn, hãy dọn trước!'})
+        return jsonify({'success': False, 'msg': 'Phòng đang bẩn, hãy dọn trước!'}), 400
 
     if room.status == 'occupied':
-        return jsonify({'success': False, 'msg': 'Phòng đang có khách, không thể check-in thêm.'})
+        return jsonify({'success': False, 'msg': 'Phòng đang có khách, không thể check-in thêm.'}), 400
 
-    booking_room = None
-    if booking_room_id:
-        booking_room = tenant_query(BookingRoom).filter(
-            BookingRoom.id == booking_room_id,
-            BookingRoom.room_id == room.id,
-            BookingRoom.status == 'booked'
-        ).first()
-    else:
-        booking_room = tenant_query(BookingRoom).filter(
-            BookingRoom.room_id == room.id,
-            BookingRoom.status == 'booked'
-        ).order_by(BookingRoom.check_in_expected.asc()).first()
+    now = datetime.now()
+    if booking_room.check_in_expected and booking_room.check_in_expected - now > timedelta(hours=3):
+        return jsonify({'success': False, 'msg': 'Chỉ được check-in sớm tối đa 3 giờ trước giờ booking.'}), 400
 
-    if booking_room:
-        now = datetime.now()
-        if booking_room.check_in_expected and booking_room.check_in_expected - now > timedelta(hours=3):
-            return jsonify({'success': False, 'msg': 'Chỉ được check-in sớm tối đa 3 giờ trước giờ booking.'})
-
-        booking_room.status = 'checked_in'
-        booking_room.check_in_actual = now
-        room.status = 'occupied'
-        
-        if booking_room.booking:
-             booking_room.booking.status = 'checked_in'
-
-        db.session.commit()
-        
-        customer_name = booking_room.booking.customer.name if (booking_room.booking and booking_room.booking.customer) else "Khách"
-        return jsonify({'success': True, 'msg': f'Check-in thành công cho {customer_name}'})
+    booking_room.status = 'checked_in'
+    booking_room.check_in_actual = now
+    room.status = 'occupied'
     
-    return jsonify({'success': False, 'msg': 'Không tìm thấy đơn đặt phòng hợp lệ cho phòng này.'})
+    if booking_room.booking:
+         booking_room.booking.status = 'checked_in'
+
+    db.session.commit()
+    
+    customer_name = booking_room.booking.customer.name if (booking_room.booking and booking_room.booking.customer) else "Khách"
+    return jsonify({'success': True, 'booking_room_id': booking_room.id, 'msg': f'Check-in thành công cho {customer_name}'})
 
 # =======================================================
 # 3. IN HÓA ĐƠN ĐẶT CỌC
