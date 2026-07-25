@@ -11,7 +11,7 @@
     
     <aside class="app-sidebar">
         <div class="sidebar-brand">
-            <i class="fas fa-hotel me-2"></i> HOTEL<span style="color:#f39c12">POS</span>
+            <i class="fas fa-hotel me-2"></i> {{ g.current_hotel.name if g.current_hotel else 'HOTEL' }}<span style="color:#f39c12">POS</span>
         </div>
         
         <ul class="menu-list">
