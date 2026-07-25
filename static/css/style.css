@@ -4,32 +4,32 @@
 * {
     box-sizing: border-box;
 }
-/* Import cả Roboto (Dashboard) và Poppins (Login) */
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Roboto:wght@400;500;700;900&display=swap');
+/* Import cả Roboto, Poppins và Inter */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&family=Roboto:wght@400;500;700;900&family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 :root {
     /* Màu giao diện chính */
-    --bg-app: #ecf0f5;
-    --bg-sidebar: #2A3F54;
-    --text-sidebar: #E7E7E7;
+    --bg-app: #f4f7f9;
+    --bg-sidebar: #1e293b;
+    --text-sidebar: #f8fafc;
     
     /* Màu trạng thái phòng */
-    --c-green: #27ae60;  /* Phòng trống */
-    --c-orange: #d35400; /* Đang ở */
-    --c-yellow: #f39c12; /* Bẩn */
-    --c-blue: #2980b9;   /* Đặt trước */
-    --c-purple: #6f42c1; /* Giờ */
+    --c-green: linear-gradient(135deg, #10b981 0%, #059669 100%);  /* Phòng trống */
+    --c-orange: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); /* Đang ở */
+    --c-yellow: linear-gradient(135deg, #eab308 0%, #ca8a04 100%); /* Bẩn */
+    --c-blue: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);   /* Đặt trước */
+    --c-purple: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); /* Giờ */
     
     /* Màu Login */
-    --login-bg-start: #2c3e50;
-    --login-bg-end: #4ca1af;
+    --login-bg-start: #0f172a;
+    --login-bg-end: #1e293b;
 }
 
 /* =========================================
    2. GLOBAL & DASHBOARD LAYOUT
    ========================================= */
 body {
-    font-family: 'Roboto', sans-serif;
+    font-family: 'Inter', sans-serif;
     background-color: var(--bg-app);
     font-size: 14px;
     height: 100vh;
@@ -45,11 +45,13 @@ body:not(.login-page) {
 /* --- SIDEBAR --- */
 .app-sidebar {
     width: 240px;
-    background-color: var(--bg-sidebar);
+    background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
     color: var(--text-sidebar);
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
+    box-shadow: 4px 0 15px rgba(0,0,0,0.05);
+    z-index: 100;
 }
 
 .sidebar-brand {
@@ -58,9 +60,11 @@ body:not(.login-page) {
     align-items: center;
     justify-content: center;
     font-size: 20px;
-    font-weight: 900;
-    background: rgba(0,0,0,0.1);
+    font-weight: 800;
+    background: rgba(255,255,255,0.03);
     color: white;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
 }
 
 .menu-list {
@@ -73,25 +77,28 @@ body:not(.login-page) {
 .menu-header {
     font-size: 11px;
     text-transform: uppercase;
-    color: #7f8c8d;
-    padding: 10px 20px 5px 20px;
+    color: #94a3b8;
+    padding: 10px 20px 5px 24px;
     font-weight: 700;
+    letter-spacing: 0.5px;
 }
 
 .menu-item a {
     display: flex;
     align-items: center;
-    padding: 12px 20px;
-    color: #b8c7ce;
+    padding: 12px 16px;
+    color: #94a3b8;
     text-decoration: none;
-    border-left: 4px solid transparent;
-    transition: 0.2s;
+    transition: all 0.3s ease;
+    margin: 4px 12px;
+    border-radius: 8px;
+    font-weight: 500;
 }
 
 .menu-item a:hover, .menu-item a.active {
-    background: rgba(255,255,255,0.05);
-    color: white;
-    border-left-color: #3498db;
+    background: rgba(255,255,255,0.1);
+    color: #ffffff;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
 }
 
 .menu-item i {
@@ -110,31 +117,34 @@ body:not(.login-page) {
 .top-bar {
     height: 60px;
     background: white;
-    border-bottom: 1px solid #dcdcdc;
+    border-bottom: none;
+    box-shadow: 0 4px 15px -3px rgba(0,0,0,0.03);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 20px;
+    padding: 0 24px;
+    z-index: 10;
 }
 
 .main-area {
-    padding: 20px;
+    padding: 24px;
     overflow-y: auto;
     height: calc(100vh - 60px);
 }
 
 .page-title {
     font-weight: 700;
-    color: #555;
+    color: #334155;
     text-transform: uppercase;
     margin: 0;
+    letter-spacing: -0.5px;
 }
 
 .card-box {
     background: white;
-    border-radius: 3px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+    padding: 24px;
 }
 
 /* =========================================
@@ -144,30 +154,33 @@ body:not(.login-page) {
     background: white;
     color: white;
     height: 140px;
-    border-radius: 3px;
+    border-radius: 16px;
     cursor: pointer;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    margin-bottom: 10px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    transition: transform 0.2s;
+    margin-bottom: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid rgba(255,255,255,0.2);
+    overflow: hidden;
 }
 
 .room-card:hover {
-    transform: translateY(-2px);
+    transform: translateY(-4px);
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
 }
 
-.rc-head { padding: 10px 15px; display: flex; justify-content: space-between; }
-.rc-num { font-size: 26px; font-weight: 700; line-height: 1; }
+.rc-head { padding: 12px 16px; display: flex; justify-content: space-between; align-items: flex-start; }
+.rc-num { font-size: 28px; font-weight: 800; line-height: 1; letter-spacing: -1px; }
 .rc-body { flex-grow: 1; display: flex; align-items: center; justify-content: center; }
-.rc-foot { padding: 5px 15px; background: rgba(0,0,0,0.15); font-size: 11px; display: flex; justify-content: space-between; font-weight: 500;}
+.rc-foot { padding: 8px 16px; background: rgba(0,0,0,0.15); font-size: 12px; display: flex; justify-content: space-between; font-weight: 600; }
 
 /* Trạng thái phòng */
-.st-free { background-color: var(--c-green); }
-.st-occupied { background-color: var(--c-orange); }
-.st-hourly { background-color: var(--c-purple); }
-.st-dirty { background-color: var(--c-yellow); color: #fff; }
+.st-free { background: var(--c-green); }
+.st-occupied { background: var(--c-orange); }
+.st-hourly { background: var(--c-purple); }
+.st-dirty { background: var(--c-yellow); color: #fff; }
 
 /* =========================================
    4. COMPONENT: TIMELINE (REDESIGNED)
