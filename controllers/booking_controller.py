@@ -1,3 +1,4 @@
+from services.tenant_service import tenant_query, tenant_get_or_404
 from flask import Blueprint, jsonify, request, render_template, g
 from models.hotel import Hotel
 from services.notification_service import send_booking_notification
@@ -29,7 +30,7 @@ def _resolve_active_booking_room(room, booking_id=None, booking_room_id=None, no
     """
     now = now or datetime.now()
 
-    query = BookingRoom.query.filter(
+    query = tenant_query(BookingRoom).filter(
         BookingRoom.room_id == room.id,
         BookingRoom.status == 'checked_in'
     )
@@ -51,7 +52,7 @@ def _resolve_active_booking_room(room, booking_id=None, booking_room_id=None, no
     if room.status != 'occupied':
         return None
 
-    fallback_query = BookingRoom.query.filter(
+    fallback_query = tenant_query(BookingRoom).filter(
         BookingRoom.room_id == room.id,
         BookingRoom.status == 'booked',
         BookingRoom.check_in_expected <= now + timedelta(hours=6)
@@ -95,7 +96,7 @@ def _is_last_active_room_for_booking(booking_id, current_booking_room_id=None):
     True khi không còn phòng active nào khác trong cùng booking.
     Active = booked hoặc checked_in.
     """
-    query = BookingRoom.query.filter(
+    query = tenant_query(BookingRoom).filter(
         BookingRoom.booking_id == booking_id,
         BookingRoom.status.in_(['booked', 'checked_in'])
     )
@@ -111,7 +112,7 @@ def _is_last_active_room_for_booking(booking_id, current_booking_room_id=None):
 @booking_bp.route('/api/bookings/upcoming/<int:room_id>')
 @login_required
 def get_upcoming_booking(room_id):
-    booking_room = BookingRoom.query.filter(
+    booking_room = tenant_query(BookingRoom).filter(
         BookingRoom.room_id == room_id,
         BookingRoom.status == 'booked'
     ).order_by(BookingRoom.check_in_expected.asc()).first()
@@ -141,7 +142,7 @@ def checkin_room():
     room_number = req_data.get('number')
     booking_room_id = req_data.get('booking_room_id')
 
-    room = Room.query.filter(Room.room_number == room_number).first()
+    room = tenant_query(Room).filter(Room.room_number == room_number).first()
     if not room: 
         return jsonify({'success': False, 'msg': 'Phòng không tồn tại.'})
     
@@ -153,13 +154,13 @@ def checkin_room():
 
     booking_room = None
     if booking_room_id:
-        booking_room = BookingRoom.query.filter(
+        booking_room = tenant_query(BookingRoom).filter(
             BookingRoom.id == booking_room_id,
             BookingRoom.room_id == room.id,
             BookingRoom.status == 'booked'
         ).first()
     else:
-        booking_room = BookingRoom.query.filter(
+        booking_room = tenant_query(BookingRoom).filter(
             BookingRoom.room_id == room.id,
             BookingRoom.status == 'booked'
         ).order_by(BookingRoom.check_in_expected.asc()).first()
@@ -189,7 +190,7 @@ def checkin_room():
 @booking_bp.route('/api/bookings/<int:booking_id>/deposit-invoice', methods=['GET'])
 @login_required
 def print_deposit_invoice(booking_id):
-    booking = Booking.query.get(booking_id)
+    booking = tenant_query(Booking).get(booking_id)
     if not booking:
         return jsonify({'success': False, 'msg': 'Không tìm thấy thông tin đặt phòng.'}), 404
 
@@ -265,7 +266,7 @@ def update_service_quantity():
                 line_item.quantity = new_qty
         else:
             if change > 0:
-                service = Service.query.get(service_id)
+                service = tenant_query(Service).get(service_id)
                 if service:
                     new_item = BookingService(
                         booking_id=booking_id,
@@ -304,7 +305,7 @@ def preview_checkout_room():
     if not room_number:
         return jsonify({'success': False, 'msg': 'Thiếu số phòng.'})
 
-    room = Room.query.filter(Room.room_number == room_number).first()
+    room = tenant_query(Room).filter(Room.room_number == room_number).first()
     if not room:
         return jsonify({'success': False, 'msg': 'Phòng không tồn tại.'})
 
@@ -452,7 +453,7 @@ def checkout_room():
 
     payment_received = _parse_amount(amount_raw)
 
-    room = Room.query.filter(Room.room_number == room_number).first()
+    room = tenant_query(Room).filter(Room.room_number == room_number).first()
     if not room:
          return jsonify({'success': False, 'msg': 'Phòng không tồn tại.'})
 
@@ -500,7 +501,7 @@ def checkout_room():
         room.status = 'available'
         room.clean_status = 'dirty'
 
-        booking = Booking.query.get(booking_room.booking_id)
+        booking = tenant_query(Booking).get(booking_room.booking_id)
         if booking:
             total_bill_nom = total_bill_with_tax
             apply_deposit_now = _is_last_active_room_for_booking(
@@ -559,7 +560,7 @@ def checkout_room():
                 )
 
             # --- KIỂM TRA ĐƠN TỔNG ---
-            all_rooms = BookingRoom.query.filter_by(booking_id=booking.id).all()
+            all_rooms = tenant_query(BookingRoom).filter_by(booking_id=booking.id).all()
 
             # Chỉ trừ cọc khi checkout phòng cuối cùng trong booking lẻ.
             if apply_deposit_now:
@@ -592,10 +593,10 @@ def add_order():
         room_number = data.get('room_number')
         items = data.get('items') 
 
-        room = Room.query.filter_by(room_number=room_number).first()
+        room = tenant_query(Room).filter_by(room_number=room_number).first()
         if not room: return jsonify({'success': False, 'msg': 'Phòng lỗi.'})
 
-        br = BookingRoom.query.filter_by(room_id=room.id, status='checked_in').first()
+        br = tenant_query(BookingRoom).filter_by(room_id=room.id, status='checked_in').first()
         if not br: return jsonify({'success': False, 'msg': 'Phòng chưa check-in.'})
 
         booking_id = br.booking_id
@@ -613,7 +614,7 @@ def add_order():
             if existing:
                 existing.quantity += qty
             else:
-                svc = Service.query.get(s_id)
+                svc = tenant_query(Service).get(s_id)
                 if svc:
                     new_bs = BookingService(
                         booking_id=booking_id,
@@ -667,7 +668,7 @@ def create_group_booking():
         if check_in >= check_out:
             return jsonify({'success': False, 'msg': 'Ngày trả phải sau ngày nhận phòng.'})
 
-        rooms_query = Room.query.filter(Room.id.in_(room_ids)).all()
+        rooms_query = tenant_query(Room).filter(Room.id.in_(room_ids)).all()
         room_dict = {r.id: r for r in rooms_query}
 
         nights = (check_out.date() - check_in.date()).days
@@ -691,7 +692,7 @@ def create_group_booking():
         cccd = str(customer_info.get('cccd', '')).strip() or None
         address = str(customer_info.get('address', '')).strip() or None
         
-        customer = Customer.query.filter_by(phone=customer_info['phone']).first()
+        customer = tenant_query(Customer).filter_by(phone=customer_info['phone']).first()
         if not customer:
             customer = Customer(name=customer_info['name'], phone=customer_info['phone'], cccd=cccd, address=address)
             db.session.add(customer)
@@ -741,7 +742,7 @@ def create_group_booking():
                 errors.append(f"Phòng {current_room.room_number} đang bảo trì.")
                 continue
 
-            is_taken = BookingRoom.query.filter(
+            is_taken = tenant_query(BookingRoom).filter(
                 BookingRoom.room_id == r_id,
                 BookingRoom.status.in_(['booked', 'checked_in']),
                 BookingRoom.check_in_expected < check_out,
@@ -831,10 +832,10 @@ def update_services_before_checkout():
     room_number = data.get('number')
     new_services = data.get('services', [])
 
-    room = Room.query.filter(Room.room_number == room_number).first()
+    room = tenant_query(Room).filter(Room.room_number == room_number).first()
     if not room: return jsonify({'success': False, 'msg': 'Lỗi phòng.'})
 
-    booking_room = BookingRoom.query.filter_by(room_id=room.id, status='checked_in').first()
+    booking_room = tenant_query(BookingRoom).filter_by(room_id=room.id, status='checked_in').first()
     if not booking_room: return jsonify({'success': False, 'msg': 'Phòng chưa checkin.'})
     
     booking = booking_room.booking
@@ -855,7 +856,7 @@ def update_services_before_checkout():
             s_id = int(item['service_id']) 
             
             if qty > 0:
-                service_obj = Service.query.get(s_id)
+                service_obj = tenant_query(Service).get(s_id)
                 if service_obj:
                     new_bs = BookingService(
                         booking_id=booking.id,
@@ -888,9 +889,9 @@ def get_group_billing(booking_id):
         include_tax = str(include_tax_raw).strip().lower() in ['1', 'true', 'yes', 'on']
         tax_rate = 0.08
 
-        booking = Booking.query.get_or_404(booking_id)
+        booking = tenant_get_or_404(Booking, booking_id)
 
-        all_rooms = BookingRoom.query.filter(
+        all_rooms = tenant_query(BookingRoom).filter(
             BookingRoom.booking_id == booking_id
         ).order_by(BookingRoom.id.asc()).all()
 
@@ -1036,9 +1037,9 @@ def process_group_checkout(booking_id):
         include_tax = str(include_tax_raw).strip().lower() in ['1', 'true', 'yes', 'on']
         tax_rate = 0.08
 
-        booking = Booking.query.get_or_404(booking_id)
+        booking = tenant_get_or_404(Booking, booking_id)
         
-        active_rooms = BookingRoom.query.filter(
+        active_rooms = tenant_query(BookingRoom).filter(
             BookingRoom.booking_id == booking_id,
             BookingRoom.status.in_(['booked', 'checked_in'])
         ).all()
@@ -1106,7 +1107,7 @@ def process_group_checkout(booking_id):
         booking.updated_at = now
         # CẬP NHẬT TỔNG TIỀN ĐƠN (Cho đoàn)
         booking.total_amount = total_remaining_amount
-        all_rooms_of_booking = BookingRoom.query.filter_by(booking_id=booking.id).all()
+        all_rooms_of_booking = tenant_query(BookingRoom).filter_by(booking_id=booking.id).all()
         for br in all_rooms_of_booking:
             br.room_deposit_amount = 0
         booking.prepaid_amount = 0

@@ -1,3 +1,4 @@
+from services.tenant_service import tenant_query, tenant_get_or_404
 from flask import Blueprint, render_template, jsonify, request
 from flask_login import login_required
 from extensions import db
@@ -42,14 +43,14 @@ def get_rooms():
     """
     try:
         # 1. Lấy tất cả phòng
-        rooms = Room.query.all()
+        rooms = tenant_query(Room).all()
         
         now = datetime.now()
         limit_time = now + timedelta(hours=24) 
 
         # 2. Lấy danh sách phòng ĐANG CÓ KHÁCH (Status = 'checked_in')
         # --- TỐI ƯU QUERY: Load luôn Booking VÀ Customer để tránh N+1 ---
-        active_booking_rooms = BookingRoom.query.options(
+        active_booking_rooms = tenant_query(BookingRoom).options(
             joinedload(BookingRoom.booking).joinedload(Booking.customer) 
         ).filter(
             BookingRoom.status == 'checked_in' 
@@ -58,7 +59,7 @@ def get_rooms():
         active_map = {br.room_id: br for br in active_booking_rooms}
 
         # 3. Lấy danh sách phòng SẮP CÓ KHÁCH (Booked)
-        upcoming_booking_rooms = BookingRoom.query.options(
+        upcoming_booking_rooms = tenant_query(BookingRoom).options(
              joinedload(BookingRoom.booking).joinedload(Booking.customer)
         ).filter(
             BookingRoom.status == 'booked', 
@@ -123,7 +124,7 @@ def get_rooms():
                 room_data['booking_id'] = br.booking_id
                 
                 # Kiểm tra đoàn: booking có nhiều hơn 1 phòng
-                room_count = BookingRoom.query.filter_by(booking_id=br.booking_id).count()
+                room_count = tenant_query(BookingRoom).filter_by(booking_id=br.booking_id).count()
                 room_data['is_group'] = room_count > 1
                 
                 # LẤY INFO KHÁCH HÀNG
@@ -186,7 +187,7 @@ def clean_room():
     req_data = request.get_json()
     room_number_val = req_data.get('number')
     
-    room = Room.query.filter(Room.room_number == room_number_val).first()
+    room = tenant_query(Room).filter(Room.room_number == room_number_val).first()
     
     if room:
         room.clean_status = 'cleaned' 
@@ -246,7 +247,7 @@ def search_available_rooms():
         ).distinct()
 
         # --- 2. LẤY PHÒNG TRỐNG ---
-        available_rooms = Room.query.filter(
+        available_rooms = tenant_query(Room).filter(
             Room.id.notin_(occupied_room_ids),
             Room.status != 'maintenance'
         ).all()
@@ -296,7 +297,7 @@ def api_calculate_price():
             return jsonify({'success': False, 'msg': 'Thiếu thông tin tính giá!'})
 
         # 1. Lấy thông tin phòng từ DB
-        room = Room.query.get(room_id)
+        room = tenant_query(Room).get(room_id)
         if not room:
             return jsonify({'success': False, 'msg': 'Không tìm thấy phòng!'})
 

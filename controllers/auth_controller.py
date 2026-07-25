@@ -16,8 +16,14 @@ def login():
         password = request.form.get('password')
         remember = True if request.form.get('remember') else False
 
+        from sqlalchemy import or_
+        from flask import g
+        
         # 2. Tìm user trong DB
-        user = User.query.filter_by(username=username).first()
+        user = User.query.filter(
+            User.username == username,
+            or_(User.hotel_id == g.hotel_id, User.is_super_admin == True)
+        ).first()
 
         # 3. Kiểm tra user tồn tại VÀ mật khẩu đúng
         if not user or not user.check_password(password):
