@@ -4,7 +4,7 @@ from extensions import db
 from models.audit_event import AuditEvent
 from models.inventory_item import InventoryItem
 from models.price_rule import PriceRule
-from models import Customer
+from models import Customer, User
 from models.expense import Expense
 from models.booking_service import BookingService
 from models import Service
@@ -538,3 +538,27 @@ def test_master_create_hotel_records_audit_event(client, seed_hotels, login_as):
         "slug": "sunrise-audit",
         "admin_username": "sunrise_audit_admin",
     }
+
+
+def test_reset_staff_password_records_audit_event(client, seed_hotels, login_as):
+    hotel, _, admin, _, _, _ = seed_hotels
+    staff = User(username='audit_staff', role='staff', hotel_id=hotel.id)
+    staff.set_password('old-password')
+    db.session.add(staff); db.session.commit(); login_as(client, admin)
+    response = client.post(f'/{hotel.slug}/staff/reset-password/{staff.id}', data={'new_password': 'new-password'})
+    assert response.status_code == 302
+    event = AuditEvent.query.one()
+    assert event.action == 'reset_staff_password'
+    assert event.entity_id == staff.id
+
+
+def test_delete_staff_records_audit_event(client, seed_hotels, login_as):
+    hotel, _, admin, _, _, _ = seed_hotels
+    staff = User(username='delete_audit_staff', role='staff', hotel_id=hotel.id)
+    staff.set_password('password')
+    db.session.add(staff); db.session.commit(); login_as(client, admin)
+    response = client.post(f'/{hotel.slug}/staff/delete/{staff.id}')
+    assert response.status_code == 302
+    event = AuditEvent.query.one()
+    assert event.action == 'delete_staff_user'
+    assert event.before_data == {'username': 'delete_audit_staff', 'role': 'staff'}

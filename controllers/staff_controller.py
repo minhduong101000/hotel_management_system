@@ -54,6 +54,7 @@ def reset_password(user_id):
     
     if new_password:
         user.set_password(new_password)
+        audit_service.record_event(hotel_id=g.hotel_id, actor_user_id=current_user.id, action='reset_staff_password', entity_type='user', entity_id=user.id, after_data={'username': user.username, 'role': user.role})
         db.session.commit()
         flash(f'Đã đổi mật khẩu cho {user.username}', 'success')
     
@@ -70,6 +71,7 @@ def delete_user(user_id):
     elif user.role == 'admin' and User.query.filter(User.hotel_id == g.hotel_id, User.role == 'admin').count() <= 1:
         flash('Phải giữ lại ít nhất một quản trị viên cho khách sạn!', 'error')
     else:
+        audit_service.record_event(hotel_id=g.hotel_id, actor_user_id=current_user.id, action='delete_staff_user', entity_type='user', entity_id=user.id, before_data={'username': user.username, 'role': user.role})
         db.session.delete(user)
         db.session.commit()
         flash('Đã xóa nhân viên!', 'success')
