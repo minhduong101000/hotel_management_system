@@ -139,6 +139,7 @@ function submitFullBooking(status) {
     const data = {
         room_number: document.getElementById('bk-room-number').innerText,
         phone: document.getElementById('bk-phone').value,
+        customer_id: document.getElementById('bk-customer-id')?.value || null,
         name: document.getElementById('bk-name').value,
         cccd: cccdInput ? cccdInput.value.trim() : '',
         address: addressInput ? addressInput.value.trim() : '',
@@ -164,10 +165,38 @@ function submitFullBooking(status) {
             bootstrap.Modal.getInstance(document.getElementById('bookingModal')).hide();
             loadTimeline(); 
         } else {
+            if (d.code === 'customer_phone_ambiguous') {
+                renderCustomerCandidates(d.candidates || []);
+                return;
+            }
             alert(d.msg);
         }
     })
     .catch(err => alert("Lỗi kết nối: " + err));
+}
+
+function renderCustomerCandidates(candidates) {
+    const container = document.getElementById('bk-customer-candidates');
+    const nameInput = document.getElementById('bk-name');
+    const customerIdInput = document.getElementById('bk-customer-id');
+    if (!container || !nameInput || !customerIdInput) return;
+
+    container.classList.remove('d-none');
+    container.innerHTML = '<div class="small fw-semibold text-secondary mb-1">Chọn khách dùng chung SĐT</div>';
+    candidates.forEach(customer => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'btn btn-sm btn-outline-primary me-1 mb-1';
+        button.textContent = `${customer.name || 'Khách chưa tên'}${customer.cccd ? ` · ${customer.cccd}` : ''}`;
+        button.setAttribute('aria-label', `Chọn khách ${customer.name || ''}`);
+        button.addEventListener('click', () => {
+            customerIdInput.value = customer.id;
+            nameInput.value = customer.name || '';
+            container.classList.add('d-none');
+            container.replaceChildren();
+        });
+        container.appendChild(button);
+    });
 }
 
 // ========================================================
@@ -1205,6 +1234,13 @@ document.addEventListener('DOMContentLoaded', function() {
     if (phoneInput && nameInput) {
         phoneInput.addEventListener('input', function() {
             clearTimeout(debounceTimer);
+            const customerIdInput = document.getElementById('bk-customer-id');
+            const candidateContainer = document.getElementById('bk-customer-candidates');
+            if (customerIdInput) customerIdInput.value = '';
+            if (candidateContainer) {
+                candidateContainer.classList.add('d-none');
+                candidateContainer.replaceChildren();
+            }
             const phone = this.value.trim();
             if (phone.length < 4) return;
 

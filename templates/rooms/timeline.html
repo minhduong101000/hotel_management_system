@@ -51,11 +51,13 @@
                     
                     <input type="hidden" id="bk-type" value="daily">
                     <input type="hidden" id="bk-room-id" value="">
+                    <input type="hidden" id="bk-customer-id" value="">
                     
                     <div class="row g-3 mb-3">
                         <div class="col-md-4">
                             <label class="form-label small mb-1 fw-bold text-secondary">SĐT</label>
                             <input type="text" class="form-control shadow-sm border-secondary-subtle" id="bk-phone" autocomplete="off" placeholder="Số điện thoại...">
+                            <div id="bk-customer-candidates" class="mt-2 d-none" aria-live="polite"></div>
                         </div>
                         <div class="col-md-4">
                             <div class="d-flex justify-content-between align-items-center mb-1">
