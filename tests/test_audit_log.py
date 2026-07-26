@@ -5,6 +5,7 @@ from models.audit_event import AuditEvent
 from models.inventory_item import InventoryItem
 from models.price_rule import PriceRule
 from models import Customer
+from models.expense import Expense
 from models import Service
 
 
@@ -382,4 +383,33 @@ def test_create_expense_records_audit_event(client, seed_hotels, login_as):
         "description": "Thay bóng đèn",
         "amount": 120000.0,
         "expense_date": "2030-01-01",
+    }
+
+
+def test_delete_expense_records_audit_event(client, seed_hotels, login_as):
+    hotel, _, user, _, _, _ = seed_hotels
+    expense = Expense(
+        hotel_id=hotel.id,
+        category="Khác",
+        description="Chi phí cần xóa",
+        amount=50000,
+        expense_date=datetime(2030, 1, 2).date(),
+        created_by=user.id,
+    )
+    db.session.add(expense)
+    db.session.commit()
+    login_as(client, user)
+
+    response = client.delete(f"/{hotel.slug}/expenses/api/expenses/{expense.id}")
+
+    assert response.status_code == 200
+    assert response.json["success"] is True
+    event = AuditEvent.query.one()
+    assert event.action == "delete_expense"
+    assert event.entity_id == expense.id
+    assert event.before_data == {
+        "category": "Khác",
+        "description": "Chi phí cần xóa",
+        "amount": 50000.0,
+        "expense_date": "2030-01-02",
     }

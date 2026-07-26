@@ -237,6 +237,19 @@ def delete_expense(expense_id):
         expense = tenant_query(Expense).filter_by(id=expense_id).first()
         if not expense:
             return jsonify({'success': False, 'msg': 'Không tìm thấy!'})
+        audit_service.record_event(
+            hotel_id=expense.hotel_id,
+            actor_user_id=current_user.id,
+            action='delete_expense',
+            entity_type='expense',
+            entity_id=expense.id,
+            before_data={
+                'category': expense.category,
+                'description': expense.description,
+                'amount': float(expense.amount or 0),
+                'expense_date': expense.expense_date.isoformat(),
+            },
+        )
         db.session.delete(expense)
         db.session.commit()
         return jsonify({'success': True, 'msg': 'Đã xóa chi phí!'})
