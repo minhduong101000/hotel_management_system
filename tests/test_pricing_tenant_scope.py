@@ -50,3 +50,25 @@ def test_special_price_rule_applies_only_to_its_hotel_and_keeps_hourly_price(app
     assert prices["p_night"] == 750000
     assert prices["p_initial"] == 300000
     assert prices["rule_name"] == "Cuối tuần A"
+
+
+def test_open_ended_price_rule_applies_without_dates(app, seed_hotels):
+    hotel, _, _, _, booking_room, _ = seed_hotels
+    rule = PriceRule(
+        hotel_id=hotel.id,
+        name="Giá quanh năm",
+        room_type=booking_room.room.room_type,
+        start_date=None,
+        end_date=None,
+        price_daily=680000,
+        priority=10,
+        is_active=True,
+    )
+    db.session.add(rule)
+    db.session.commit()
+
+    with app.app_context():
+        prices = get_effective_room_prices(booking_room.room, datetime(2026, 12, 31, 14, 0))
+
+    assert prices["p_night"] == 680000
+    assert prices["rule_name"] == "Giá quanh năm"

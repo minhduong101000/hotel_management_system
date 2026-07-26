@@ -1,6 +1,6 @@
 from datetime import datetime, time, timedelta
 import math
-from sqlalchemy import and_
+from sqlalchemy import and_, or_
 
 # Import model PriceRule
 # Lưu ý: Cần chắc chắn đường dẫn import đúng với cấu trúc thư mục của bạn
@@ -56,8 +56,8 @@ def get_effective_room_prices(room, check_date=None):
                 PriceRule.room_type == room.room_type,
                 PriceRule.is_active == True,
                 # Kiểm tra ngày nằm trong khoảng hiệu lực (Start -> End)
-                PriceRule.start_date <= check_date_obj,
-                PriceRule.end_date >= check_date_obj
+                or_(PriceRule.start_date.is_(None), PriceRule.start_date <= check_date_obj),
+                or_(PriceRule.end_date.is_(None), PriceRule.end_date >= check_date_obj)
             )
         ).order_by(PriceRule.priority.desc()).all()
     except RuntimeError:
