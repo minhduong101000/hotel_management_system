@@ -7,6 +7,7 @@ from sqlalchemy import func
 from decorators import master_admin_required
 from extensions import db
 from models import Booking, Hotel, Room, User
+from services import audit_service
 
 
 master_bp = Blueprint('master', __name__)
@@ -69,6 +70,18 @@ def create_hotel():
         admin = User(username=username, role='admin', hotel_id=hotel.id, is_super_admin=False)
         admin.set_password(password)
         db.session.add(admin)
+        audit_service.record_event(
+            hotel_id=hotel.id,
+            actor_user_id=current_user.id,
+            action='create_hotel',
+            entity_type='hotel',
+            entity_id=hotel.id,
+            after_data={
+                'name': hotel.name,
+                'slug': hotel.slug,
+                'admin_username': admin.username,
+            },
+        )
         db.session.commit()
     except Exception:
         db.session.rollback()

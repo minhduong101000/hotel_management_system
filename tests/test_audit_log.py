@@ -512,3 +512,29 @@ def test_create_staff_user_records_audit_event(client, seed_hotels, login_as):
     assert event.action == "create_staff_user"
     assert event.entity_type == "user"
     assert event.after_data == {"username": "le_tan_moi", "role": "staff"}
+
+
+def test_master_create_hotel_records_audit_event(client, seed_hotels, login_as):
+    _, _, _, master_admin, _, _ = seed_hotels
+    login_as(client, master_admin)
+
+    response = client.post(
+        "/master/hotels/create",
+        data={
+            "name": "Sunrise Hotel",
+            "slug": "sunrise-audit",
+            "admin_username": "sunrise_audit_admin",
+            "admin_password": "safe-password",
+        },
+    )
+
+    assert response.status_code == 302
+    event = AuditEvent.query.one()
+    assert event.action == "create_hotel"
+    assert event.entity_type == "hotel"
+    assert event.actor_user_id == master_admin.id
+    assert event.after_data == {
+        "name": "Sunrise Hotel",
+        "slug": "sunrise-audit",
+        "admin_username": "sunrise_audit_admin",
+    }
