@@ -6,6 +6,14 @@ from sqlalchemy import and_, or_
 # Lưu ý: Cần chắc chắn đường dẫn import đúng với cấu trúc thư mục của bạn
 from models.price_rule import PriceRule 
 
+
+def get_billable_night_dates(check_in: datetime, check_out: datetime):
+    """Return business dates for each nightly charge in [check_in, check_out)."""
+    start_date = check_in.date()
+    end_date = check_out.date()
+    nights = max(1, (end_date - start_date).days)
+    return [start_date + timedelta(days=offset) for offset in range(nights)]
+
 # =======================================================
 # 1. HÀM LẤY GIÁ (CÓ CHECK RULE LỄ TẾT)
 # =======================================================
