@@ -1,9 +1,10 @@
 from services.tenant_service import tenant_query, tenant_get_or_404
 from flask import Blueprint, render_template, jsonify, request
-from flask_login import login_required
+from flask_login import login_required, current_user
 from sqlalchemy import or_
 from extensions import db
 from models.customer import Customer
+from services import audit_service
 
 customer_bp = Blueprint('customer', __name__)
 
@@ -82,6 +83,14 @@ def update_customer(id):
 def delete_customer(id):
     cus = tenant_query(Customer).filter_by(id=id).first()
     if cus:
+        audit_service.record_event(
+            hotel_id=cus.hotel_id,
+            actor_user_id=current_user.id,
+            action='delete_customer',
+            entity_type='customer',
+            entity_id=cus.id,
+            before_data={'name': cus.name, 'phone': cus.phone},
+        )
         db.session.delete(cus)
         db.session.commit()
         return jsonify({'success': True, 'msg': 'Đã xóa khách hàng!'})

@@ -4,6 +4,7 @@ from extensions import db
 from models.audit_event import AuditEvent
 from models.inventory_item import InventoryItem
 from models.price_rule import PriceRule
+from models import Customer
 
 
 def test_checkout_creates_tenant_scoped_audit_event(client, seed_hotels, login_as):
@@ -195,3 +196,20 @@ def test_create_price_rule_records_audit_event(client, seed_hotels, login_as):
     assert event.entity_type == "price_rule"
     assert event.after_data["name"] == "Mùa cao điểm"
     assert event.after_data["price_daily"] == 850000.0
+
+
+def test_delete_customer_records_audit_snapshot(client, seed_hotels, login_as):
+    hotel, _, user, _, _, _ = seed_hotels
+    customer = Customer(hotel_id=hotel.id, name="Khách xóa", phone="0900999999")
+    db.session.add(customer)
+    db.session.commit()
+    login_as(client, user)
+
+    response = client.delete(f"/{hotel.slug}/customers/api/customers/{customer.id}")
+
+    assert response.status_code == 200
+    event = AuditEvent.query.one()
+    assert event.action == "delete_customer"
+    assert event.entity_type == "customer"
+    assert event.entity_id == customer.id
+    assert event.before_data == {"name": "Khách xóa", "phone": "0900999999"}
