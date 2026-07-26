@@ -13,7 +13,6 @@ price_bp = Blueprint('price', __name__)
 # --- VIEW ---
 @price_bp.route('/admin/price-manager')
 @login_required
-@admin_required
 def index():
     return render_template('admin/price_manager.html')
 
@@ -22,7 +21,6 @@ def index():
 # ========================================================
 @price_bp.route('/api/prices/all-data')
 @login_required
-@admin_required
 def get_all_data():
     try:
         # A. Lấy giá Base của Phòng
@@ -81,7 +79,6 @@ def get_all_data():
 # ========================================================
 @price_bp.route('/api/prices/update-base', methods=['POST'])
 @login_required
-@admin_required
 def update_base_price():
     try:
         data = request.get_json()
@@ -133,7 +130,6 @@ def update_base_price():
 # ========================================================
 @price_bp.route('/api/prices/save-rule', methods=['POST'])
 @login_required
-@admin_required
 def save_rule():
     try:
         data = request.get_json()
@@ -213,7 +209,6 @@ def save_rule():
 # ========================================================
 @price_bp.route('/api/prices/delete-rule/<int:id>', methods=['DELETE'])
 @login_required
-@admin_required
 def delete_rule(id):
     try:
         rule = tenant_query(PriceRule).filter_by(id=id).first()
