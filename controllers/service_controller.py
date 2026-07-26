@@ -31,6 +31,18 @@ def add_service():
             price=data['price']
         )
         db.session.add(new_service)
+        db.session.flush()
+        audit_service.record_event(
+            hotel_id=new_service.hotel_id,
+            actor_user_id=current_user.id,
+            action='create_service',
+            entity_type='service',
+            entity_id=new_service.id,
+            after_data={
+                'name': new_service.name,
+                'price': float(new_service.price or 0),
+            },
+        )
         db.session.commit()
         return jsonify({'success': True, 'msg': 'Thêm thành công!'})
     except Exception as e:

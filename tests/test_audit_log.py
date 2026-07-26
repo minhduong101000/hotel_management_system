@@ -265,3 +265,18 @@ def test_update_service_records_audit_snapshot(client, seed_hotels, login_as):
     assert event.action == "update_service"
     assert event.before_data == {"name": "Nước", "price": 10000.0}
     assert event.after_data == {"name": "Nước suối", "price": 15000.0}
+
+
+def test_create_service_records_audit_event(client, seed_hotels, login_as):
+    hotel, _, user, _, _, _ = seed_hotels
+    login_as(client, user)
+
+    response = client.post(
+        f"/{hotel.slug}/services/api/services",
+        json={"name": "Ăn sáng", "price": 150000},
+    )
+
+    assert response.status_code == 200
+    event = AuditEvent.query.one()
+    assert event.action == "create_service"
+    assert event.after_data == {"name": "Ăn sáng", "price": 150000.0}
