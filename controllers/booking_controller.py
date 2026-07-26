@@ -149,6 +149,7 @@ def checkin_room():
 
     booking_room = tenant_get_or_404(BookingRoom, booking_room_id)
     room = booking_room.room
+    before_data = {'booking_status': booking_room.status, 'room_status': room.status}
     
     if booking_room.status != 'booked':
         return jsonify({'success': False, 'msg': 'Trạng thái không hợp lệ để check-in.'}), 400
@@ -169,6 +170,20 @@ def checkin_room():
     
     if booking_room.booking:
          booking_room.booking.status = 'checked_in'
+
+    audit_service.record_event(
+        hotel_id=booking_room.hotel_id,
+        actor_user_id=current_user.id,
+        action='checkin',
+        entity_type='booking_room',
+        entity_id=booking_room.id,
+        before_data=before_data,
+        after_data={
+            'booking_status': booking_room.status,
+            'room_status': room.status,
+            'check_in_actual': booking_room.check_in_actual.isoformat(),
+        },
+    )
 
     db.session.commit()
     

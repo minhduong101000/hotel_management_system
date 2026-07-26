@@ -413,3 +413,23 @@ def test_delete_expense_records_audit_event(client, seed_hotels, login_as):
         "amount": 50000.0,
         "expense_date": "2030-01-02",
     }
+
+
+def test_checkin_records_audit_event(client, seed_hotels, login_as):
+    hotel, _, user, _, booking_room, _ = seed_hotels
+    login_as(client, user)
+
+    response = client.post(
+        f"/{hotel.slug}/bookings/api/rooms/checkin",
+        json={"booking_room_id": booking_room.id},
+    )
+
+    assert response.status_code == 200
+    assert response.json["success"] is True
+    event = AuditEvent.query.one()
+    assert event.action == "checkin"
+    assert event.entity_type == "booking_room"
+    assert event.entity_id == booking_room.id
+    assert event.before_data == {"booking_status": "booked", "room_status": "available"}
+    assert event.after_data["booking_status"] == "checked_in"
+    assert event.after_data["room_status"] == "occupied"
