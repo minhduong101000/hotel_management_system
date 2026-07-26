@@ -531,6 +531,22 @@ def create_booking():
             # (Có thể thêm logic tạo BookingService mặc định ở đây nếu cần)
 
         db.session.add(new_br)
+        db.session.flush()
+        audit_service.record_event(
+            hotel_id=g.hotel_id,
+            actor_user_id=current_user.id,
+            action='create_booking',
+            entity_type='booking_room',
+            entity_id=new_br.id,
+            after_data={
+                'booking_code': new_booking.code,
+                'room_number': room.room_number,
+                'status': new_br.status,
+                'check_in_expected': new_br.check_in_expected.isoformat(),
+                'check_out_expected': new_br.check_out_expected.isoformat(),
+                'deposit_amount': float(new_br.room_deposit_amount or 0),
+            },
+        )
         db.session.commit()
 
         # --- GỬI EMAIL THÔNG BÁO CHO CHỦ KHÁCH SẠN ---

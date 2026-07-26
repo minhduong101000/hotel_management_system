@@ -280,3 +280,32 @@ def test_create_service_records_audit_event(client, seed_hotels, login_as):
     event = AuditEvent.query.one()
     assert event.action == "create_service"
     assert event.after_data == {"name": "Ăn sáng", "price": 150000.0}
+
+
+def test_create_booking_records_audit_event(client, seed_hotels, login_as):
+    hotel, _, user, _, booking_room, _ = seed_hotels
+    booking_room.check_in_expected = datetime(2030, 1, 1, 14, 0)
+    booking_room.check_out_expected = datetime(2030, 1, 2, 12, 0)
+    db.session.commit()
+    login_as(client, user)
+
+    response = client.post(
+        f"/{hotel.slug}/timeline/api/bookings/create",
+        json={
+            "room_number": booking_room.room.room_number,
+            "check_in": "2030-01-02T12:00",
+            "check_out": "2030-01-03T12:00",
+            "rental_type": "daily",
+            "deposit": 250000,
+            "name": "Khách mới",
+        },
+    )
+
+    assert response.status_code == 200
+    event = AuditEvent.query.one()
+    assert event.hotel_id == hotel.id
+    assert event.actor_user_id == user.id
+    assert event.action == "create_booking"
+    assert event.entity_type == "booking_room"
+    assert event.after_data["room_number"] == booking_room.room.room_number
+    assert event.after_data["status"] == "booked"
