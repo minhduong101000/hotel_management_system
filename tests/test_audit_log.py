@@ -496,3 +496,19 @@ def test_add_order_records_audit_event(client, seed_hotels, login_as):
     assert event.after_data == {
         "items": [{"service_id": service.id, "quantity": 2, "unit_price": 15000.0}],
     }
+
+
+def test_create_staff_user_records_audit_event(client, seed_hotels, login_as):
+    hotel, _, user, _, _, _ = seed_hotels
+    login_as(client, user)
+
+    response = client.post(
+        f"/{hotel.slug}/staff/",
+        data={"username": "le_tan_moi", "password": "strong-password", "role": "staff"},
+    )
+
+    assert response.status_code == 302
+    event = AuditEvent.query.one()
+    assert event.action == "create_staff_user"
+    assert event.entity_type == "user"
+    assert event.after_data == {"username": "le_tan_moi", "role": "staff"}

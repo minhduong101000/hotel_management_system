@@ -3,6 +3,7 @@ from flask_login import login_required, current_user
 from decorators import admin_required
 from extensions import db
 from models import User
+from services import audit_service
 
 staff_bp = Blueprint('staff', __name__, url_prefix='/staff')
 
@@ -26,6 +27,15 @@ def index():
             new_user = User(username=username, role=role, hotel_id=g.hotel_id, is_super_admin=False)
             new_user.set_password(password)
             db.session.add(new_user)
+            db.session.flush()
+            audit_service.record_event(
+                hotel_id=g.hotel_id,
+                actor_user_id=current_user.id,
+                action='create_staff_user',
+                entity_type='user',
+                entity_id=new_user.id,
+                after_data={'username': new_user.username, 'role': new_user.role},
+            )
             db.session.commit()
             flash('Thêm nhân viên thành công!', 'success')
             return redirect(url_for('staff.index'))
