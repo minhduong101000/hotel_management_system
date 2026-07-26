@@ -588,6 +588,15 @@ def update_booking_timeline():
         if br.status in ['checked_out', 'cancelled'] or (br.booking and br.booking.status in ['completed', 'cancelled']):
             return jsonify({'success': False, 'msg': 'Booking đã hoàn tất/hủy, không thể chỉnh sửa timeline.'})
 
+        booking = br.booking
+        before_data = {
+            'room_id': br.room_id,
+            'room_number': br.room.room_number,
+            'check_in_expected': br.check_in_expected.isoformat() if br.check_in_expected else None,
+            'check_out_expected': br.check_out_expected.isoformat() if br.check_out_expected else None,
+            'status': br.status,
+        }
+
         # Pre-compute target room/time to validate overlap before mutating.
         target_room_id = int(new_room_id) if new_room_id else int(br.room_id)
         cur_start, cur_end = _effective_range(br)
@@ -657,6 +666,21 @@ def update_booking_timeline():
             if new_cccd and not customer.cccd: customer.cccd = new_cccd
             if new_addr and not customer.address: customer.address = new_addr
         
+        audit_service.record_event(
+            hotel_id=g.hotel_id,
+            actor_user_id=current_user.id,
+            action='update_booking_timeline',
+            entity_type='booking_room',
+            entity_id=br.id,
+            before_data=before_data,
+            after_data={
+                'room_id': br.room_id,
+                'room_number': br.room.room_number,
+                'check_in_expected': br.check_in_expected.isoformat() if br.check_in_expected else None,
+                'check_out_expected': br.check_out_expected.isoformat() if br.check_out_expected else None,
+                'status': br.status,
+            },
+        )
         db.session.commit()
         return jsonify({'success': True, 'msg': 'Cập nhật thành công'})
 
