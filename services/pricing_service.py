@@ -14,6 +14,13 @@ def get_billable_night_dates(check_in: datetime, check_out: datetime):
     nights = max(1, (end_date - start_date).days)
     return [start_date + timedelta(days=offset) for offset in range(nights)]
 
+
+def get_nightly_price_breakdown(room, check_in: datetime, check_out: datetime):
+    return [
+        {'business_date': night_date, 'amount': get_effective_room_prices(room, datetime.combine(night_date, time(14, 0)))['p_night']}
+        for night_date in get_billable_night_dates(check_in, check_out)
+    ]
+
 # =======================================================
 # 1. HÀM LẤY GIÁ (CÓ CHECK RULE LỄ TẾT)
 # =======================================================
