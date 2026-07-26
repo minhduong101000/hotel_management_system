@@ -1,6 +1,6 @@
 from services.tenant_service import tenant_query, tenant_get_or_404
 from flask import Blueprint, render_template, jsonify, request
-from flask_login import login_required
+from flask_login import login_required, current_user
 from extensions import db
 from sqlalchemy.orm import joinedload
 from datetime import datetime, timedelta
@@ -18,6 +18,7 @@ from models.booking_room import BookingRoom
 # 2. IMPORT SERVICE (Logic tính giá)
 # ====================================================
 from services.pricing_service import get_effective_room_prices
+from services import audit_service
 
 room_bp = Blueprint('room', __name__)
 
@@ -213,6 +214,7 @@ def clean_room():
     room = tenant_query(Room).filter(Room.room_number == room_number_val).first()
     
     if room:
+        before_data = {'status': room.status, 'clean_status': room.clean_status}
         room.clean_status = 'cleaned' 
         
         # Chỉ chuyển sang 'available' nếu KHÔNG có khách đang ở
@@ -223,7 +225,16 @@ def clean_room():
 
         if not is_occupied and room.status != 'maintenance':
             room.status = 'available'
-            
+
+        audit_service.record_event(
+            hotel_id=room.hotel_id,
+            actor_user_id=current_user.id,
+            action='clean_room',
+            entity_type='room',
+            entity_id=room.id,
+            before_data=before_data,
+            after_data={'status': room.status, 'clean_status': room.clean_status},
+        )
         db.session.commit()
         return jsonify({'success': True, 'msg': f'Phòng {room_number_val} đã dọn sạch!'})
         

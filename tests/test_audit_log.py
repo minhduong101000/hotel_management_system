@@ -334,3 +334,25 @@ def test_update_timeline_records_audit_event(client, seed_hotels, login_as):
     assert event.entity_id == booking_room.id
     assert event.before_data["check_in_expected"] == "2030-01-01T14:00:00"
     assert event.after_data["check_in_expected"] == "2030-01-01T15:00:00"
+
+
+def test_clean_room_records_audit_event(client, seed_hotels, login_as):
+    hotel, _, user, _, booking_room, _ = seed_hotels
+    room = booking_room.room
+    room.clean_status = "dirty"
+    db.session.commit()
+    login_as(client, user)
+
+    response = client.post(
+        f"/{hotel.slug}/rooms/api/rooms/clean",
+        json={"number": room.room_number},
+    )
+
+    assert response.status_code == 200
+    assert response.json["success"] is True
+    event = AuditEvent.query.one()
+    assert event.action == "clean_room"
+    assert event.entity_type == "room"
+    assert event.entity_id == room.id
+    assert event.before_data == {"status": "available", "clean_status": "dirty"}
+    assert event.after_data == {"status": "available", "clean_status": "cleaned"}
