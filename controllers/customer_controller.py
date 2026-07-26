@@ -64,11 +64,21 @@ def update_customer(id):
     cus = tenant_query(Customer).filter_by(id=id).first()
     if cus:
         try:
+            before_data = {'name': cus.name, 'phone': cus.phone, 'address': cus.address}
             cus.name = data['name']
             cus.phone = data['phone']
             cus.email = data.get('email')
             cus.cccd = data.get('cccd')
             cus.address = data.get('address')
+            audit_service.record_event(
+                hotel_id=cus.hotel_id,
+                actor_user_id=current_user.id,
+                action='update_customer',
+                entity_type='customer',
+                entity_id=cus.id,
+                before_data=before_data,
+                after_data={'name': cus.name, 'phone': cus.phone, 'address': cus.address},
+            )
             db.session.commit()
             return jsonify({'success': True, 'msg': 'Cập nhật thành công!'})
         except Exception as e:

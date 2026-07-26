@@ -213,3 +213,20 @@ def test_delete_customer_records_audit_snapshot(client, seed_hotels, login_as):
     assert event.entity_type == "customer"
     assert event.entity_id == customer.id
     assert event.before_data == {"name": "Khách xóa", "phone": "0900999999"}
+
+
+def test_update_customer_records_before_and_after_snapshot(client, seed_hotels, login_as):
+    hotel, _, user, _, booking_room, _ = seed_hotels
+    customer = booking_room.booking.customer
+    login_as(client, user)
+
+    response = client.put(
+        f"/{hotel.slug}/customers/api/customers/{customer.id}",
+        json={"name": "Tên mới", "phone": "0900111222", "address": "Hà Nội"},
+    )
+
+    assert response.status_code == 200
+    event = AuditEvent.query.one()
+    assert event.action == "update_customer"
+    assert event.before_data["name"] == "Nguyen Van A"
+    assert event.after_data["name"] == "Tên mới"
