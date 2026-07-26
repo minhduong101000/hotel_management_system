@@ -51,6 +51,11 @@
                     <i class="fas fa-cash-register text-success"></i><span class="text-success fw-bold">Sổ Quỹ</span>
                 </a>
             </li>
+                <li class="menu-item">
+                    <a href="{{ url_for('audit.index') }}" class="{{ 'active' if 'audit' in request.endpoint else '' }}">
+                        <i class="fas fa-clipboard-list"></i><span>Nhật ký hoạt động</span>
+                    </a>
+                </li>
             {% endif %}
             
             <li class="menu-header">DỊCH VỤ & KHO</li>

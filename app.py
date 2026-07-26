@@ -26,6 +26,7 @@ from controllers.booking_controller import booking_bp
 from controllers.expense_controller import expense_bp
 from controllers.cashier_controller import cashier_bp
 from controllers.master_controller import master_bp
+from controllers.audit_controller import audit_bp
 
 def create_app(test_config=None):
     app = Flask(__name__)
@@ -65,6 +66,7 @@ def create_app(test_config=None):
     app.register_blueprint(booking_bp, url_prefix=f"{tenant_prefix}/bookings")
     app.register_blueprint(expense_bp, url_prefix=f"{tenant_prefix}/expenses")
     app.register_blueprint(cashier_bp, url_prefix=f"{tenant_prefix}/cashier")
+    app.register_blueprint(audit_bp, url_prefix=f"{tenant_prefix}/activity-log")
     app.register_blueprint(master_bp, url_prefix='/master')
 
     # --- 4. XỬ LÝ ĐA TENANT (URL SLUG) ---
