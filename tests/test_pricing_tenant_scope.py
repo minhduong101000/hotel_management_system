@@ -72,3 +72,15 @@ def test_open_ended_price_rule_applies_without_dates(app, seed_hotels):
 
     assert prices["p_night"] == 680000
     assert prices["rule_name"] == "Giá quanh năm"
+
+
+def test_price_rule_rejects_invalid_date_range(client, seed_hotels, login_as):
+    hotel, _, user, _, booking_room, _ = seed_hotels
+    login_as(client, user)
+
+    response = client.post(f'/{hotel.slug}/prices/api/prices/save-rule', json={
+        'name': 'Sai ngày', 'room_type': booking_room.room.room_type, 'priority': 1,
+        'start_date': '2026-09-03', 'end_date': '2026-09-02', 'price_daily': 500000,
+    })
+
+    assert response.json['success'] is False

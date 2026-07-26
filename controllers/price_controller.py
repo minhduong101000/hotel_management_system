@@ -137,6 +137,8 @@ def save_rule():
         # Xử lý ngày tháng
         start_date = datetime.strptime(data['start_date'], '%Y-%m-%d') if data.get('start_date') else None
         end_date = datetime.strptime(data['end_date'], '%Y-%m-%d') if data.get('end_date') else None
+        if start_date and end_date and end_date < start_date:
+            return jsonify({'success': False, 'msg': 'Ngày kết thúc phải từ ngày bắt đầu trở đi.'}), 400
         
         days_str = None
         if data.get('days_of_week') and len(data['days_of_week']) > 0:
@@ -144,6 +146,8 @@ def save_rule():
 
         # CHỈ LẤY GIÁ NGÀY
         val_daily = float(data.get('price_daily', 0))
+        if val_daily <= 0:
+            return jsonify({'success': False, 'msg': 'Giá qua đêm phải lớn hơn 0.'}), 400
 
         if rule_id:
             # === UPDATE ===
