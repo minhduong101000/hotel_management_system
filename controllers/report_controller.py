@@ -149,13 +149,18 @@ def get_revenue_data():
             }
             temp_date += timedelta(days=1)
 
+        def _chart_date(value):
+            if isinstance(value, str):
+                return datetime.strptime(value[:10], '%Y-%m-%d').strftime('%d/%m')
+            return value.strftime('%d/%m')
+
         for r in daily_revenue:
-            d_str = r.date.strftime('%d/%m')
+            d_str = _chart_date(r.date)
             if d_str in chart_map:
                 chart_map[d_str]['revenue'] = float(r.revenue or 0)
         
         for e in daily_expenses:
-            d_str = e.date.strftime('%d/%m')
+            d_str = _chart_date(e.date)
             if d_str in chart_map:
                 chart_map[d_str]['expense'] = float(e.expense or 0)
 
@@ -179,7 +184,7 @@ def get_revenue_data():
             func.count(BookingRoom.id).label('count'),
             func.sum(BookingRoom.final_amount).label('total')
         ).join(Booking, Booking.id == BookingRoom.booking_id)\
-         .join(Room, Room.id == BookingRoom.id)\
+         .join(Room, Room.id == BookingRoom.room_id)\
          .filter(
             BookingRoom.status.in_(['checked_out', 'cancelled']),
             finalized_time >= start_date,
