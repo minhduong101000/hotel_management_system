@@ -270,6 +270,12 @@ def update_service_quantity():
         current_quantity = int(line_item.quantity or 0)
         new_quantity = max(0, current_quantity + change)
         applied_change = new_quantity - current_quantity
+        before_data = {
+            'service_id': line_item.service_id,
+            'room_id': line_item.room_id,
+            'quantity': current_quantity,
+            'price_at_booking': float(line_item.price_at_booking or 0),
+        }
 
         if applied_change > 0:
             inventory_service.validate_inventory(line_item.hotel_id, {
@@ -287,6 +293,21 @@ def update_service_quantity():
             db.session.delete(line_item)
         else:
             line_item.quantity = new_quantity
+
+        audit_service.record_event(
+            hotel_id=line_item.hotel_id,
+            actor_user_id=current_user.id,
+            action='update_booking_service_quantity',
+            entity_type='booking_service',
+            entity_id=line_item.id,
+            before_data=before_data,
+            after_data={
+                'service_id': line_item.service_id,
+                'room_id': line_item.room_id,
+                'quantity': new_quantity,
+                'price_at_booking': float(line_item.price_at_booking or 0),
+            },
+        )
 
         db.session.commit()
         return jsonify({'success': True})

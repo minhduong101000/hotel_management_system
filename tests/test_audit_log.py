@@ -6,6 +6,7 @@ from models.inventory_item import InventoryItem
 from models.price_rule import PriceRule
 from models import Customer
 from models.expense import Expense
+from models.booking_service import BookingService
 from models import Service
 
 
@@ -433,3 +434,39 @@ def test_checkin_records_audit_event(client, seed_hotels, login_as):
     assert event.before_data == {"booking_status": "booked", "room_status": "available"}
     assert event.after_data["booking_status"] == "checked_in"
     assert event.after_data["room_status"] == "occupied"
+
+
+def test_update_service_quantity_records_audit_event(client, seed_hotels, login_as):
+    hotel, _, user, _, booking_room, _ = seed_hotels
+    service = Service(hotel_id=hotel.id, name="Nước", price=10000)
+    db.session.add(service)
+    db.session.flush()
+    line_item = BookingService(
+        hotel_id=hotel.id,
+        booking_id=booking_room.booking_id,
+        room_id=booking_room.room_id,
+        service_id=service.id,
+        quantity=2,
+        price_at_booking=10000,
+    )
+    db.session.add(line_item)
+    db.session.commit()
+    login_as(client, user)
+
+    response = client.post(
+        f"/{hotel.slug}/bookings/api/bookings/update_service_quantity",
+        json={
+            "booking_id": booking_room.booking_id,
+            "room_id": booking_room.room_id,
+            "service_id": service.id,
+            "change": -1,
+        },
+    )
+
+    assert response.status_code == 200
+    event = AuditEvent.query.one()
+    assert event.action == "update_booking_service_quantity"
+    assert event.entity_type == "booking_service"
+    assert event.entity_id == line_item.id
+    assert event.before_data["quantity"] == 2
+    assert event.after_data["quantity"] == 1
