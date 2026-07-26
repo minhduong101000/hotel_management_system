@@ -1,11 +1,12 @@
 from services.tenant_service import tenant_query, tenant_get_or_404
 from flask import Blueprint, render_template, jsonify, request
-from flask_login import login_required
+from flask_login import login_required, current_user
 from decorators import admin_required
 from extensions import db
 from models.room import Room
 from models.price_rule import PriceRule
 from datetime import datetime
+from services import audit_service
 
 price_bp = Blueprint('price', __name__)
 
@@ -84,9 +85,14 @@ def get_all_data():
 def update_base_price():
     try:
         data = request.get_json()
-        room = tenant_query(Room).filter_by(id=data.get('id').first())
+        room = tenant_query(Room).filter_by(id=int(data.get('id'))).first()
         
         if room:
+            before_data = {
+                'price_daily': float(room.price_per_night or 0),
+                'price_initial': float(room.price_initial_block or 0),
+                'price_next': float(room.price_next_hour or 0),
+            }
             # 1. Cập nhật giá ngày
             room.price_per_night = float(data.get('price_daily', 0))
             
@@ -100,6 +106,19 @@ def update_base_price():
             # (Tùy chọn) Nếu muốn update luôn initial_hours (nếu JS có gửi)
             # room.initial_hours = int(data.get('initial_hours', 1))
             
+            audit_service.record_event(
+                hotel_id=room.hotel_id,
+                actor_user_id=current_user.id,
+                action='update_base_price',
+                entity_type='room',
+                entity_id=room.id,
+                before_data=before_data,
+                after_data={
+                    'price_daily': float(room.price_per_night or 0),
+                    'price_initial': float(room.price_initial_block or 0),
+                    'price_next': float(room.price_next_hour or 0),
+                },
+            )
             db.session.commit()
             return jsonify({'success': True, 'msg': 'Đã cập nhật giá phòng!'})
         
@@ -135,6 +154,7 @@ def save_rule():
             # === UPDATE ===
             rule = tenant_query(PriceRule).filter_by(id=rule_id).first()
             if not rule: return jsonify({'success': False, 'msg': 'Lỗi ID'})
+            before_data = {'name': rule.name, 'price_daily': float(rule.price_daily or 0)}
             
             rule.name = data['name']
             rule.room_type = data['room_type']
@@ -143,6 +163,12 @@ def save_rule():
             rule.end_date = end_date
             rule.days_of_week = days_str
             rule.price_daily = val_daily
+            audit_service.record_event(
+                hotel_id=rule.hotel_id, actor_user_id=current_user.id,
+                action='update_price_rule', entity_type='price_rule', entity_id=rule.id,
+                before_data=before_data,
+                after_data={'name': rule.name, 'price_daily': float(rule.price_daily or 0)},
+            )
             # Không cập nhật giá giờ nữa
 
         else:
@@ -159,6 +185,20 @@ def save_rule():
                 # Không truyền price_initial/next vào đây nữa -> HẾT LỖI
             )
             db.session.add(new_rule)
+            db.session.flush()
+            audit_service.record_event(
+                hotel_id=new_rule.hotel_id,
+                actor_user_id=current_user.id,
+                action='create_price_rule',
+                entity_type='price_rule',
+                entity_id=new_rule.id,
+                after_data={
+                    'name': new_rule.name,
+                    'room_type': new_rule.room_type,
+                    'priority': new_rule.priority,
+                    'price_daily': float(new_rule.price_daily or 0),
+                },
+            )
         
         db.session.commit()
         return jsonify({'success': True, 'msg': 'Lưu luật giá thành công!'})
@@ -178,6 +218,19 @@ def delete_rule(id):
     try:
         rule = tenant_query(PriceRule).filter_by(id=id).first()
         if rule:
+            audit_service.record_event(
+                hotel_id=rule.hotel_id,
+                actor_user_id=current_user.id,
+                action='delete_price_rule',
+                entity_type='price_rule',
+                entity_id=rule.id,
+                before_data={
+                    'name': rule.name,
+                    'room_type': rule.room_type,
+                    'priority': rule.priority,
+                    'price_daily': float(rule.price_daily or 0),
+                },
+            )
             db.session.delete(rule)
             db.session.commit()
             return jsonify({'success': True, 'msg': 'Đã xóa luật!'})

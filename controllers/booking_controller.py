@@ -2,7 +2,7 @@ from services.tenant_service import tenant_query, tenant_get_or_404
 from flask import Blueprint, jsonify, request, render_template, g
 from models.hotel import Hotel
 from services.notification_service import send_booking_notification
-from flask_login import login_required
+from flask_login import login_required, current_user
 from extensions import db
 from datetime import datetime, timedelta
 from sqlalchemy.exc import IntegrityError
@@ -21,6 +21,7 @@ from models.business_operation import BusinessOperation
 # Import Shared Logic
 from services.pricing_service import calculate_complex_hotel_bill, get_effective_room_prices
 from services import inventory_service, payment_service
+from services import audit_service
 
 booking_bp = Blueprint('booking', __name__)
 
@@ -613,6 +614,16 @@ def checkout_room():
 
         operation.status = 'completed'
         operation.completed_at = now
+        audit_service.record_event(
+            hotel_id=room.hotel_id,
+            actor_user_id=current_user.id,
+            action='checkout',
+            entity_type='booking_room',
+            entity_id=booking_room.id,
+            operation_key=operation_key,
+            before_data={'status': 'checked_in'},
+            after_data={'status': 'checked_out', 'final_amount': float(total_bill_with_tax)},
+        )
         db.session.commit()
         return jsonify({
             'success': True,

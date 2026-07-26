@@ -2,7 +2,7 @@ from services.tenant_service import tenant_query, tenant_get_or_404
 from flask import Blueprint, jsonify, request, g
 from models.hotel import Hotel
 from services.notification_service import send_booking_notification
-from flask_login import login_required
+from flask_login import login_required, current_user
 from sqlalchemy.orm import joinedload
 from extensions import db
 from models.room import Room
@@ -11,11 +11,12 @@ from models.booking_room import BookingRoom
 from models.booking_service import BookingService
 from models.customer import Customer
 from models.service import Service
+from models.business_operation import BusinessOperation
 from datetime import datetime, timedelta
 import random
 import string
 from services.pricing_service import get_effective_room_prices, calculate_raw_hourly_fee
-from services import payment_service
+from services import payment_service, audit_service
 
 timeline_bp = Blueprint('timeline', __name__)
 
@@ -635,6 +636,9 @@ def cancel_booking():
         booking_id_raw = data.get('booking_id')
         booking_room_id_raw = data.get('booking_room_id')
         is_force_majeure = data.get('is_force_majeure', False)
+        cancellation_reason = str(data.get('reason', '')).strip()
+        if not cancellation_reason:
+            return jsonify({'success': False, 'msg': 'Cần nhập lý do hủy/hoàn tiền.'}), 400
         try:
             refund_percent_input = float(data.get('refund_percent', 0))
         except (TypeError, ValueError):
@@ -663,6 +667,21 @@ def cancel_booking():
 
         if not booking:
             return jsonify({'success': False, 'msg': 'Không tìm thấy thông tin đơn đặt phòng.'}), 404
+
+        operation_entity_id = target_br.id if target_br else booking.id
+        operation_key = f'cancel:{operation_entity_id}'
+        existing_operation = tenant_query(BusinessOperation).filter_by(operation_key=operation_key).first()
+        if existing_operation:
+            return jsonify({'success': False, 'msg': 'Yêu cầu hủy đã được xử lý.', 'operation_key': operation_key}), 409
+        operation = BusinessOperation(
+            hotel_id=booking.hotel_id,
+            operation_key=operation_key,
+            action='cancel_booking',
+            entity_type='booking_room' if target_br else 'booking',
+            entity_id=operation_entity_id,
+        )
+        db.session.add(operation)
+        db.session.flush()
 
         # 2. Xác định danh sách phòng cần hủy
         # Nếu gửi booking_room_id -> Chỉ hủy 1 phòng đó
@@ -824,6 +843,26 @@ def cancel_booking():
         # Nếu là lần hủy cuối cùng, đánh dấu đơn là 'cancelled' để phân biệt với 'completed' (đã trả phòng)
         if is_final_cancellation:
             booking.status = 'cancelled'
+
+        operation.status = 'completed'
+        operation.completed_at = datetime.now()
+
+        for cancelled_room in rooms_to_cancel:
+            audit_service.record_event(
+                hotel_id=booking.hotel_id,
+                actor_user_id=current_user.id,
+                action='cancel_booking',
+                entity_type='booking_room',
+                entity_id=cancelled_room.id,
+                operation_key=f'cancel:{cancelled_room.id}',
+                before_data={'status': 'booked'},
+                after_data={
+                    'status': 'cancelled',
+                    'reason': cancellation_reason,
+                    'refund_percent': refund_percent_effective,
+                    'refund_amount': float(cancelled_room.cancellation_refund_amount or 0),
+                },
+            )
 
         db.session.commit()
 

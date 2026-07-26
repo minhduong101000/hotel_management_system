@@ -1,9 +1,10 @@
 from services.tenant_service import tenant_query, tenant_get_or_404
 from flask import Blueprint, render_template, jsonify, request
-from flask_login import login_required
+from flask_login import login_required, current_user
 from extensions import db
 from models.inventory_item import InventoryItem
 from models.service import Service
+from services import audit_service
 
 warehouse_bp = Blueprint('warehouse', __name__)
 
@@ -89,6 +90,14 @@ def update_item(item_id):
         if not item:
             return jsonify({'success': False, 'msg': 'Không tìm thấy vật tư!'})
 
+        before_data = {
+            'code': item.code,
+            'name': item.name,
+            'quantity': int(item.quantity or 0),
+            'price': float(item.price or 0),
+            'service_id': item.service_id,
+        }
+
         service_id = data.get('service_id') or None
         item_name = data.get('name', item.name)
         ok, msg = _validate_service_link(item_name, service_id)
@@ -102,6 +111,21 @@ def update_item(item_id):
         item.min_quantity = int(data.get('min_quantity', item.min_quantity))
         item.price = float(data.get('price', item.price))
         item.service_id = service_id
+        audit_service.record_event(
+            hotel_id=item.hotel_id,
+            actor_user_id=current_user.id,
+            action='update_inventory',
+            entity_type='inventory_item',
+            entity_id=item.id,
+            before_data=before_data,
+            after_data={
+                'code': item.code,
+                'name': item.name,
+                'quantity': int(item.quantity or 0),
+                'price': float(item.price or 0),
+                'service_id': item.service_id,
+            },
+        )
         
         db.session.commit()
         return jsonify({'success': True, 'msg': 'Cập nhật thành công!'})
@@ -123,7 +147,17 @@ def restock_item(item_id):
         if not item:
             return jsonify({'success': False, 'msg': 'Không tìm thấy vật tư!'})
         
-        item.quantity += qty
+        quantity_before = int(item.quantity or 0)
+        item.quantity = quantity_before + qty
+        audit_service.record_event(
+            hotel_id=item.hotel_id,
+            actor_user_id=current_user.id,
+            action='restock_inventory',
+            entity_type='inventory_item',
+            entity_id=item.id,
+            before_data={'quantity': quantity_before},
+            after_data={'quantity': int(item.quantity)},
+        )
         db.session.commit()
         return jsonify({'success': True, 'msg': f'Đã nhập thêm {qty} {item.unit} {item.name}'})
     except Exception as e:
@@ -138,6 +172,18 @@ def delete_item(item_id):
         item = tenant_query(InventoryItem).filter_by(id=item_id).first()
         if not item:
             return jsonify({'success': False, 'msg': 'Không tìm thấy!'})
+        audit_service.record_event(
+            hotel_id=item.hotel_id,
+            actor_user_id=current_user.id,
+            action='delete_inventory',
+            entity_type='inventory_item',
+            entity_id=item.id,
+            before_data={
+                'code': item.code,
+                'name': item.name,
+                'quantity': int(item.quantity or 0),
+            },
+        )
         db.session.delete(item)
         db.session.commit()
         return jsonify({'success': True, 'msg': 'Đã xóa!'})

@@ -9,8 +9,9 @@ from .service import Service
 from .payment import Payment
 from .price_rule import PriceRule
 from .business_operation import BusinessOperation
+from .audit_event import AuditEvent
 
 __all__ = [
     'User', 'Hotel', 'Room', 'Customer', 'Booking', 'BookingRoom',
-    'BookingService', 'Service', 'Payment', 'PriceRule', 'BusinessOperation',
+    'BookingService', 'Service', 'Payment', 'PriceRule', 'BusinessOperation', 'AuditEvent',
 ]
