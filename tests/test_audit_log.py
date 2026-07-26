@@ -356,3 +356,30 @@ def test_clean_room_records_audit_event(client, seed_hotels, login_as):
     assert event.entity_id == room.id
     assert event.before_data == {"status": "available", "clean_status": "dirty"}
     assert event.after_data == {"status": "available", "clean_status": "cleaned"}
+
+
+def test_create_expense_records_audit_event(client, seed_hotels, login_as):
+    hotel, _, user, _, _, _ = seed_hotels
+    login_as(client, user)
+
+    response = client.post(
+        f"/{hotel.slug}/expenses/api/expenses",
+        json={
+            "category": "Sửa chữa",
+            "description": "Thay bóng đèn",
+            "amount": 120000,
+            "expense_date": "2030-01-01",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json["success"] is True
+    event = AuditEvent.query.one()
+    assert event.action == "create_expense"
+    assert event.entity_type == "expense"
+    assert event.after_data == {
+        "category": "Sửa chữa",
+        "description": "Thay bóng đèn",
+        "amount": 120000.0,
+        "expense_date": "2030-01-01",
+    }

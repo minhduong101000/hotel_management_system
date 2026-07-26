@@ -8,6 +8,7 @@ from models.inventory_item import InventoryItem
 from models.service import Service
 from datetime import datetime
 import re
+from services import audit_service
 
 expense_bp = Blueprint('expense', __name__)
 
@@ -202,6 +203,20 @@ def add_expense():
                 else:
                     new_expense.description = marker
 
+        db.session.flush()
+        audit_service.record_event(
+            hotel_id=new_expense.hotel_id,
+            actor_user_id=current_user.id,
+            action='create_expense',
+            entity_type='expense',
+            entity_id=new_expense.id,
+            after_data={
+                'category': new_expense.category,
+                'description': new_expense.description,
+                'amount': float(new_expense.amount or 0),
+                'expense_date': new_expense.expense_date.isoformat(),
+            },
+        )
         db.session.commit()
         msg = 'Thêm chi phí thành công!'
         if sync_inventory:
