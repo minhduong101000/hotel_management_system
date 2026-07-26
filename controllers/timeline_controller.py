@@ -402,7 +402,7 @@ def create_booking():
 
         # Chặn trùng lịch với booking active (booked/checked_in).
         if _has_active_booking_conflict(room.id, check_in_dt, check_out_dt):
-            return jsonify({'success': False, 'msg': f'Phòng {room.room_number} đã có lịch trong khoảng thời gian này.'})
+            return jsonify({'success': False, 'msg': f'Phòng {room.room_number} đã có lịch trong khoảng thời gian này.'}), 409
 
         status = (data.get('status') or 'booked').strip()
         if status not in ['booked', 'checked_in']:
