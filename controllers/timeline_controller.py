@@ -388,7 +388,9 @@ def create_booking():
         if not room_number:
             return jsonify({'success': False, 'msg': 'Thiếu số phòng.'})
 
-        room = tenant_query(Room).filter_by(room_number=room_number).first()
+        # Lock the room row on databases that support SELECT ... FOR UPDATE.
+        # SQLite ignores this clause, while MySQL serializes competing booking requests.
+        room = tenant_query(Room).filter_by(room_number=room_number).with_for_update().first()
         if not room: return jsonify({'success': False, 'msg': 'Phòng không tồn tại'})
 
         check_in_dt = datetime.strptime(data.get('check_in'), '%Y-%m-%dT%H:%M')

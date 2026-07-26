@@ -771,7 +771,8 @@ def create_group_booking():
         if check_in >= check_out:
             return jsonify({'success': False, 'msg': 'Ngày trả phải sau ngày nhận phòng.'})
 
-        rooms_query = tenant_query(Room).filter(Room.id.in_(room_ids)).all()
+        # Lock all selected rooms in a stable order before checking availability.
+        rooms_query = tenant_query(Room).filter(Room.id.in_(room_ids)).order_by(Room.id.asc()).with_for_update().all()
         room_dict = {r.id: r for r in rooms_query}
 
         nights = (check_out.date() - check_in.date()).days
