@@ -55,13 +55,11 @@
             
             <li class="menu-header">DỊCH VỤ & KHO</li>
 
-            {% if current_user.role == 'admin' %}
             <li class="menu-item">
                 <a href="{{ url_for('price.index') }}" class="{{ 'active' if 'price.' in request.endpoint else '' }}">
                     <i class="fas fa-tags"></i><span>Quản lý Giá phòng</span>
                 </a>
             </li>
-            {% endif %}
             
             {% if current_user.role == 'admin' %}
             <li class="menu-item">

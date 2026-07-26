@@ -1,7 +1,6 @@
 from services.tenant_service import tenant_query, tenant_get_or_404
 from flask import Blueprint, render_template, jsonify, request
 from flask_login import login_required, current_user
-from decorators import admin_required
 from extensions import db
 from models.room import Room
 from models.price_rule import PriceRule
