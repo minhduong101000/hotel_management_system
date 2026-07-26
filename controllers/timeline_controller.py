@@ -439,7 +439,28 @@ def create_booking():
         
         customer = None
         if phone:
-            customer = tenant_query(Customer).filter_by(phone=phone).first()
+            matching_customers = tenant_query(Customer).filter_by(phone=phone).all()
+            selected_customer_id = data.get('customer_id')
+            if selected_customer_id:
+                customer = next(
+                    (candidate for candidate in matching_customers if candidate.id == int(selected_customer_id)),
+                    None,
+                )
+                if not customer:
+                    return jsonify({'success': False, 'msg': 'Khách được chọn không hợp lệ.'}), 404
+            elif len(matching_customers) == 1:
+                customer = matching_customers[0]
+            elif len(matching_customers) > 1:
+                return jsonify({
+                    'success': False,
+                    'code': 'customer_phone_ambiguous',
+                    'msg': 'Có nhiều khách dùng cùng SĐT; cần chọn đúng khách.',
+                    'candidates': [
+                        {'id': candidate.id, 'name': candidate.name, 'phone': candidate.phone, 'cccd': candidate.cccd}
+                        for candidate in matching_customers
+                    ],
+                }), 409
+
             if not customer:
                 customer = Customer(name=name or "Khách lẻ", phone=phone, cccd=cccd, address=address)
                 db.session.add(customer)
