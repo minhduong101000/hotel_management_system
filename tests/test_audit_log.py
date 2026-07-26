@@ -5,6 +5,7 @@ from models.audit_event import AuditEvent
 from models.inventory_item import InventoryItem
 from models.price_rule import PriceRule
 from models import Customer
+from models import Service
 
 
 def test_checkout_creates_tenant_scoped_audit_event(client, seed_hotels, login_as):
@@ -230,3 +231,18 @@ def test_update_customer_records_before_and_after_snapshot(client, seed_hotels, 
     assert event.action == "update_customer"
     assert event.before_data["name"] == "Nguyen Van A"
     assert event.after_data["name"] == "Tên mới"
+
+
+def test_delete_service_records_audit_snapshot(client, seed_hotels, login_as):
+    hotel, _, user, _, _, _ = seed_hotels
+    service = Service(hotel_id=hotel.id, name="Giặt", price=50000)
+    db.session.add(service)
+    db.session.commit()
+    login_as(client, user)
+
+    response = client.delete(f"/{hotel.slug}/services/api/services/{service.id}")
+
+    assert response.status_code == 200
+    event = AuditEvent.query.one()
+    assert event.action == "delete_service"
+    assert event.before_data == {"name": "Giặt", "price": 50000.0}

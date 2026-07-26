@@ -297,6 +297,12 @@ function saveBookingChanges() {
         const chkForce = document.getElementById('chk-force-majeure');
         const isForceMajeure = chkForce ? chkForce.checked : false;
         const refundPercent = document.getElementById('refund-percent').value || 0;
+        const refundReason = document.getElementById('refund-reason')?.value.trim() || '';
+        if (!refundReason) {
+            alert('Vui lòng nhập lý do hủy/hoàn tiền.');
+            document.getElementById('refund-reason')?.focus();
+            return;
+        }
 
         fetch(api('/api/bookings/cancel'), {
             method: 'POST',
@@ -305,7 +311,8 @@ function saveBookingChanges() {
                 booking_room_id: parseInt(bookingRoomId),
                 booking_id: parseInt(bookingId),          
                 is_force_majeure: isForceMajeure,
-                refund_percent: refundPercent
+                refund_percent: refundPercent,
+                reason: refundReason
             })
         })
         .then(r => r.json())
