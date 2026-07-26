@@ -246,3 +246,22 @@ def test_delete_service_records_audit_snapshot(client, seed_hotels, login_as):
     event = AuditEvent.query.one()
     assert event.action == "delete_service"
     assert event.before_data == {"name": "Giặt", "price": 50000.0}
+
+
+def test_update_service_records_audit_snapshot(client, seed_hotels, login_as):
+    hotel, _, user, _, _, _ = seed_hotels
+    service = Service(hotel_id=hotel.id, name="Nước", price=10000)
+    db.session.add(service)
+    db.session.commit()
+    login_as(client, user)
+
+    response = client.put(
+        f"/{hotel.slug}/services/api/services/{service.id}",
+        json={"name": "Nước suối", "price": 15000},
+    )
+
+    assert response.status_code == 200
+    event = AuditEvent.query.one()
+    assert event.action == "update_service"
+    assert event.before_data == {"name": "Nước", "price": 10000.0}
+    assert event.after_data == {"name": "Nước suối", "price": 15000.0}

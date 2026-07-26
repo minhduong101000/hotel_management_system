@@ -43,8 +43,18 @@ def update_service(id):
     data = request.get_json()
     service = tenant_query(Service).filter_by(id=id).first()
     if service:
+        before_data = {'name': service.name, 'price': float(service.price or 0)}
         service.name = data['name']
         service.price = data['price']
+        audit_service.record_event(
+            hotel_id=service.hotel_id,
+            actor_user_id=current_user.id,
+            action='update_service',
+            entity_type='service',
+            entity_id=service.id,
+            before_data=before_data,
+            after_data={'name': service.name, 'price': float(service.price or 0)},
+        )
         db.session.commit()
         return jsonify({'success': True, 'msg': 'Cập nhật thành công!'})
     return jsonify({'success': False, 'msg': 'Không tìm thấy dịch vụ'})
