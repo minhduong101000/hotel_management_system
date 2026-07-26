@@ -551,7 +551,7 @@ def create_booking():
 
         # --- GỬI EMAIL THÔNG BÁO CHO CHỦ KHÁCH SẠN ---
         try:
-            hotel = Hotel.query.get(g.hotel_id)
+            hotel = db.session.get(Hotel, g.hotel_id)
             if hotel:
                 send_booking_notification(new_booking, hotel)
         except Exception as mail_err:

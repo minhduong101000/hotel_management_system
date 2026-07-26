@@ -1,3 +1,4 @@
+from extensions import db
 from models import User
 
 
@@ -28,4 +29,4 @@ def test_hotel_admin_cannot_delete_last_admin(client, seed_hotels, login_as):
     response = client.post(f'/{hotel_a.slug}/staff/delete/{admin_a.id}')
 
     assert response.status_code == 302
-    assert User.query.get(admin_a.id) is not None
+    assert db.session.get(User, admin_a.id) is not None
