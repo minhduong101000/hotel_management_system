@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, render_template, request
 from flask_login import login_required
+from datetime import datetime, timedelta
 
 from decorators import admin_required
 from models.audit_event import AuditEvent
@@ -23,10 +24,16 @@ def list_events():
     query = tenant_query(AuditEvent)
     action = (request.args.get('action') or '').strip()
     entity_type = (request.args.get('entity_type') or '').strip()
+    start = (request.args.get('start') or '').strip()
+    end = (request.args.get('end') or '').strip()
     if action:
         query = query.filter(AuditEvent.action == action)
     if entity_type:
         query = query.filter(AuditEvent.entity_type == entity_type)
+    if start:
+        query = query.filter(AuditEvent.created_at >= datetime.strptime(start, '%Y-%m-%d'))
+    if end:
+        query = query.filter(AuditEvent.created_at < datetime.strptime(end, '%Y-%m-%d') + timedelta(days=1))
 
     events = query.order_by(AuditEvent.created_at.desc(), AuditEvent.id.desc()).limit(100).all()
     return jsonify({
