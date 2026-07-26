@@ -116,7 +116,7 @@ def get_revenue_data():
         chart_map = {}
         
         # Lấy danh sách booking active trong kỳ này một lần để tính occupancy cho từng ngày
-        active_bookings = Bookingtenant_query(Room).filter(
+        active_bookings = tenant_query(BookingRoom).filter(
             BookingRoom.status.in_(['checked_in', 'checked_out']),
             BookingRoom.check_in_actual <= end_date,
             func.coalesce(BookingRoom.check_out_actual, now) >= start_date

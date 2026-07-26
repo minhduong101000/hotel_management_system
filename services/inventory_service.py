@@ -1,48 +1,79 @@
 from __future__ import annotations
 
-from extensions import db
+from collections import defaultdict
+
 from models.inventory_item import InventoryItem
 
 
-def deduct_inventory(service_id: int, quantity: int) -> None:
-    """Deduct inventory quantity for a service.
+class InsufficientInventoryError(ValueError):
+    """Raised before an order would make a hotel's inventory negative."""
 
-    Preserves legacy semantics in controllers:
-    - Quantity <= 0 is treated as no-op (or delegated to restore when negative).
-    - Inventory is clamped to >= 0.
 
-    This function only mutates ORM objects; commit/rollback is the caller's responsibility.
+def _items_for_service(hotel_id: int, service_id: int):
+    return InventoryItem.query.filter_by(
+        hotel_id=hotel_id,
+        service_id=service_id,
+    ).order_by(InventoryItem.id.asc()).all()
+
+
+def validate_inventory(hotel_id: int, requirements: dict[int, int]) -> None:
+    """Validate all positive deductions before mutating any inventory record.
+
+    Services without an InventoryItem remain billable because they are not
+    stock-managed. When stock-managed, the sum of linked items is the
+    available quantity and cannot become negative.
     """
-    if quantity is None:
+    for service_id, requested in requirements.items():
+        quantity = int(requested or 0)
+        if quantity <= 0:
+            continue
+
+        items = _items_for_service(hotel_id, service_id)
+        if not items:
+            continue
+
+        available = sum(max(0, int(item.quantity or 0)) for item in items)
+        if available < quantity:
+            raise InsufficientInventoryError(
+                f"Dịch vụ {service_id} không đủ tồn kho (còn {available}, cần {quantity})."
+            )
+
+
+def deduct_inventory(hotel_id: int, service_id: int, quantity: int) -> None:
+    """Deduct already-validated stock for one service within one hotel."""
+    quantity = int(quantity or 0)
+    if quantity <= 0:
         return
 
-    qty = int(quantity)
-    if qty < 0:
-        restore_inventory(service_id, -qty)
-        return
-    if qty == 0:
+    items = _items_for_service(hotel_id, service_id)
+    if not items:
         return
 
-    inv_items = InventoryItem.query.filter_by(service_id=service_id).all()
-    for inv in inv_items:
-        inv.quantity = max(0, int(inv.quantity or 0) - qty)
+    remaining = quantity
+    for item in items:
+        deducted = min(max(0, int(item.quantity or 0)), remaining)
+        item.quantity = int(item.quantity or 0) - deducted
+        remaining -= deducted
+        if remaining == 0:
+            return
+
+    raise InsufficientInventoryError("Tồn kho đã thay đổi trước khi ghi nhận dịch vụ.")
 
 
-def restore_inventory(service_id: int, quantity: int) -> None:
-    """Restore inventory quantity for a service.
-
-    This function only mutates ORM objects; commit/rollback is the caller's responsibility.
-    """
-    if quantity is None:
+def restore_inventory(hotel_id: int, service_id: int, quantity: int) -> None:
+    """Restore stock when a bill quantity is reduced; no-op if unmanaged."""
+    quantity = int(quantity or 0)
+    if quantity <= 0:
         return
 
-    qty = int(quantity)
-    if qty < 0:
-        deduct_inventory(service_id, -qty)
-        return
-    if qty == 0:
-        return
+    items = _items_for_service(hotel_id, service_id)
+    if items:
+        items[0].quantity = int(items[0].quantity or 0) + quantity
 
-    inv_items = InventoryItem.query.filter_by(service_id=service_id).all()
-    for inv in inv_items:
-        inv.quantity = int(inv.quantity or 0) + qty
+
+def aggregate_quantities(items):
+    """Return service_id -> quantity totals from validated order data."""
+    totals = defaultdict(int)
+    for service_id, quantity in items:
+        totals[int(service_id)] += int(quantity)
+    return dict(totals)

@@ -52,6 +52,7 @@ def get_effective_room_prices(room, check_date=None):
     try:
         candidate_rules = PriceRule.query.filter(
             and_(
+                PriceRule.hotel_id == room.hotel_id,
                 PriceRule.room_type == room.room_type,
                 PriceRule.is_active == True,
                 # Kiểm tra ngày nằm trong khoảng hiệu lực (Start -> End)

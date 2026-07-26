@@ -76,12 +76,14 @@ def get_rooms():
                 
             notice_type = "waiting" if br.check_in_expected < now else "upcoming"
             customer_name = br.booking.customer.name if br.booking and br.booking.customer else "Khách"
+            customer_phone = br.booking.customer.phone if br.booking and br.booking.customer else ""
             
             notices_map[br.room_id].append({
                 "booking_room_id": br.id,
                 "type": notice_type,
                 "status": br.status,
                 "guest_name": customer_name,
+                "guest_phone": customer_phone,
                 "check_in_expected": br.check_in_expected.strftime('%Y-%m-%dT%H:%M') if br.check_in_expected else "",
                 "check_out_expected": br.check_out_expected.strftime('%Y-%m-%dT%H:%M') if br.check_out_expected else "",
                 "deposit": float(br.room_deposit_amount or 0)
@@ -137,6 +139,9 @@ def get_rooms():
 
                 if br.check_out_expected:
                     room_data['check_out_expected'] = br.check_out_expected.strftime('%H:%M %d/%m')
+                    room_data['is_overdue'] = datetime.now() > br.check_out_expected
+                else:
+                    room_data['is_overdue'] = False
                 
                 room_data['rental_type'] = br.rental_type
                 room_data['booking_id'] = br.booking_id

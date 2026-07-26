@@ -8,6 +8,9 @@ from .booking_service import BookingService
 from .service import Service
 from .payment import Payment
 from .price_rule import PriceRule
+from .business_operation import BusinessOperation
 
-__all__ = ['User', 'Hotel', 'Room', 'Customer', 'Booking', 'BookingRoom', 
-           'BookingService', 'Service', 'Payment', 'PriceRule']
+__all__ = [
+    'User', 'Hotel', 'Room', 'Customer', 'Booking', 'BookingRoom',
+    'BookingService', 'Service', 'Payment', 'PriceRule', 'BusinessOperation',
+]

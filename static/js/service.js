@@ -20,6 +20,7 @@ function openOrderModal(roomNumber) {
     if(searchInput) searchInput.value = ''; 
 
     renderCart(); // Render giỏ hàng trống
+    loadExistingOrders(roomNumber);
     
     // Mở Modal
     const modalEl = document.getElementById('orderModal');
@@ -40,6 +41,40 @@ function openOrderModal(roomNumber) {
     } else {
         renderServiceList(serviceMenu);
     }
+}
+
+function loadExistingOrders(roomNumber) {
+    const list = document.getElementById('existing-order-list');
+    const total = document.getElementById('existing-order-total');
+    if (!list || !total) return;
+
+    list.textContent = 'Đang tải món đã gọi...';
+    total.textContent = '—';
+    fetch(api(`/api/bookings/orders/room/${encodeURIComponent(roomNumber)}`))
+        .then(response => response.ok ? response.json() : { items: [], total: 0 })
+        .then(data => {
+            list.replaceChildren();
+            const items = data.items || [];
+            if (items.length === 0) {
+                list.textContent = 'Chưa có món đã gọi.';
+            } else {
+                items.forEach(item => {
+                    const row = document.createElement('div');
+                    row.className = 'existing-order-summary__item';
+                    const name = document.createElement('span');
+                    name.textContent = item.service_name;
+                    const quantity = document.createElement('strong');
+                    quantity.textContent = `×${item.quantity}`;
+                    row.append(name, quantity);
+                    list.appendChild(row);
+                });
+            }
+            total.textContent = `${Number(data.total || 0).toLocaleString('vi-VN')} đ`;
+        })
+        .catch(() => {
+            list.textContent = 'Không tải được món đã gọi.';
+            total.textContent = '—';
+        });
 }
 
 // 2. HÀM RENDER MENU (Có hỗ trợ lọc)

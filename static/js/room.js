@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // 1. TẢI DỮ LIỆU TỪ SERVER
 // ==========================================
 function loadRoomsData() {
-    fetch(api('/api/rooms'))
+    fetch(api('/api/rooms') + '?t=' + new Date().getTime())
         .then(res => {
             if (!res.ok) throw new Error(`Server Error: ${res.status}`);
             return res.json();
@@ -67,211 +67,29 @@ function renderGrid() {
     }
 
     filteredRooms.forEach(room => {
-        let cardHtml = '';
-        
-        // --- TRƯỜNG HỢP 1: PHÒNG CÓ KHÁCH (OCCUPIED) ---
-        if (room.status === 'occupied') {
-            let statusClass = (room.rental_type === 'hourly') ? 'st-hourly' : 'st-occupied';
-            
-            // --- [FIX LỖI NULL TẠI ĐÂY] ---
-            // Sử dụng ?. để kiểm tra an toàn, nếu customer là null thì lấy chuỗi rỗng
-            const safeName = (room.customer_name || '').replace(/'/g, "\\'");
-            const safePhone = (room.customer?.phone || '').replace(/'/g, "\\'"); 
-            // ------------------------------
-
-            const safeCheckInTime = (room.check_in_time || '');
-            const safeCheckOutTime = (room.check_out_expected || '');
-
-            cardHtml = `
-                <div class="room-card ${statusClass}" 
-                     onclick="openOrderModal('${room.number}')" 
-                     style="cursor: pointer; position: relative;">
-                     
-                    <div class="rc-head d-flex justify-content-between">
-                        <div>
-                            <div class="rc-num">${room.number}</div>
-                            <small>${room.type}</small>
-                        </div>
-                        
-                        <div class="customer-icon-btn" 
-                             onclick="event.stopPropagation(); showCustomerInfo('${safeName}', '${safePhone}', '${safeCheckInTime}', '${safeCheckOutTime}')"
-                             title="Xem thông tin khách">
-                            <i class="fas fa-user-circle fa-2x text-white-50 hover-light"></i>
-                        </div>
-                    </div>
-                    
-                    <div class="rc-body">
-                        <strong>ĐANG Ở</strong>
-                        <div style="font-size: 0.75rem; margin-top: 5px; opacity: 0.8;">
-                        </div>
-                    </div>
-                    
-                    <div class="rc-foot mt-2 pt-2 border-top border-white-50 d-flex justify-content-between">
-                        <span onclick="event.stopPropagation(); checkOut('${room.number}')" class="btn-action">
-                            <i class="fas fa-money-bill"></i> Trả phòng
-                        </span>
-                        <span class="small opacity-75">...</span>
-                    </div>
-                </div>`;
-        }
-        
-        // --- TRƯỜNG HỢP 2: PHÒNG BẨN (DIRTY) ---
-        else if (room.clean_status === 'dirty') {
-            cardHtml = `
-                <div class="room-card st-dirty">
-                    <div class="rc-head">
-                        <div><div class="rc-num">${room.number}</div><small>${room.type}</small></div>
-                        <i class="fas fa-broom opacity-50"></i>
-                    </div>
-                    <div class="rc-body">
-                         <button class="btn btn-sm btn-light text-warning fw-bold shadow-sm" onclick="cleanRoom('${room.number}')">
-                            <i class="fas fa-check"></i> Dọn xong
-                        </button>
-                    </div>
-                    <div class="rc-foot">
-                        <span>Cần dọn</span>
-                        <span>Bẩn</span>
-                    </div>
-                </div>`;
-        }
-        
-        // --- TRƯỜNG HỢP 3: PHÒNG TRỐNG (AVAILABLE) ---
-        else if (room.status === 'available') {
-            cardHtml = `
-                <div class="room-card st-free position-relative" style="height: 100%;">
-                    <div class="rc-head">
-                        <div><div class="rc-num">${room.number}</div><small>${room.type}</small></div>
-                        <i class="fas fa-bed opacity-50"></i>
-                    </div>
-                    <div class="rc-body p-1 d-flex flex-column" style="overflow-y: auto; max-height: 120px; align-items: stretch; justify-content: flex-start;">
-                        <div class="text-center mb-1">
-                            <h4 class="fw-light mb-0" style="font-size: 1.1rem;">${room.formatted_price}</h4>
-                            <small>VNĐ/đêm</small>
-                        </div>
-                        <div class="notices-wrapper w-100 px-2 mt-1"></div>
-                    </div>
-                    <div class="rc-foot mt-auto">
-                        <span onclick="checkIn('${room.number}', ${room.id})" class="btn-action">
-                            <i class="fas fa-sign-in-alt"></i> Check-in Mới
-                        </span>
-                        <span>Sạch</span>
-                    </div>
-                </div>`;
-        }
-        // --- TRƯỜNG HỢP 4: BẢO TRÌ ---
-        else {
-             cardHtml = `
-                <div class="room-card bg-secondary text-white">
-                    <div class="rc-body text-center pt-4"><h5>BẢO TRÌ</h5></div>
-                </div>`;
-        }
-
         const col = document.createElement('div');
-        col.className = 'col-xl-2 col-lg-3 col-md-4 col-sm-6 mb-3'; 
-        col.innerHTML = cardHtml;
-        
-        // --- Populate Notices Using DOM API for Security (XSS Prevention) ---
-        if (room.status === 'available' && room.notices && room.notices.length > 0) {
-            const noticesWrapper = col.querySelector('.notices-wrapper');
-            if (noticesWrapper) {
-                room.notices.forEach(n => {
-                    const noticeDiv = document.createElement('div');
-                    noticeDiv.className = 'd-flex justify-content-between align-items-center mb-1 pb-1 border-bottom border-secondary';
-                    
-                    const infoDiv = document.createElement('div');
-                    infoDiv.style.lineHeight = '1.1';
-                    
-                    const badge = document.createElement('span');
-                    const isWaiting = n.type === 'waiting';
-                    badge.className = `badge bg-${isWaiting ? 'danger' : 'warning text-dark'} mb-1`;
-                    badge.title = n.check_in_expected;
-                    
-                    const icon = document.createElement('i');
-                    icon.className = `fas ${isWaiting ? 'fa-exclamation-circle' : 'fa-clock'}`;
-                    badge.appendChild(icon);
-                    badge.appendChild(document.createTextNode(` ${isWaiting ? 'Chờ' : 'Sắp đến'}`));
-                    
-                    const br = document.createElement('br');
-                    
-                    const guestName = document.createElement('small');
-                    guestName.className = 'text-muted';
-                    guestName.style.fontSize = '0.7rem';
-                    guestName.textContent = n.guest_name;
-                    
-                    infoDiv.appendChild(badge);
-                    infoDiv.appendChild(br);
-                    infoDiv.appendChild(guestName);
-                    
-                    const actionBtn = document.createElement('button');
-                    actionBtn.className = 'btn btn-sm btn-primary py-0 px-2 shadow-sm';
-                    actionBtn.style.fontSize = '0.75rem';
-                    actionBtn.textContent = 'Menu';
-                    
-                    // Prevent card click
-                    actionBtn.onclick = function(e) {
-                        e.stopPropagation();
-                        showNoticePopover(actionBtn, n);
-                    };
-                    
-                    noticeDiv.appendChild(infoDiv);
-                    noticeDiv.appendChild(actionBtn);
-                    
-                    noticesWrapper.appendChild(noticeDiv);
-                });
-            }
-        }
-        
+        col.className = 'col-xl-2 col-lg-3 col-md-4 col-sm-6 mb-3';
+        col.appendChild(renderRoomCard(room));
         grid.appendChild(col);
     });
+    return;
 }
 
-function showNoticePopover(btn, notice) {
-    // Remove existing popovers
-    document.querySelectorAll('.notice-popover').forEach(p => p.remove());
+function showNoticeConfirm(e, bookingRoomId, guestName, expectedTime, isWaiting, guestPhone = '', deposit = 0) {
+    if(e) e.stopPropagation();
     
-    const popover = document.createElement('div');
-    popover.className = 'notice-popover position-absolute bg-white border rounded shadow p-2';
-    popover.style.zIndex = '1000';
-    popover.style.minWidth = '150px';
+    // Populate and show the confirmation modal
+    document.getElementById('ci-booking-room-id').value = bookingRoomId;
+    document.getElementById('ci-guest-name').textContent = guestName;
+    document.getElementById('ci-expected-time').textContent = expectedTime || 'Không rõ';
+    document.getElementById('ci-guest-phone').textContent = guestPhone || 'Chưa có';
+    document.getElementById('ci-deposit').textContent = `${Number(deposit || 0).toLocaleString('vi-VN')} VNĐ`;
     
-    // Position it near the button
-    const rect = btn.getBoundingClientRect();
-    popover.style.top = (window.scrollY + rect.bottom + 5) + 'px';
-    popover.style.left = (window.scrollX + rect.left - 100) + 'px'; // roughly align right
+    const badgeHtml = `<span class="badge bg-${isWaiting ? 'danger' : 'warning text-dark'}"><i class="fas ${isWaiting ? 'fa-exclamation-circle' : 'fa-clock'}"></i> ${isWaiting ? 'Chờ' : 'Sắp đến'}</span>`;
+    document.getElementById('ci-type-badge').innerHTML = badgeHtml;
     
-    // Check in btn
-    const checkInBtn = document.createElement('button');
-    checkInBtn.className = 'btn btn-sm btn-success w-100 mb-1';
-    checkInBtn.textContent = 'Nhận phòng';
-    checkInBtn.onclick = function() {
-        popover.remove();
-        performCheckIn(notice.booking_room_id);
-    };
-    
-    // Details btn
-    const detailsBtn = document.createElement('button');
-    detailsBtn.className = 'btn btn-sm btn-info w-100 text-white';
-    detailsBtn.textContent = 'Xem chi tiết';
-    detailsBtn.onclick = function() {
-        popover.remove();
-        window.location.href = `../timeline?booking_room_id=${notice.booking_room_id}`; 
-    };
-    
-    popover.appendChild(checkInBtn);
-    popover.appendChild(detailsBtn);
-    
-    // Close when clicking outside
-    const closeHandler = function(e) {
-        if (!popover.contains(e.target) && e.target !== btn) {
-            popover.remove();
-            document.removeEventListener('click', closeHandler);
-        }
-    };
-    setTimeout(() => {
-        document.addEventListener('click', closeHandler);
-    }, 10);
-    
-    document.body.appendChild(popover);
+    const checkInModal = new bootstrap.Modal(document.getElementById('checkInConfirmModal'));
+    checkInModal.show();
 }
 
 // ==========================================
@@ -282,6 +100,16 @@ function checkIn(roomNumber, roomId) {
     console.log(roomNumber, roomId);
     // Bỏ check API upcoming vì thông tin notices đã được render trực tiếp trên UI
     openBookingModal(roomNumber);
+}
+
+function confirmAndCheckIn() {
+    const bookingRoomId = Number(document.getElementById('ci-booking-room-id').value);
+    if (!Number.isInteger(bookingRoomId) || bookingRoomId <= 0) return;
+    const modalEl = document.getElementById('checkInConfirmModal');
+    const modal = bootstrap.Modal.getInstance(modalEl);
+    if(modal) modal.hide();
+
+    performCheckIn(bookingRoomId);
 }
 
 function performCheckIn(bookingRoomId) {
@@ -424,4 +252,67 @@ function showCustomerInfo(name, phone, citime, cotime) {
     document.getElementById('co-time').innerText = cotime;
     
     bootstrap.Modal.getOrCreateInstance(document.getElementById('customerInfoModal')).show();
+}
+
+function getNearestNotice(notices) {
+    if (!Array.isArray(notices) || notices.length === 0) return null;
+    return [...notices].sort((left, right) => new Date(left.check_in_expected) - new Date(right.check_in_expected))[0];
+}
+
+function showNoticeInfo(notice) {
+    showNoticeConfirm(null, notice.booking_room_id, notice.guest_name, notice.check_in_expected, notice.type === 'waiting', notice.guest_phone, notice.deposit);
+}
+
+function renderRoomCard(room) {
+    let modifier = 'available';
+    let icon = 'fa-bed';
+    let title = 'TRỐNG';
+    if (room.status === 'occupied') { modifier = room.is_overdue ? 'overdue' : (room.rental_type === 'hourly' ? 'hourly' : 'occupied'); icon = room.is_overdue ? 'fa-triangle-exclamation' : 'fa-user'; title = room.is_overdue ? 'QUÁ GIỜ TRẢ' : 'ĐANG Ở'; }
+    else if (room.clean_status === 'dirty') { modifier = 'dirty'; icon = 'fa-broom'; title = 'CẦN DỌN'; }
+    else if (room.status === 'maintenance') { modifier = 'maintenance'; icon = 'fa-screwdriver-wrench'; title = 'BẢO TRÌ'; }
+
+    const nearestNotice = getNearestNotice(room.notices);
+    if (nearestNotice && room.status !== 'occupied') { modifier = 'booked'; icon = 'fa-calendar-check'; title = 'SẮP NHẬN PHÒNG'; }
+    const card = document.createElement('article'); card.className = `room-card room-card--${modifier}`;
+    if (room.status === 'occupied') {
+        card.classList.add('room-card--orderable');
+        card.tabIndex = 0;
+        card.setAttribute('role', 'button');
+        card.setAttribute('aria-label', `Gọi món cho phòng ${room.number}`);
+        card.addEventListener('click', () => openOrderModal(room.number));
+        card.addEventListener('keydown', event => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                openOrderModal(room.number);
+            }
+        });
+    }
+    const header = document.createElement('header'); header.className = 'room-card__header';
+    const number = document.createElement('strong'); number.className = 'room-card__number'; number.textContent = room.number;
+    const type = document.createElement('small'); type.className = 'room-card__type'; type.textContent = room.type;
+    const left = document.createElement('div'); left.append(number, type);
+    const statusIcon = document.createElement('i'); statusIcon.className = `fas ${icon}`; statusIcon.setAttribute('aria-hidden', 'true'); header.append(left, statusIcon);
+    const body = document.createElement('div'); body.className = 'room-card__body';
+    const state = document.createElement('strong'); state.className = 'room-card__eyebrow'; state.textContent = title; body.appendChild(state);
+    const detail = document.createElement('small'); detail.className = 'room-card__detail';
+    detail.textContent = nearestNotice && room.status !== 'occupied' ? formatNoticeTime(nearestNotice.check_in_expected) : (room.status === 'occupied' ? (room.customer_name || 'Khách đang lưu trú') : `${room.formatted_price} VNĐ/đêm`);
+    body.appendChild(detail);
+    const footer = document.createElement('footer'); footer.className = 'room-card__footer';
+    const action = document.createElement('button'); action.type = 'button'; action.className = 'room-card__action'; action.setAttribute('aria-label', `Thao tác cho phòng ${room.number}`);
+    if (nearestNotice && room.status !== 'occupied') { action.textContent = 'Xem thông tin'; action.addEventListener('click', () => showNoticeInfo(nearestNotice)); }
+    else if (room.status === 'occupied') { action.textContent = 'Trả phòng'; action.addEventListener('click', event => { event.stopPropagation(); checkOut(room.number); }); }
+    else if (room.clean_status === 'dirty') { action.textContent = 'Dọn xong'; action.addEventListener('click', () => cleanRoom(room.number)); }
+    else if (room.status === 'maintenance') { action.textContent = 'Đang bảo trì'; action.disabled = true; }
+    else { action.textContent = 'Đặt / Check-in'; action.addEventListener('click', () => openBookingModal(room.number)); }
+    const badge = document.createElement('span'); badge.className = 'status-badge'; badge.textContent = formatRoomStatus(modifier);
+    footer.append(action, badge); card.append(header, body, footer); return card;
+}
+
+function formatRoomStatus(status) {
+    return ({available: 'Sẵn sàng', booked: 'Chờ nhận', occupied: 'Đang ở', hourly: 'Theo giờ', overdue: 'Quá giờ', dirty: 'Cần dọn', maintenance: 'Bảo trì'})[status] || '—';
+}
+
+function formatNoticeTime(value) {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? (value || '—') : new Intl.DateTimeFormat('vi-VN', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'}).format(date);
 }

@@ -35,12 +35,20 @@ def test_rooms_api_returns_correct_notices(client, seed_hotels, login_as):
     notice_ids = [n["booking_room_id"] for n in room_data["notices"]]
     assert br_a.id in notice_ids
     assert br_a2.id in notice_ids
+
+    first_notice = room_data['notices'][0]
+    assert set(first_notice) == {
+        'booking_room_id', 'type', 'status', 'guest_name',
+        'guest_phone', 'check_in_expected', 'check_out_expected', 'deposit',
+    }
+    assert first_notice['check_in_expected'] <= room_data['notices'][1]['check_in_expected']
     
     # Check exact fields in one notice
     n1 = next(n for n in room_data["notices"] if n["booking_room_id"] == br_a.id)
     assert "type" in n1
     assert "status" in n1
     assert "guest_name" in n1
+    assert "guest_phone" in n1
     assert "check_in_expected" in n1
     assert "check_out_expected" in n1
     assert "deposit" in n1

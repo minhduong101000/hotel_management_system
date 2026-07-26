@@ -295,7 +295,7 @@ def get_booking_detail(id):
     customer = br.booking.customer
     booking = br.booking
 
-    room_services = Bookingtenant_query(Service).filter_by(
+    room_services = tenant_query(BookingService).filter_by(
         booking_id=br.booking_id,
         room_id=br.room_id
     ).all()
@@ -631,34 +631,51 @@ def update_booking_timeline():
 @login_required
 def cancel_booking():
     try:
-        data = request.get_json()
+        data = request.get_json(silent=True) or {}
         booking_id_raw = data.get('booking_id')
         booking_room_id_raw = data.get('booking_room_id')
         is_force_majeure = data.get('is_force_majeure', False)
-        refund_percent_input = float(data.get('refund_percent', 0))
+        try:
+            refund_percent_input = float(data.get('refund_percent', 0))
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'msg': 'Tỷ lệ hoàn tiền không hợp lệ.'}), 400
 
         # 1. Tìm đơn tương ứng (ưu tiên chi tiết phòng nếu có)
         booking = None
         target_br = None
         
         if booking_room_id_raw:
-            target_br = tenant_query(BookingRoom).filter_by(id=int(booking_room_id_raw).first())
+            try:
+                booking_room_id = int(booking_room_id_raw)
+            except (TypeError, ValueError):
+                return jsonify({'success': False, 'msg': 'Mã phòng đặt không hợp lệ.'}), 400
+            target_br = tenant_query(BookingRoom).filter_by(id=booking_room_id).first()
             if target_br:
                 booking = target_br.booking
         elif booking_id_raw:
-            booking = tenant_query(Booking).filter_by(id=int(booking_id_raw).first())
+            try:
+                booking_id = int(booking_id_raw)
+            except (TypeError, ValueError):
+                return jsonify({'success': False, 'msg': 'Mã đơn đặt không hợp lệ.'}), 400
+            booking = tenant_query(Booking).filter_by(id=booking_id).first()
+        else:
+            return jsonify({'success': False, 'msg': 'Cần chọn đơn đặt hoặc phòng đặt để hủy.'}), 400
 
         if not booking:
-            return jsonify({'success': False, 'msg': 'Không tìm thấy thông tin đơn đặt phòng.'})
+            return jsonify({'success': False, 'msg': 'Không tìm thấy thông tin đơn đặt phòng.'}), 404
 
         # 2. Xác định danh sách phòng cần hủy
         # Nếu gửi booking_room_id -> Chỉ hủy 1 phòng đó
         # Nếu chỉ gửi booking_id -> Hủy toàn bộ phòng trong đơn
         rooms_to_cancel = [target_br] if target_br else tenant_query(BookingRoom).filter_by(booking_id=booking.id).all()
+        if any(room.status == 'checked_out' for room in rooms_to_cancel if room):
+            return jsonify({'success': False, 'msg': 'Không thể hủy phòng đã trả.'}), 409
+        if any(room.status == 'checked_in' for room in rooms_to_cancel if room):
+            return jsonify({'success': False, 'msg': 'Phòng đã nhận chỉ có thể checkout.'}), 409
         rooms_to_cancel = [r for r in rooms_to_cancel if r and r.status != 'cancelled']
 
         if not rooms_to_cancel:
-            return jsonify({'success': False, 'msg': 'Các phòng đã ở trạng thái hủy trước đó.'})
+            return jsonify({'success': False, 'msg': 'Các phòng đã ở trạng thái hủy trước đó.'}), 409
         
         # Kiểm tra xem có phải là hủy nốt phòng cuối cùng của đơn không (để xử lý cọc)
         total_non_cancelled = tenant_query(BookingRoom).filter(

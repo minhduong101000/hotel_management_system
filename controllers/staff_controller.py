@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, g
 from flask_login import login_required, current_user
 from decorators import admin_required
 from extensions import db
@@ -21,7 +21,9 @@ def index():
             flash('Tên đăng nhập đã tồn tại!', 'error')
         else:
             # Tạo user mới (Chỉ lấy username, password, role)
-            new_user = User(username=username, role=role)
+            if role not in {'admin', 'staff'}:
+                role = 'staff'
+            new_user = User(username=username, role=role, hotel_id=g.hotel_id, is_super_admin=False)
             new_user.set_password(password)
             db.session.add(new_user)
             db.session.commit()
@@ -29,7 +31,7 @@ def index():
             return redirect(url_for('staff.index'))
 
     # Lấy danh sách, sắp xếp Staff lên trước Admin để dễ nhìn
-    users = User.query.order_by(User.role.desc()).all()
+    users = User.query.filter(User.hotel_id == g.hotel_id).order_by(User.role.desc()).all()
     return render_template('staff/index.html', users=users)
 
 @staff_bp.route('/reset-password/<int:user_id>', methods=['POST'])
@@ -38,7 +40,7 @@ def index():
 def reset_password(user_id):
         
     new_password = request.form.get('new_password')
-    user = User.query.get_or_404(user_id)
+    user = User.query.filter(User.id == user_id, User.hotel_id == g.hotel_id).first_or_404()
     
     if new_password:
         user.set_password(new_password)
@@ -52,9 +54,11 @@ def reset_password(user_id):
 @admin_required
 def delete_user(user_id):
 
-    user = User.query.get_or_404(user_id)
+    user = User.query.filter(User.id == user_id, User.hotel_id == g.hotel_id).first_or_404()
     if user.id == current_user.id:
         flash('Không thể xóa chính mình!', 'error')
+    elif user.role == 'admin' and User.query.filter(User.hotel_id == g.hotel_id, User.role == 'admin').count() <= 1:
+        flash('Phải giữ lại ít nhất một quản trị viên cho khách sạn!', 'error')
     else:
         db.session.delete(user)
         db.session.commit()

@@ -1,30 +1,32 @@
 {% extends "layouts/base.html" %}
 
 {% block content %}
-<div class="top-bar sticky-top shadow-sm bg-white p-3 mb-3" style="z-index: 99;">
-    <div class="d-flex justify-content-between align-items-center">
-        <div class="d-flex align-items-center gap-3">
-            <h5 class="page-title me-2 m-0 text-primary fw-bold"><i class="fas fa-th"></i> SƠ ĐỒ PHÒNG</h5>
-            
-            <select id="filter-status" class="form-select form-select-sm border-secondary shadow-none" style="width: 150px;" onchange="renderGrid()">
+<header class="room-map-toolbar">
+    <div class="room-map-toolbar__primary">
+        <div class="room-map-toolbar__title">
+            <span class="room-map-toolbar__icon"><i class="fas fa-th" aria-hidden="true"></i></span>
+            <div><h1>Sơ đồ phòng</h1><p>Trạng thái vận hành hiện tại</p></div>
+        </div>
+        <div class="room-map-toolbar__controls">
+            <label class="visually-hidden" for="filter-status">Lọc theo trạng thái phòng</label>
+            <select id="filter-status" class="form-select" onchange="renderGrid()">
                 <option value="all">Tất cả trạng thái</option>
                 <option value="available">Phòng trống</option>
                 <option value="occupied">Đang có khách</option>
                 <option value="maintenance">Bảo trì</option>
             </select>
-            
-            <button class="btn btn-sm btn-outline-primary fw-bold" onclick="loadRoomsData()">
-                <i class="fas fa-sync-alt"></i> Làm mới
+            <button class="btn btn-outline-primary" type="button" onclick="loadRoomsData()">
+                <i class="fas fa-sync-alt" aria-hidden="true"></i><span>Làm mới</span>
             </button>
         </div>
-
-        <div class="d-flex gap-2">
-            <span class="badge bg-danger p-2">Khách: <span id="stat-occupied">0</span></span>
-            <span class="badge bg-warning text-dark p-2">Bẩn: <span id="stat-dirty">0</span></span>
-            <span class="badge bg-success p-2">Trống: <span id="stat-available">0</span></span>
-        </div>
     </div>
-</div>
+
+    <div class="room-map-toolbar__stats" aria-label="Tổng quan trạng thái phòng">
+        <span class="status-badge status-badge--occupied"><i class="fas fa-user" aria-hidden="true"></i>Khách <strong id="stat-occupied">0</strong></span>
+        <span class="status-badge status-badge--dirty"><i class="fas fa-broom" aria-hidden="true"></i>Cần dọn <strong id="stat-dirty">0</strong></span>
+        <span class="status-badge status-badge--available"><i class="fas fa-bed" aria-hidden="true"></i>Sẵn sàng <strong id="stat-available">0</strong></span>
+    </div>
+</header>
 
 <div class="container-fluid">
     <div class="row g-3" id="room-grid">
@@ -69,6 +71,14 @@
                         <div class="p-3 border-bottom bg-secondary text-white">
                             <h6 class="mb-0 fw-bold"><i class="fas fa-shopping-basket me-2"></i>Món đã chọn</h6>
                         </div>
+
+                        <section class="existing-order-summary" aria-labelledby="existing-order-heading">
+                            <div class="existing-order-summary__header">
+                                <span id="existing-order-heading">Đã gọi</span>
+                                <strong id="existing-order-total">0 đ</strong>
+                            </div>
+                            <div id="existing-order-list" class="existing-order-summary__list">Chưa có món đã gọi.</div>
+                        </section>
                         
                         <ul id="selected-items" class="list-group list-group-flush overflow-auto custom-scroll flex-grow-1">
                             </ul>
@@ -448,12 +458,56 @@
         </div>
     </div>
 </div>
+
+<!-- Modal Xác nhận Nhận phòng -->
+<div class="modal fade" id="checkInConfirmModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="fas fa-sign-in-alt me-2"></i>Xác nhận nhận phòng</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Bạn có chắc chắn muốn tiến hành nhận phòng cho khách hàng này không?</p>
+                <ul class="list-group list-group-flush mb-3">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <strong>Khách hàng:</strong>
+                        <span id="ci-guest-name"></span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <strong>Loại thông báo:</strong>
+                        <span id="ci-type-badge"></span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <strong>Dự kiến đến:</strong>
+                        <span id="ci-expected-time"></span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <strong>SĐT:</strong>
+                        <span id="ci-guest-phone"></span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <strong>Tiền cọc:</strong>
+                        <span id="ci-deposit"></span>
+                    </li>
+                </ul>
+                <input type="hidden" id="ci-booking-room-id">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-success fw-bold px-4" onclick="confirmAndCheckIn()">
+                    <i class="fas fa-check me-2"></i>Đồng ý Nhận phòng
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <script src="{{ url_for('static', filename='js/qr_scanner.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/room.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/room.js') }}?v=4"></script>
     <script src="{{ url_for('static', filename='js/service.js') }}"></script>
     <script src="{{ url_for('static', filename='js/checkout.js') }}"></script>
     <script src="{{ url_for('static', filename='js/group_booking.js') }}"></script>

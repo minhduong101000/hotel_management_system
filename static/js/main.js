@@ -82,4 +82,14 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.js-clock').forEach(el => el.innerText = time);
     }
     setInterval(tick, 1000); tick();
+
+    const toggle = document.getElementById('sidebar-toggle');
+    const sidebar = document.getElementById('app-sidebar');
+    if (toggle && sidebar) {
+        toggle.addEventListener('click', () => {
+            const isOpen = sidebar.classList.toggle('is-open');
+            toggle.setAttribute('aria-expanded', String(isOpen));
+            toggle.setAttribute('aria-label', isOpen ? 'Đóng menu điều hướng' : 'Mở menu điều hướng');
+        });
+    }
 });

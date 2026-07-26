@@ -1,5 +1,5 @@
 from functools import wraps
-from flask import flash, redirect, url_for
+from flask import abort, flash, redirect, url_for
 from flask_login import current_user
 
 def admin_required(f):
@@ -9,5 +9,16 @@ def admin_required(f):
         if not current_user.is_authenticated or current_user.role != 'admin':
             flash("Bạn không có quyền truy cập khu vực này!", "error")
             return redirect(url_for('room.index')) # Chuyển về trang sơ đồ phòng
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def master_admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            return redirect(url_for('auth.login'))
+        if not current_user.is_super_admin:
+            abort(403)
         return f(*args, **kwargs)
     return decorated_function
