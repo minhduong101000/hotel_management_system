@@ -8,4 +8,6 @@
 - Không dùng thao tác phá hủy hoặc làm mất thay đổi hiện có của người dùng.
 - Mọi spec, implementation plan, và tài liệu hướng dẫn mới của project phải viết bằng tiếng Việt rõ ràng; chỉ giữ thuật ngữ kỹ thuật tiếng Anh khi cần thiết.
 - Với mọi thay đổi giao diện, trước khi báo hoàn tất phải dùng `bb-browser` để kiểm tra trực quan các luồng đã thay đổi ở trạng thái desktop phù hợp. Nếu `bb-browser` không khả dụng trong môi trường, phải báo rõ đây là phần chưa thể kiểm chứng; không được tuyên bố UI đã hoàn tất kiểm tra.
+- Mọi commit mới phải dùng commit message bằng tiếng Anh; không tự ý sửa lại lịch sử commit đã tạo chỉ để đổi ngôn ngữ.
+- Khi hoàn thành một hạng mục độc lập và các kiểm tra phù hợp đã xanh, phải tạo commit riêng ngay; không trộn phần đang dở hoặc thay đổi không liên quan vào commit đó.
 - Với mọi việc đánh giá, thiết kế hoặc thay đổi giao diện/UI-UX, phải dùng skill `ui-ux-pro-max` để định hướng về cấu trúc, tính nhất quán, khả năng truy cập và trải nghiệm thao tác; không tự suy đoán quyết định thiết kế khi chưa kiểm tra code và yêu cầu nghiệp vụ.
