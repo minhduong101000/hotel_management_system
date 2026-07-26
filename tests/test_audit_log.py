@@ -470,3 +470,29 @@ def test_update_service_quantity_records_audit_event(client, seed_hotels, login_
     assert event.entity_id == line_item.id
     assert event.before_data["quantity"] == 2
     assert event.after_data["quantity"] == 1
+
+
+def test_add_order_records_audit_event(client, seed_hotels, login_as):
+    hotel, _, user, _, booking_room, _ = seed_hotels
+    booking_room.status = "checked_in"
+    service = Service(hotel_id=hotel.id, name="Nước suối", price=15000)
+    db.session.add(service)
+    db.session.commit()
+    login_as(client, user)
+
+    response = client.post(
+        f"/{hotel.slug}/bookings/api/orders/add",
+        json={
+            "room_number": booking_room.room.room_number,
+            "items": [{"id": service.id, "qty": 2}],
+        },
+    )
+
+    assert response.status_code == 200
+    event = AuditEvent.query.one()
+    assert event.action == "add_booking_order"
+    assert event.entity_type == "booking_room"
+    assert event.entity_id == booking_room.id
+    assert event.after_data == {
+        "items": [{"service_id": service.id, "quantity": 2, "unit_price": 15000.0}],
+    }

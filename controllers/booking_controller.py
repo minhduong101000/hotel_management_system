@@ -764,6 +764,23 @@ def add_order():
 
             inventory_service.deduct_inventory(room.hotel_id, s_id, qty)
 
+        audit_service.record_event(
+            hotel_id=room.hotel_id,
+            actor_user_id=current_user.id,
+            action='add_booking_order',
+            entity_type='booking_room',
+            entity_id=br.id,
+            after_data={
+                'items': [
+                    {
+                        'service_id': service_id,
+                        'quantity': quantity,
+                        'unit_price': float(service.price or 0),
+                    }
+                    for service_id, quantity, service in validated_items
+                ],
+            },
+        )
         db.session.commit()
         return jsonify({'success': True, 'msg': 'Đã thêm dịch vụ và cập nhật tồn kho.'})
     except inventory_service.InsufficientInventoryError as e:
