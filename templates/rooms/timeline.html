@@ -235,6 +235,10 @@
                         <i class="fas fa-sign-in-alt"></i> Nhận phòng
                     </button>
 
+                    <button type="button" id="btn-reschedule-booking" class="btn btn-sm btn-outline-primary fw-bold" onclick="openRescheduleModal()">
+                        <i class="fas fa-calendar-alt me-1"></i>Dời lịch
+                    </button>
+
                     <button type="button" id="btn-checkout-timeline" class="btn btn-sm btn-success fw-bold" style="display: none;" onclick="openCheckoutFromTimeline()">
                         <i class="fas fa-money-bill-wave"></i> Thanh toán lẻ
                     </button>
@@ -247,6 +251,61 @@
                 <button type="button" class="btn btn-primary px-3 fw-bold shadow-sm" onclick="saveBookingChanges()">
                     <i class="fas fa-save me-1"></i> LƯU LẠI
                 </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="rescheduleModal" tabindex="-1" aria-labelledby="rescheduleModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white">
+                <div>
+                    <h5 class="modal-title fw-bold mb-0" id="rescheduleModalTitle"><i class="fas fa-calendar-alt me-2"></i>Dời lịch đặt phòng</h5>
+                    <small class="text-white-50">Khoản cọc được giữ nguyên.</small>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body p-3">
+                <input type="hidden" id="reschedule-booking-room-id">
+                <div class="alert alert-light border small mb-3" role="note">
+                    <i class="fas fa-circle-info text-primary me-1"></i>
+                    Chọn ngày/phòng mới, sau đó quyết định giữ giá đã chốt hoặc áp dụng giá hiện tại.
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="reschedule-room-select">Phòng mới</label>
+                    <select class="form-select" id="reschedule-room-select" required></select>
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-sm-6">
+                        <label class="form-label fw-semibold" for="reschedule-checkin">Nhận phòng mới</label>
+                        <input class="form-control" id="reschedule-checkin" type="datetime-local" required>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label fw-semibold" for="reschedule-checkout">Trả phòng mới</label>
+                        <input class="form-control" id="reschedule-checkout" type="datetime-local" required>
+                    </div>
+                </div>
+                <fieldset class="mb-3">
+                    <legend class="fs-6 fw-semibold mb-2">Cách áp dụng giá</legend>
+                    <div class="form-check border rounded-3 p-2 ps-5 mb-2">
+                        <input class="form-check-input" type="radio" name="reschedule-price-mode" id="reschedule-price-keep" value="keep" checked>
+                        <label class="form-check-label" for="reschedule-price-keep"><strong>Giữ giá đã chốt</strong><br><small class="text-muted">Dùng đơn giá của lần đặt ban đầu.</small></label>
+                    </div>
+                    <div class="form-check border rounded-3 p-2 ps-5">
+                        <input class="form-check-input" type="radio" name="reschedule-price-mode" id="reschedule-price-reprice" value="reprice">
+                        <label class="form-check-label" for="reschedule-price-reprice"><strong>Áp dụng giá hiện tại</strong><br><small class="text-muted">Tính lại theo bảng giá đang hiệu lực.</small></label>
+                    </div>
+                </fieldset>
+                <div>
+                    <label class="form-label fw-semibold" for="reschedule-reason">Lý do dời lịch <span class="text-danger" aria-hidden="true">*</span></label>
+                    <textarea class="form-control" id="reschedule-reason" rows="3" maxlength="500" required placeholder="Ví dụ: khách báo thay đổi lịch di chuyển"></textarea>
+                    <div class="form-text">Lý do được lưu vào lịch sử thao tác của khách sạn.</div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary fw-bold" onclick="submitRescheduleBooking()"><i class="fas fa-check me-1"></i>Xác nhận dời lịch</button>
             </div>
         </div>
     </div>

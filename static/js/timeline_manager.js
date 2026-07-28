@@ -254,6 +254,7 @@ function openEditModal(bookingRoomId, bookingId) {
         const btnCheckIn = document.getElementById('btn-checkin-timeline');
         const btnCheckout = document.getElementById('btn-checkout-timeline');
         const btnGroupCheckout = document.getElementById('btn-group-checkout');
+        const btnReschedule = document.getElementById('btn-reschedule-booking');
         
         const isCheckedIn = (data.status === 'checked_in');
 
@@ -274,6 +275,9 @@ function openEditModal(bookingRoomId, bookingId) {
             } else {
                 btnGroupCheckout.style.display = 'none';
             }
+        }
+        if (btnReschedule) {
+            btnReschedule.style.display = data.status === 'booked' ? 'inline-block' : 'none';
         }
         // ---------------------------------------------------------
 
@@ -357,6 +361,78 @@ function saveBookingChanges() {
             }
         });
     }
+}
+
+function openRescheduleModal() {
+    const bookingRoomId = document.getElementById('edit-booking-room-id').value;
+    if (!bookingRoomId) return;
+
+    const roomSelect = document.getElementById('reschedule-room-select');
+    const currentRoomId = document.getElementById('edit-room-select').value;
+    roomSelect.replaceChildren();
+
+    fetch(api('/api/rooms'))
+        .then(response => response.json())
+        .then(data => {
+            const rooms = data.rooms || data;
+            rooms.forEach(room => {
+                const option = document.createElement('option');
+                option.value = room.id;
+                option.textContent = `${room.number || room.room_number} — ${room.type || room.room_type || 'Phòng'}`;
+                roomSelect.appendChild(option);
+            });
+            roomSelect.value = currentRoomId;
+            document.getElementById('reschedule-booking-room-id').value = bookingRoomId;
+            document.getElementById('reschedule-checkin').value = document.getElementById('edit-checkin').value;
+            document.getElementById('reschedule-checkout').value = document.getElementById('edit-checkout').value;
+            document.getElementById('reschedule-reason').value = '';
+            document.getElementById('reschedule-price-keep').checked = true;
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('rescheduleModal')).show();
+        })
+        .catch(() => alert('Không thể tải danh sách phòng. Vui lòng thử lại.'));
+}
+
+function submitRescheduleBooking() {
+    const bookingRoomId = document.getElementById('reschedule-booking-room-id').value;
+    const roomId = document.getElementById('reschedule-room-select').value;
+    const checkIn = document.getElementById('reschedule-checkin').value;
+    const checkOut = document.getElementById('reschedule-checkout').value;
+    const reason = document.getElementById('reschedule-reason').value.trim();
+    const priceMode = document.querySelector('input[name="reschedule-price-mode"]:checked').value;
+
+    if (!roomId || !checkIn || !checkOut || !reason) {
+        alert('Vui lòng điền đủ phòng, thời gian và lý do dời lịch.');
+        return;
+    }
+    if (new Date(checkOut) <= new Date(checkIn)) {
+        alert('Thời gian trả phòng phải sau thời gian nhận phòng.');
+        return;
+    }
+
+    fetch(api('/api/bookings/reschedule'), {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            booking_room_id: Number(bookingRoomId),
+            room_id: Number(roomId),
+            check_in: checkIn,
+            check_out: checkOut,
+            reason,
+            price_mode: priceMode
+        })
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success) {
+                alert(data.msg || 'Không thể dời lịch đặt phòng.');
+                return;
+            }
+            bootstrap.Modal.getInstance(document.getElementById('rescheduleModal')).hide();
+            bootstrap.Modal.getInstance(document.getElementById('editBookingModal')).hide();
+            alert(data.msg || 'Đã dời lịch đặt phòng.');
+            loadTimeline();
+        })
+        .catch(() => alert('Không thể kết nối để dời lịch. Vui lòng thử lại.'));
 }
 
 function formatVND(amount) {

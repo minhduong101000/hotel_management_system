@@ -41,7 +41,8 @@ function api(path) {
         '/api/bookings/create',
         '/api/bookings/update_timeline',
         '/api/bookings/cancel',
-        '/api/bookings/update'
+        '/api/bookings/update',
+        '/api/bookings/reschedule'
     ];
     if (timelinePaths.some(p => path.startsWith(p))) {
         return `/${slug}/timeline` + path;
