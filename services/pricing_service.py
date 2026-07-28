@@ -221,10 +221,13 @@ def calculate_complex_hotel_bill(check_in, check_out, room, rental_type='hourly'
             })
 
         # LOGIC MỚI: Tính số đêm chính xác dựa trên khoảng ngày
-        nights = (bill_end_date - bill_start_date).days
-        if nights < 1: nights = 1 
-        
-        base_fee = nights * prices['p_night']
+        nightly_breakdown = get_nightly_price_breakdown(
+            room,
+            datetime.combine(bill_start_date, time(14, 0)),
+            datetime.combine(bill_end_date, time(12, 0)),
+        )
+        nights = len(nightly_breakdown)
+        base_fee = sum(line['amount'] for line in nightly_breakdown)
         total_fee += base_fee
         
         breakdown.append({
@@ -232,6 +235,12 @@ def calculate_complex_hotel_bill(check_in, check_out, room, rental_type='hourly'
             "detail": f"{nights} đêm (Từ {bill_start_date.strftime('%d/%m')} đến {bill_end_date.strftime('%d/%m')})",
             "amount": base_fee
         })
+        for line in nightly_breakdown:
+            breakdown.append({
+                "label": f"Giá đêm {line['business_date'].strftime('%d/%m')}",
+                "detail": "Giá theo rule hiệu lực của đêm này",
+                "amount": line['amount'],
+            })
 
         # ====================================================
         # PHẦN 2: TÍNH PHỤ THU (CHỈ TÍNH GIỜ TRONG NGÀY)
