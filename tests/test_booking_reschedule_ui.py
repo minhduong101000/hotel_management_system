@@ -11,6 +11,9 @@ def test_timeline_exposes_reschedule_controls(client, seed_hotels, login_as):
     assert 'id="reschedule-reason"' in html
     assert 'value="keep"' in html
     assert 'value="reprice"' in html
+    assert 'id="reschedule-check-availability"' in html
+    assert 'id="reschedule-price-summary"' in html
+    assert 'id="bd-reschedule-history"' in html
 
 
 def test_reschedule_endpoint_is_mapped_to_timeline_blueprint():

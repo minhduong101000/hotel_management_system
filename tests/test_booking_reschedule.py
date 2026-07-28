@@ -39,3 +39,35 @@ def test_reschedule_reprices_hourly_booking_snapshot(client, seed_hotels, login_
     assert response.status_code == 200
     db.session.refresh(booking_room)
     assert booking_room.hourly_price_snapshot == {'initial_hours': 2, 'price_initial': 450000.0, 'price_next': 90000.0, 'price_night': 800000.0}
+
+
+def test_reschedule_availability_returns_price_comparison(client, seed_hotels, login_as):
+    hotel, _, user, _, booking_room, _ = seed_hotels
+    booking_room.price_breakdown_snapshot = [{'business_date': '2030-01-01', 'amount': 400000.0}]
+    db.session.commit(); login_as(client, user)
+
+    response = client.post(f'/{hotel.slug}/timeline/api/bookings/reschedule/availability', json={
+        'booking_room_id': booking_room.id, 'room_id': booking_room.room_id,
+        'check_in': '2030-02-01T14:00', 'check_out': '2030-02-02T12:00',
+    })
+
+    assert response.status_code == 200
+    assert response.json['available'] is True
+    assert response.json['locked_amount'] == 400000.0
+    assert response.json['current_amount'] == 500000.0
+    assert response.json['difference'] == 100000.0
+
+
+def test_booking_detail_includes_reschedule_history(client, seed_hotels, login_as):
+    hotel, _, user, _, booking_room, _ = seed_hotels
+    db.session.commit(); login_as(client, user)
+    client.post(f'/{hotel.slug}/timeline/api/bookings/reschedule', json={
+        'booking_room_id': booking_room.id, 'room_id': booking_room.room_id,
+        'check_in': '2030-02-01T14:00', 'check_out': '2030-02-02T12:00',
+        'reason': 'Khách đổi lịch', 'price_mode': 'keep',
+    })
+
+    response = client.get(f'/{hotel.slug}/timeline/api/bookings/{booking_room.id}')
+
+    assert response.status_code == 200
+    assert response.json['reschedules'][0]['reason'] == 'Khách đổi lịch'

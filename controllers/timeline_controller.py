@@ -11,6 +11,7 @@ from models.booking_room import BookingRoom
 from models.booking_service import BookingService
 from models.customer import Customer
 from models.service import Service
+from models.user import User
 from models.business_operation import BusinessOperation
 from models.booking_reschedule import BookingReschedule
 from datetime import datetime, timedelta
@@ -78,6 +79,33 @@ def _has_room_time_conflict(
             return True
 
     return False
+
+
+def _reschedule_price_comparison(br, room, check_in, check_out):
+    if br.rental_type == 'daily':
+        locked_amount = sum(float(line.get('amount', 0)) for line in (br.price_breakdown_snapshot or []))
+        if not br.price_breakdown_snapshot:
+            locked_amount = sum(float(line['amount']) for line in get_nightly_price_breakdown(br.room, check_in, check_out))
+        current_amount = sum(float(line['amount']) for line in get_nightly_price_breakdown(room, check_in, check_out))
+    else:
+        snapshot = br.hourly_price_snapshot or get_effective_room_prices(br.room, check_in)
+        locked_config = {
+            'initial_hours': snapshot.get('initial_hours', 2),
+            'p_initial': snapshot.get('price_initial', snapshot.get('p_initial', 0)),
+            'p_next': snapshot.get('price_next', snapshot.get('p_next', 0)),
+            'p_night': snapshot.get('price_night', snapshot.get('p_night', 0)),
+        }
+        current_config = get_effective_room_prices(room, check_in)
+        locked_amount, _, _ = calculate_raw_hourly_fee(check_in, check_out, locked_config)
+        current_amount, _, _ = calculate_raw_hourly_fee(check_in, check_out, current_config)
+        locked_amount = min(locked_amount, float(locked_config['p_night']))
+        current_amount = min(current_amount, float(current_config['p_night']))
+
+    return {
+        'locked_amount': round(locked_amount, 2),
+        'current_amount': round(current_amount, 2),
+        'difference': round(current_amount - locked_amount, 2),
+    }
 
 # --- HÀM HELPER: TẠO MÃ BOOKING ---
 def generate_booking_code():
@@ -326,6 +354,24 @@ def get_booking_detail(id):
             'deposit': float(room_row.room_deposit_amount or 0),
         })
     
+    reschedule_rows = tenant_query(BookingReschedule).filter_by(booking_room_id=br.id).order_by(BookingReschedule.created_at.desc()).all()
+    actor_names = {
+        user.id: user.username
+        for user in User.query.filter(User.id.in_([row.actor_user_id for row in reschedule_rows])).all()
+    }
+    reschedules = [{
+        'old_room_id': row.old_room_id,
+        'new_room_id': row.new_room_id,
+        'old_check_in': row.old_check_in.strftime('%d/%m/%Y %H:%M'),
+        'old_check_out': row.old_check_out.strftime('%d/%m/%Y %H:%M'),
+        'new_check_in': row.new_check_in.strftime('%d/%m/%Y %H:%M'),
+        'new_check_out': row.new_check_out.strftime('%d/%m/%Y %H:%M'),
+        'reason': row.reason,
+        'price_mode': row.price_mode,
+        'actor_name': actor_names.get(row.actor_user_id, f'User #{row.actor_user_id}'),
+        'created_at': row.created_at.strftime('%d/%m/%Y %H:%M'),
+    } for row in reschedule_rows]
+
     data = {
         'id': br.id, # BookingRoom ID
         'booking_id': br.booking_id,
@@ -354,12 +400,41 @@ def get_booking_detail(id):
 
         'room_services': services_payload,
         'rooms': room_lines,
+        'reschedules': reschedules,
 
         # --- DỮ LIỆU ĐỂ BẬT TẮT NÚT Ở FRONTEND ---
         'is_group': is_group,
         'room_count': room_count
     }
     return jsonify(data)
+
+
+@timeline_bp.route('/api/bookings/reschedule/availability', methods=['POST'])
+@login_required
+def check_reschedule_availability():
+    data = request.get_json(silent=True) or {}
+    try:
+        br = tenant_query(BookingRoom).filter_by(id=int(data.get('booking_room_id'))).first()
+        room = tenant_query(Room).filter_by(id=int(data.get('room_id'))).first()
+        check_in = _normalize_dt(datetime.fromisoformat(str(data.get('check_in')).replace('Z', '+00:00')))
+        check_out = _normalize_dt(datetime.fromisoformat(str(data.get('check_out')).replace('Z', '+00:00')))
+    except (TypeError, ValueError):
+        return jsonify({'available': False, 'msg': 'Dữ liệu dời lịch không hợp lệ.'}), 400
+
+    if not br or not room:
+        return jsonify({'available': False, 'msg': 'Không tìm thấy booking hoặc phòng.'}), 404
+    if br.status != 'booked' or check_out <= check_in:
+        return jsonify({'available': False, 'msg': 'Booking hoặc thời gian không phù hợp để dời lịch.'}), 409
+    if room.status == 'maintenance':
+        return jsonify({'available': False, 'msg': 'Phòng đang bảo trì.'}), 409
+    if _has_room_time_conflict(room_id=room.id, start_dt=check_in, end_dt=check_out, exclude_booking_room_id=br.id):
+        return jsonify({'available': False, 'msg': 'Phòng đã có lịch trong khoảng thời gian này.'}), 409
+
+    return jsonify({
+        'available': True,
+        'msg': 'Phòng còn trống trong khoảng thời gian đã chọn.',
+        **_reschedule_price_comparison(br, room, check_in, check_out),
+    })
 
 
 @timeline_bp.route('/api/bookings/services-catalog', methods=['GET'])

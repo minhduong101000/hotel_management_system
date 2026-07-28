@@ -363,6 +363,11 @@ function saveBookingChanges() {
     }
 }
 
+function resetRescheduleAvailability() {
+    document.getElementById('reschedule-price-summary').classList.add('d-none');
+    document.getElementById('reschedule-submit').disabled = true;
+}
+
 function openRescheduleModal() {
     const bookingRoomId = document.getElementById('edit-booking-room-id').value;
     if (!bookingRoomId) return;
@@ -387,39 +392,97 @@ function openRescheduleModal() {
             document.getElementById('reschedule-checkout').value = document.getElementById('edit-checkout').value;
             document.getElementById('reschedule-reason').value = '';
             document.getElementById('reschedule-price-keep').checked = true;
+            resetRescheduleAvailability();
+            roomSelect.onchange = resetRescheduleAvailability;
+            document.getElementById('reschedule-checkin').onchange = resetRescheduleAvailability;
+            document.getElementById('reschedule-checkout').onchange = resetRescheduleAvailability;
             bootstrap.Modal.getOrCreateInstance(document.getElementById('rescheduleModal')).show();
         })
         .catch(() => alert('Không thể tải danh sách phòng. Vui lòng thử lại.'));
 }
 
-function submitRescheduleBooking() {
-    const bookingRoomId = document.getElementById('reschedule-booking-room-id').value;
-    const roomId = document.getElementById('reschedule-room-select').value;
-    const checkIn = document.getElementById('reschedule-checkin').value;
-    const checkOut = document.getElementById('reschedule-checkout').value;
-    const reason = document.getElementById('reschedule-reason').value.trim();
-    const priceMode = document.querySelector('input[name="reschedule-price-mode"]:checked').value;
+function renderReschedulePriceSummary(data) {
+    const summary = document.getElementById('reschedule-price-summary');
+    const status = document.getElementById('reschedule-availability-status');
+    const difference = Number(data.difference || 0);
+    summary.classList.remove('d-none');
+    status.textContent = 'Phòng trống';
+    status.className = 'badge text-bg-success';
+    document.getElementById('reschedule-locked-amount').textContent = formatVND(data.locked_amount);
+    document.getElementById('reschedule-current-amount').textContent = formatVND(data.current_amount);
+    const differenceEl = document.getElementById('reschedule-difference');
+    differenceEl.textContent = `${difference > 0 ? '+' : ''}${formatVND(difference)}`;
+    differenceEl.className = difference > 0 ? 'text-danger' : (difference < 0 ? 'text-success' : 'text-dark');
+}
 
-    if (!roomId || !checkIn || !checkOut || !reason) {
-        alert('Vui lòng điền đủ phòng, thời gian và lý do dời lịch.');
+function getReschedulePayload() {
+    return {
+        booking_room_id: Number(document.getElementById('reschedule-booking-room-id').value),
+        room_id: Number(document.getElementById('reschedule-room-select').value),
+        check_in: document.getElementById('reschedule-checkin').value,
+        check_out: document.getElementById('reschedule-checkout').value,
+        reason: document.getElementById('reschedule-reason').value.trim(),
+        price_mode: document.querySelector('input[name="reschedule-price-mode"]:checked').value,
+    };
+}
+
+function validateReschedulePayload(data, requireReason = false) {
+    if (!data.room_id || !data.check_in || !data.check_out || (requireReason && !data.reason)) {
+        return 'Vui lòng điền đủ phòng, thời gian và lý do dời lịch.';
+    }
+    if (new Date(data.check_out) <= new Date(data.check_in)) {
+        return 'Thời gian trả phòng phải sau thời gian nhận phòng.';
+    }
+    return '';
+}
+
+function checkRescheduleAvailability() {
+    const data = getReschedulePayload();
+    const error = validateReschedulePayload(data);
+    if (error) {
+        alert(error);
         return;
     }
-    if (new Date(checkOut) <= new Date(checkIn)) {
-        alert('Thời gian trả phòng phải sau thời gian nhận phòng.');
+
+    const button = document.getElementById('reschedule-check-availability');
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Đang kiểm tra';
+    fetch(api('/api/bookings/reschedule/availability'), {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+    })
+        .then(response => response.json())
+        .then(result => {
+            if (!result.available) {
+                resetRescheduleAvailability();
+                alert(result.msg || 'Phòng không phù hợp trong khoảng thời gian đã chọn.');
+                return;
+            }
+            renderReschedulePriceSummary(result);
+            document.getElementById('reschedule-submit').disabled = false;
+        })
+        .catch(() => alert('Không thể kiểm tra phòng trống. Vui lòng thử lại.'))
+        .finally(() => {
+            button.disabled = false;
+            button.innerHTML = '<i class="fas fa-search me-1"></i>Kiểm tra phòng trống';
+        });
+}
+
+function submitRescheduleBooking() {
+    const data = getReschedulePayload();
+    const error = validateReschedulePayload(data, true);
+    if (error) {
+        alert(error);
+        return;
+    }
+    if (document.getElementById('reschedule-submit').disabled) {
+        alert('Vui lòng kiểm tra phòng trống trước khi xác nhận.');
         return;
     }
 
     fetch(api('/api/bookings/reschedule'), {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            booking_room_id: Number(bookingRoomId),
-            room_id: Number(roomId),
-            check_in: checkIn,
-            check_out: checkOut,
-            reason,
-            price_mode: priceMode
-        })
+        body: JSON.stringify(data)
     })
         .then(response => response.json())
         .then(data => {
@@ -819,6 +882,36 @@ function renderBookingDetailRoomList(rooms, activeBookingRoomId) {
     }).join('');
 }
 
+function renderBookingRescheduleHistory(rows) {
+    const container = document.getElementById('bd-reschedule-history');
+    if (!container) return;
+    container.replaceChildren();
+    if (!rows || rows.length === 0) {
+        container.classList.add('d-none');
+        return;
+    }
+
+    container.className = 'mt-3 border rounded-3 bg-light p-3';
+    const heading = document.createElement('h6');
+    heading.className = 'fw-bold mb-2';
+    heading.innerHTML = '<i class="fas fa-clock-rotate-left me-1 text-primary"></i>Lịch sử dời lịch';
+    container.appendChild(heading);
+    rows.forEach(row => {
+        const item = document.createElement('div');
+        item.className = 'border-top pt-2 mt-2 small';
+        const priceLabel = row.price_mode === 'reprice' ? 'Áp dụng giá hiện tại' : 'Giữ giá đã chốt';
+        item.textContent = `${row.created_at} · ${row.actor_name} · ${priceLabel}`;
+        const schedule = document.createElement('div');
+        schedule.className = 'text-muted mt-1';
+        schedule.textContent = `Phòng ${row.old_room_id}: ${row.old_check_in} → ${row.old_check_out}  |  Phòng ${row.new_room_id}: ${row.new_check_in} → ${row.new_check_out}`;
+        const reason = document.createElement('div');
+        reason.className = 'mt-1';
+        reason.textContent = `Lý do: ${row.reason}`;
+        item.append(schedule, reason);
+        container.appendChild(item);
+    });
+}
+
 async function openBookingDetailModal() {
     let bookingRoomId = arguments.length > 0 ? arguments[0] : null;
     if (!bookingRoomId) {
@@ -885,6 +978,7 @@ async function openBookingDetailModal() {
         document.getElementById('bd-customer-label').textContent = detail.customer_name || 'Khách lẻ';
         document.getElementById('bd-created-label').textContent = detail.created_at || '-';
         document.getElementById('bd-prepaid-label').textContent = formatVND(detail.booking_prepaid_amount || 0);
+        renderBookingRescheduleHistory(detail.reschedules || []);
 
         const roomSelect = document.getElementById('bd-room-select');
         roomSelect.innerHTML = '';
