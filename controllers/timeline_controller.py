@@ -528,6 +528,13 @@ def create_booking():
                 {'business_date': line['business_date'].isoformat(), 'amount': float(line['amount'])}
                 for line in get_nightly_price_breakdown(room, check_in_dt, check_out_dt)
             ]
+        else:
+            new_br.hourly_price_snapshot = {
+                'initial_hours': int(room.initial_hours or 2),
+                'price_initial': float(room.price_initial_block or 0),
+                'price_next': float(room.price_next_hour or 0),
+                'price_night': float(room.price_per_night or 0),
+            }
 
         # Nếu check-in ngay
         if status == 'checked_in':

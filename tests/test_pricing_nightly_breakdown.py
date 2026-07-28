@@ -54,6 +54,7 @@ def test_timeline_booking_stores_nightly_price_snapshot(client, seed_hotels, log
         'check_out': '2030-01-03T12:00', 'rental_type': 'daily', 'deposit': 250000, 'name': 'Snapshot',
     })
     assert response.status_code == 200
+    assert response.json['success'] is True
     created = BookingRoom.query.order_by(BookingRoom.id.desc()).first()
     assert created.price_breakdown_snapshot == [{'business_date': '2030-01-02', 'amount': 500000.0}]
 
@@ -75,3 +76,17 @@ def test_group_booking_stores_nightly_price_snapshot(client, seed_hotels, login_
     assert response.status_code == 200
     created = BookingRoom.query.order_by(BookingRoom.id.desc()).first()
     assert created.price_breakdown_snapshot == [{'business_date': '2031-01-02', 'amount': 500000.0}]
+
+
+def test_hourly_booking_stores_hourly_price_snapshot(client, seed_hotels, login_as):
+    hotel, _, user, _, booking_room, _ = seed_hotels
+    booking_room.check_in_expected = datetime(2030, 1, 1, 14); booking_room.check_out_expected = datetime(2030, 1, 2, 12)
+    db.session.commit(); login_as(client, user)
+    response = client.post(f'/{hotel.slug}/timeline/api/bookings/create', json={
+        'room_number': booking_room.room.room_number, 'check_in': '2030-01-02T12:00', 'check_out': '2030-01-02T15:00',
+        'rental_type': 'hourly', 'deposit': 175000, 'name': 'Giờ',
+    })
+    assert response.status_code == 200
+    assert response.json['success'] is True
+    created = BookingRoom.query.order_by(BookingRoom.id.desc()).first()
+    assert created.hourly_price_snapshot == {'initial_hours': 2, 'price_initial': 300000.0, 'price_next': 50000.0, 'price_night': 500000.0}
