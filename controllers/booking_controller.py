@@ -964,6 +964,22 @@ def create_group_booking():
                     br.room_deposit_amount = share
                     br.room_deposit_original = share
 
+            audit_service.record_event(
+                hotel_id=g.hotel_id,
+                actor_user_id=current_user.id,
+                action='create_group_booking',
+                entity_type='booking',
+                entity_id=new_booking.id,
+                after_data={
+                    'booking_code': new_booking.code,
+                    'room_ids': [room_row.room_id for room_row in created_rooms],
+                    'check_in': check_in.isoformat(),
+                    'check_out': check_out.isoformat(),
+                    'deposit': total_deposit,
+                    'customer_id': customer.id,
+                },
+            )
+
             db.session.commit()
 
             # --- GỬI EMAIL THÔNG BÁO CHO CHỦ KHÁCH SẠN ---
@@ -1053,6 +1069,28 @@ def update_services_before_checkout():
                 inventory_service.deduct_inventory(room.hotel_id, service_id, delta)
             elif delta < 0:
                 inventory_service.restore_inventory(room.hotel_id, service_id, -delta)
+
+        audit_service.record_event(
+            hotel_id=room.hotel_id,
+            actor_user_id=current_user.id,
+            action='update_group_booking_services',
+            entity_type='booking',
+            entity_id=booking.id,
+            before_data={
+                'room_id': room.id,
+                'services': [
+                    {'service_id': item.service_id, 'quantity': int(item.quantity or 0), 'unit_price': float(item.price_at_booking or 0)}
+                    for item in old_items
+                ],
+            },
+            after_data={
+                'room_id': room.id,
+                'services': [
+                    {'service_id': service_id, 'quantity': quantity, 'unit_price': float(service_obj.price or 0)}
+                    for service_id, quantity, service_obj in normalized_services
+                ],
+            },
+        )
         
         db.session.commit()
         return jsonify({'success': True, 'msg': 'Đã cập nhật dịch vụ và tồn kho.'})
@@ -1232,6 +1270,12 @@ def process_group_checkout(booking_id):
             BookingRoom.booking_id == booking_id,
             BookingRoom.status.in_(['booked', 'checked_in'])
         ).all()
+        before_data = {
+            'status': booking.status,
+            'payment_status': booking.payment_status,
+            'room_ids': [room_row.room_id for room_row in active_rooms],
+            'prepaid_amount': float(booking.prepaid_amount or 0),
+        }
 
         room_totals = []
         total_before_tax = 0.0
@@ -1368,6 +1412,24 @@ def process_group_checkout(booking_id):
                 note="Hoàn cọc thừa cho đoàn",
                 created_at=now,
             )
+
+        audit_service.record_event(
+            hotel_id=booking.hotel_id,
+            actor_user_id=current_user.id,
+            action='group_checkout',
+            entity_type='booking',
+            entity_id=booking.id,
+            before_data=before_data,
+            after_data={
+                'status': booking.status,
+                'payment_status': booking.payment_status,
+                'room_count': len(active_rooms),
+                'total_bill': total_remaining_amount,
+                'tax_amount': total_tax_amount,
+                'deposit_applied': group_deposit,
+                'final_amount_to_pay': final_amount_to_pay,
+            },
+        )
 
         db.session.commit()
         

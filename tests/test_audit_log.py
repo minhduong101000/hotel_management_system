@@ -562,3 +562,48 @@ def test_delete_staff_records_audit_event(client, seed_hotels, login_as):
     event = AuditEvent.query.one()
     assert event.action == 'delete_staff_user'
     assert event.before_data == {'username': 'delete_audit_staff', 'role': 'staff'}
+
+
+def test_group_booking_creation_records_audit_event(client, seed_hotels, login_as):
+    hotel, _, user, _, booking_room, _ = seed_hotels
+    login_as(client, user)
+    response = client.post(f'/{hotel.slug}/bookings/api/bookings/group_create', json={
+        'room_ids': [booking_room.room_id], 'check_in': '2031-01-02', 'check_out': '2031-01-03',
+        'deposit': 250000, 'customer': {'name': 'Khách đoàn', 'phone': '0901000000'},
+    })
+    assert response.status_code == 200
+    event = AuditEvent.query.one()
+    assert event.action == 'create_group_booking'
+    assert event.entity_type == 'booking'
+    assert event.actor_user_id == user.id
+    assert event.after_data['room_ids'] == [booking_room.room_id]
+
+
+def test_group_service_update_records_audit_event(client, seed_hotels, login_as):
+    hotel, _, user, _, booking_room, _ = seed_hotels
+    booking_room.status = 'checked_in'
+    db.session.commit(); login_as(client, user)
+    response = client.post(f'/{hotel.slug}/bookings/api/bookings/update_services', json={
+        'number': booking_room.room.room_number, 'services': [],
+    })
+    assert response.status_code == 200
+    event = AuditEvent.query.one()
+    assert event.action == 'update_group_booking_services'
+    assert event.entity_type == 'booking'
+    assert event.entity_id == booking_room.booking_id
+    assert event.before_data['room_id'] == booking_room.room_id
+    assert event.after_data['services'] == []
+
+
+def test_group_checkout_records_audit_event(client, seed_hotels, login_as):
+    hotel, _, user, _, booking_room, _ = seed_hotels
+    booking_room.status = 'checked_in'
+    booking_room.check_in_actual = datetime.now()
+    db.session.commit(); login_as(client, user)
+    response = client.post(f'/{hotel.slug}/bookings/api/bookings/{booking_room.booking_id}/group_checkout', json={'include_tax': False})
+    assert response.status_code == 200
+    event = AuditEvent.query.one()
+    assert event.action == 'group_checkout'
+    assert event.entity_type == 'booking'
+    assert event.entity_id == booking_room.booking_id
+    assert event.after_data['room_count'] == 1
