@@ -168,7 +168,8 @@ def calculate_raw_hourly_fee(check_in, check_out, price_config):
 # 4. HÀM LOGIC CHÍNH (MAIN FUNCTION) - ĐÃ SỬA
 # =======================================================
 def calculate_complex_hotel_bill(check_in, check_out, room, rental_type='hourly', 
-                                 expected_check_in=None, expected_check_out=None):
+                                 expected_check_in=None, expected_check_out=None,
+                                 price_breakdown_snapshot=None):
     """
     Hàm tính tiền chuẩn xác (Fix lỗi phụ thu hàng trăm giờ):
     1. Base Fee (Tiền phòng): Tính số ĐÊM dựa trên khoảng ngày rộng nhất (để thu đủ nếu ở lố ngày).
@@ -221,11 +222,8 @@ def calculate_complex_hotel_bill(check_in, check_out, room, rental_type='hourly'
             })
 
         # LOGIC MỚI: Tính số đêm chính xác dựa trên khoảng ngày
-        nightly_breakdown = get_nightly_price_breakdown(
-            room,
-            datetime.combine(bill_start_date, time(14, 0)),
-            datetime.combine(bill_end_date, time(12, 0)),
-        )
+        nightly_breakdown = price_breakdown_snapshot or get_nightly_price_breakdown(
+            room, datetime.combine(bill_start_date, time(14, 0)), datetime.combine(bill_end_date, time(12, 0)))
         nights = len(nightly_breakdown)
         base_fee = sum(line['amount'] for line in nightly_breakdown)
         total_fee += base_fee
@@ -237,7 +235,7 @@ def calculate_complex_hotel_bill(check_in, check_out, room, rental_type='hourly'
         })
         for line in nightly_breakdown:
             breakdown.append({
-                "label": f"Giá đêm {line['business_date'].strftime('%d/%m')}",
+                "label": f"Giá đêm {line['business_date'].strftime('%d/%m') if hasattr(line['business_date'], 'strftime') else line['business_date']}",
                 "detail": "Giá theo rule hiệu lực của đêm này",
                 "amount": line['amount'],
             })

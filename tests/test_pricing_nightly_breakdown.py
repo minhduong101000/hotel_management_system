@@ -56,3 +56,10 @@ def test_timeline_booking_stores_nightly_price_snapshot(client, seed_hotels, log
     assert response.status_code == 200
     created = BookingRoom.query.order_by(BookingRoom.id.desc()).first()
     assert created.price_breakdown_snapshot == [{'business_date': '2030-01-02', 'amount': 500000.0}]
+
+
+def test_daily_bill_uses_existing_snapshot_over_current_rules(app, seed_hotels):
+    _, _, _, _, booking_room, _ = seed_hotels
+    with app.app_context():
+        total, _ = calculate_complex_hotel_bill(datetime(2030, 1, 1, 14), datetime(2030, 1, 2, 12), booking_room.room, rental_type='daily', price_breakdown_snapshot=[{'business_date': '2030-01-01', 'amount': 420000.0}])
+    assert total == 420000.0

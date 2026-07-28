@@ -358,7 +358,8 @@ def preview_checkout_room():
         room,
         rental_type=booking_room.rental_type,
         expected_check_in=booking_room.check_in_expected,
-        expected_check_out=booking_room.check_out_expected
+        expected_check_out=booking_room.check_out_expected,
+        price_breakdown_snapshot=booking_room.price_breakdown_snapshot
     )
 
     room_services = tenant_query(BookingService).filter_by(
@@ -550,7 +551,8 @@ def checkout_room():
             room, 
             rental_type=booking_room.rental_type,
             expected_check_in=booking_room.check_in_expected,
-            expected_check_out=booking_room.check_out_expected
+            expected_check_out=booking_room.check_out_expected,
+            price_breakdown_snapshot=booking_room.price_breakdown_snapshot
         )
         
         # 2. Tiền dịch vụ
