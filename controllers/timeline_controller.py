@@ -15,7 +15,7 @@ from models.business_operation import BusinessOperation
 from datetime import datetime, timedelta
 import random
 import string
-from services.pricing_service import get_effective_room_prices, calculate_raw_hourly_fee
+from services.pricing_service import get_effective_room_prices, calculate_raw_hourly_fee, get_nightly_price_breakdown
 from services import payment_service, audit_service
 
 timeline_bp = Blueprint('timeline', __name__)
@@ -523,6 +523,11 @@ def create_booking():
             check_in_expected=check_in_dt,
             check_out_expected=check_out_dt
         )
+        if r_type == 'daily':
+            new_br.price_breakdown_snapshot = [
+                {'business_date': line['business_date'].isoformat(), 'amount': float(line['amount'])}
+                for line in get_nightly_price_breakdown(room, check_in_dt, check_out_dt)
+            ]
 
         # Nếu check-in ngay
         if status == 'checked_in':

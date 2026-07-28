@@ -25,6 +25,7 @@ class BookingRoom(db.Model):
     
     # Tài chính
     price_snapshot = db.Column(db.Numeric(15, 2), default=0)
+    price_breakdown_snapshot = db.Column(db.JSON, nullable=True)
     room_deposit_amount = db.Column(db.Numeric(15, 2), default=0)
     room_deposit_original = db.Column(db.Numeric(15, 2), default=0)
     cancellation_refund_percent = db.Column(db.Numeric(5, 2), default=0)

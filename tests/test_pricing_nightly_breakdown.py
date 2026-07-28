@@ -2,6 +2,7 @@ from datetime import datetime
 
 from extensions import db
 from models import PriceRule
+from models.booking_room import BookingRoom
 from services.pricing_service import calculate_complex_hotel_bill, get_billable_night_dates, get_nightly_price_breakdown
 
 
@@ -41,3 +42,17 @@ def test_daily_bill_sums_each_nights_price_rule(app, seed_hotels):
     with app.app_context():
         total, _ = calculate_complex_hotel_bill(datetime(2026, 4, 30, 14), datetime(2026, 5, 2, 12), booking_room.room, rental_type='daily')
     assert total == 1500000.0
+
+
+def test_timeline_booking_stores_nightly_price_snapshot(client, seed_hotels, login_as):
+    hotel, _, user, _, booking_room, _ = seed_hotels
+    booking_room.check_in_expected = datetime(2030, 1, 1, 14)
+    booking_room.check_out_expected = datetime(2030, 1, 2, 12)
+    db.session.commit(); login_as(client, user)
+    response = client.post(f'/{hotel.slug}/timeline/api/bookings/create', json={
+        'room_number': booking_room.room.room_number, 'check_in': '2030-01-02T12:00',
+        'check_out': '2030-01-03T12:00', 'rental_type': 'daily', 'deposit': 250000, 'name': 'Snapshot',
+    })
+    assert response.status_code == 200
+    created = BookingRoom.query.order_by(BookingRoom.id.desc()).first()
+    assert created.price_breakdown_snapshot == [{'business_date': '2030-01-02', 'amount': 500000.0}]
