@@ -19,7 +19,7 @@ from models.customer import Customer
 from models.business_operation import BusinessOperation
 
 # Import Shared Logic
-from services.pricing_service import calculate_complex_hotel_bill, get_effective_room_prices
+from services.pricing_service import calculate_complex_hotel_bill, get_effective_room_prices, get_nightly_price_breakdown
 from services import inventory_service, payment_service
 from services import audit_service
 
@@ -924,6 +924,10 @@ def create_group_booking():
                 price_snapshot=room_price,
                 room_deposit_amount=0
             )
+            new_br.price_breakdown_snapshot = [
+                {'business_date': line['business_date'].isoformat(), 'amount': float(line['amount'])}
+                for line in get_nightly_price_breakdown(current_room, check_in, check_out)
+            ]
             db.session.add(new_br)
             created_rooms.append(new_br)
             success_count += 1
@@ -1132,7 +1136,8 @@ def get_group_billing(booking_id):
                     room=br.room,
                     rental_type=br.rental_type,
                     expected_check_in=br.check_in_expected,
-                    expected_check_out=br.check_out_expected
+                    expected_check_out=br.check_out_expected,
+                    price_breakdown_snapshot=br.price_breakdown_snapshot
                 )
                 subtotal = room_fee + service_fee
                 total_room_fee_all += room_fee
