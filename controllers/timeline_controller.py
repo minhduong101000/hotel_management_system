@@ -730,8 +730,17 @@ def reschedule_booking():
     before = {'room_id': br.room_id, 'check_in': br.check_in_expected.isoformat(), 'check_out': br.check_out_expected.isoformat()}
     history = BookingReschedule(hotel_id=br.hotel_id, booking_room_id=br.id, old_room_id=br.room_id, new_room_id=room.id, old_check_in=br.check_in_expected, old_check_out=br.check_out_expected, new_check_in=check_in, new_check_out=check_out, reason=reason, price_mode=price_mode, actor_user_id=current_user.id)
     br.room_id, br.check_in_expected, br.check_out_expected = room.id, check_in, check_out
-    if price_mode == 'reprice' and br.rental_type == 'daily':
-        br.price_breakdown_snapshot = [{'business_date': x['business_date'].isoformat(), 'amount': float(x['amount'])} for x in get_nightly_price_breakdown(room, check_in, check_out)]
+    if price_mode == 'reprice':
+        if br.rental_type == 'daily':
+            br.price_breakdown_snapshot = [{'business_date': x['business_date'].isoformat(), 'amount': float(x['amount'])} for x in get_nightly_price_breakdown(room, check_in, check_out)]
+        elif br.rental_type == 'hourly':
+            current_prices = get_effective_room_prices(room, check_in)
+            br.hourly_price_snapshot = {
+                'initial_hours': current_prices['initial_hours'],
+                'price_initial': current_prices['p_initial'],
+                'price_next': current_prices['p_next'],
+                'price_night': current_prices['p_night'],
+            }
     db.session.add(history)
     audit_service.record_event(hotel_id=br.hotel_id, actor_user_id=current_user.id, action='reschedule_booking_keep_price' if price_mode == 'keep' else 'reschedule_booking_reprice', entity_type='booking_room', entity_id=br.id, before_data=before, after_data={'room_id': room.id, 'check_in': check_in.isoformat(), 'check_out': check_out.isoformat(), 'reason': reason, 'price_mode': price_mode})
     db.session.commit()

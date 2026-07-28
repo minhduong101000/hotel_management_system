@@ -359,7 +359,8 @@ def preview_checkout_room():
         rental_type=booking_room.rental_type,
         expected_check_in=booking_room.check_in_expected,
         expected_check_out=booking_room.check_out_expected,
-        price_breakdown_snapshot=booking_room.price_breakdown_snapshot
+        price_breakdown_snapshot=booking_room.price_breakdown_snapshot,
+        hourly_price_snapshot=booking_room.hourly_price_snapshot,
     )
 
     room_services = tenant_query(BookingService).filter_by(
@@ -552,7 +553,8 @@ def checkout_room():
             rental_type=booking_room.rental_type,
             expected_check_in=booking_room.check_in_expected,
             expected_check_out=booking_room.check_out_expected,
-            price_breakdown_snapshot=booking_room.price_breakdown_snapshot
+            price_breakdown_snapshot=booking_room.price_breakdown_snapshot,
+            hourly_price_snapshot=booking_room.hourly_price_snapshot,
         )
         
         # 2. Tiền dịch vụ
@@ -1137,7 +1139,8 @@ def get_group_billing(booking_id):
                     rental_type=br.rental_type,
                     expected_check_in=br.check_in_expected,
                     expected_check_out=br.check_out_expected,
-                    price_breakdown_snapshot=br.price_breakdown_snapshot
+                    price_breakdown_snapshot=br.price_breakdown_snapshot,
+                    hourly_price_snapshot=br.hourly_price_snapshot,
                 )
                 subtotal = room_fee + service_fee
                 total_room_fee_all += room_fee
@@ -1244,7 +1247,9 @@ def process_group_checkout(booking_id):
                 check_in, now, br.room,
                 rental_type=br.rental_type, 
                 expected_check_in=br.check_in_expected, 
-                expected_check_out=br.check_out_expected
+                expected_check_out=br.check_out_expected,
+                price_breakdown_snapshot=br.price_breakdown_snapshot,
+                hourly_price_snapshot=br.hourly_price_snapshot,
             )
             
             # Tính tiền dịch vụ (BỔ SUNG ĐỂ HÓA ĐƠN ĐƯỢC CHUẨN XÁC NHẤT)

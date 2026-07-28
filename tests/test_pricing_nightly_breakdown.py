@@ -90,3 +90,31 @@ def test_hourly_booking_stores_hourly_price_snapshot(client, seed_hotels, login_
     assert response.json['success'] is True
     created = BookingRoom.query.order_by(BookingRoom.id.desc()).first()
     assert created.hourly_price_snapshot == {'initial_hours': 2, 'price_initial': 300000.0, 'price_next': 50000.0, 'price_night': 500000.0}
+
+
+def test_hourly_bill_uses_the_stored_hourly_price_snapshot(app, seed_hotels):
+    _, _, _, _, booking_room, _ = seed_hotels
+    booking_room.room.price_initial_block = 700000
+    booking_room.room.price_next_hour = 150000
+    booking_room.room.price_per_night = 1200000
+    with app.app_context():
+        total, _ = calculate_complex_hotel_bill(
+            datetime(2030, 1, 1, 14), datetime(2030, 1, 1, 17), booking_room.room,
+            rental_type='hourly',
+            hourly_price_snapshot={'initial_hours': 2, 'price_initial': 300000.0, 'price_next': 50000.0, 'price_night': 500000.0},
+        )
+    assert total == 350000.0
+
+
+def test_hourly_snapshot_controls_the_overnight_fallback(app, seed_hotels):
+    _, _, _, _, booking_room, _ = seed_hotels
+    booking_room.room.price_initial_block = 700000
+    booking_room.room.price_next_hour = 150000
+    booking_room.room.price_per_night = 1200000
+    with app.app_context():
+        total, _ = calculate_complex_hotel_bill(
+            datetime(2030, 1, 1, 14), datetime(2030, 1, 1, 22), booking_room.room,
+            rental_type='hourly',
+            hourly_price_snapshot={'initial_hours': 2, 'price_initial': 300000.0, 'price_next': 50000.0, 'price_night': 500000.0},
+        )
+    assert total == 500000.0

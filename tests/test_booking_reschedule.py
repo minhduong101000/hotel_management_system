@@ -25,3 +25,17 @@ def test_reschedule_can_apply_new_price(client, seed_hotels, login_as):
     assert response.status_code == 200
     db.session.refresh(booking_room)
     assert booking_room.price_breakdown_snapshot == [{'business_date': '2030-02-01', 'amount': 500000.0}]
+
+
+def test_reschedule_reprices_hourly_booking_snapshot(client, seed_hotels, login_as):
+    hotel, _, user, _, booking_room, _ = seed_hotels
+    booking_room.rental_type = 'hourly'
+    booking_room.hourly_price_snapshot = {'initial_hours': 2, 'price_initial': 300000.0, 'price_next': 50000.0, 'price_night': 500000.0}
+    booking_room.room.price_initial_block = 450000
+    booking_room.room.price_next_hour = 90000
+    booking_room.room.price_per_night = 800000
+    db.session.commit(); login_as(client, user)
+    response = client.post(f'/{hotel.slug}/timeline/api/bookings/reschedule', json={'booking_room_id': booking_room.id, 'room_id': booking_room.room_id, 'check_in': '2030-02-01T14:00', 'check_out': '2030-02-01T17:00', 'reason': 'Đổi giá giờ', 'price_mode': 'reprice'})
+    assert response.status_code == 200
+    db.session.refresh(booking_room)
+    assert booking_room.hourly_price_snapshot == {'initial_hours': 2, 'price_initial': 450000.0, 'price_next': 90000.0, 'price_night': 800000.0}

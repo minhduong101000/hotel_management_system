@@ -164,12 +164,38 @@ def calculate_raw_hourly_fee(check_in, check_out, price_config):
 
     return total, billable_hours, desc
 
+
+def apply_hourly_price_snapshot(prices, hourly_price_snapshot):
+    """Use the hourly rates committed at booking time when they are available."""
+    if not hourly_price_snapshot:
+        return prices
+
+    try:
+        snapshot_prices = {
+            'initial_hours': int(hourly_price_snapshot['initial_hours']),
+            'p_initial': float(hourly_price_snapshot['price_initial']),
+            'p_next': float(hourly_price_snapshot['price_next']),
+            'p_night': float(hourly_price_snapshot['price_night']),
+        }
+    except (KeyError, TypeError, ValueError):
+        return prices
+
+    if snapshot_prices['initial_hours'] < 1 or any(value < 0 for value in snapshot_prices.values() if isinstance(value, float)):
+        return prices
+
+    committed = prices.copy()
+    committed.update(snapshot_prices)
+    committed['is_special'] = False
+    committed['rule_name'] = 'Giá đã chốt'
+    return committed
+
 # =======================================================
 # 4. HÀM LOGIC CHÍNH (MAIN FUNCTION) - ĐÃ SỬA
 # =======================================================
 def calculate_complex_hotel_bill(check_in, check_out, room, rental_type='hourly', 
                                  expected_check_in=None, expected_check_out=None,
-                                 price_breakdown_snapshot=None):
+                                 price_breakdown_snapshot=None,
+                                 hourly_price_snapshot=None):
     """
     Hàm tính tiền chuẩn xác (Fix lỗi phụ thu hàng trăm giờ):
     1. Base Fee (Tiền phòng): Tính số ĐÊM dựa trên khoảng ngày rộng nhất (để thu đủ nếu ở lố ngày).
@@ -181,6 +207,8 @@ def calculate_complex_hotel_bill(check_in, check_out, room, rental_type='hourly'
     STD_OUT_HOUR = 12 # 12:00
 
     prices = get_effective_room_prices(room, check_in)
+    if rental_type == 'hourly':
+        prices = apply_hourly_price_snapshot(prices, hourly_price_snapshot)
     rule_tag = f" ({prices['rule_name']})" if prices['is_special'] else ""
     
     total_fee = 0.0
@@ -222,8 +250,19 @@ def calculate_complex_hotel_bill(check_in, check_out, room, rental_type='hourly'
             })
 
         # LOGIC MỚI: Tính số đêm chính xác dựa trên khoảng ngày
-        nightly_breakdown = price_breakdown_snapshot or get_nightly_price_breakdown(
-            room, datetime.combine(bill_start_date, time(14, 0)), datetime.combine(bill_end_date, time(12, 0)))
+        if price_breakdown_snapshot:
+            nightly_breakdown = price_breakdown_snapshot
+        elif rental_type == 'hourly' and hourly_price_snapshot:
+            nightly_breakdown = [
+                {'business_date': night_date, 'amount': prices['p_night']}
+                for night_date in get_billable_night_dates(
+                    datetime.combine(bill_start_date, time(14, 0)),
+                    datetime.combine(bill_end_date, time(12, 0)),
+                )
+            ]
+        else:
+            nightly_breakdown = get_nightly_price_breakdown(
+                room, datetime.combine(bill_start_date, time(14, 0)), datetime.combine(bill_end_date, time(12, 0)))
         nights = len(nightly_breakdown)
         base_fee = sum(line['amount'] for line in nightly_breakdown)
         total_fee += base_fee
