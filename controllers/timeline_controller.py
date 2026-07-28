@@ -12,6 +12,7 @@ from models.booking_service import BookingService
 from models.customer import Customer
 from models.service import Service
 from models.business_operation import BusinessOperation
+from models.booking_reschedule import BookingReschedule
 from datetime import datetime, timedelta
 import random
 import string
@@ -701,7 +702,43 @@ def update_booking_timeline():
         return jsonify({'success': False, 'msg': str(e)})
     
 # ========================================================
-# 5. API HỦY PHÒNG (CANCEL) & HOÀN TIỀN
+# 5. DỜI LỊCH BOOKING
+# ========================================================
+@timeline_bp.route('/api/bookings/reschedule', methods=['POST'])
+@login_required
+def reschedule_booking():
+    data = request.get_json(silent=True) or {}
+    reason = str(data.get('reason') or '').strip()
+    if not reason:
+        return jsonify({'success': False, 'msg': 'Cần nhập lý do dời lịch.'}), 400
+    try:
+        br = tenant_query(BookingRoom).filter_by(id=int(data.get('booking_room_id'))).with_for_update().first()
+        room = tenant_query(Room).filter_by(id=int(data.get('room_id'))).with_for_update().first()
+        check_in = _normalize_dt(datetime.fromisoformat(str(data.get('check_in')).replace('Z', '+00:00')))
+        check_out = _normalize_dt(datetime.fromisoformat(str(data.get('check_out')).replace('Z', '+00:00')))
+    except (TypeError, ValueError):
+        return jsonify({'success': False, 'msg': 'Dữ liệu dời lịch không hợp lệ.'}), 400
+    if not br or not room:
+        return jsonify({'success': False, 'msg': 'Không tìm thấy booking hoặc phòng.'}), 404
+    if br.status != 'booked' or check_out <= check_in or room.status == 'maintenance':
+        return jsonify({'success': False, 'msg': 'Booking hoặc phòng không phù hợp để dời lịch.'}), 409
+    if _has_room_time_conflict(room_id=room.id, start_dt=check_in, end_dt=check_out, exclude_booking_room_id=br.id):
+        return jsonify({'success': False, 'msg': 'Phòng mới đã có lịch trong khoảng thời gian này.'}), 409
+    price_mode = data.get('price_mode', 'keep')
+    if price_mode not in ('keep', 'reprice'):
+        return jsonify({'success': False, 'msg': 'Chế độ giá không hợp lệ.'}), 400
+    before = {'room_id': br.room_id, 'check_in': br.check_in_expected.isoformat(), 'check_out': br.check_out_expected.isoformat()}
+    history = BookingReschedule(hotel_id=br.hotel_id, booking_room_id=br.id, old_room_id=br.room_id, new_room_id=room.id, old_check_in=br.check_in_expected, old_check_out=br.check_out_expected, new_check_in=check_in, new_check_out=check_out, reason=reason, price_mode=price_mode, actor_user_id=current_user.id)
+    br.room_id, br.check_in_expected, br.check_out_expected = room.id, check_in, check_out
+    if price_mode == 'reprice' and br.rental_type == 'daily':
+        br.price_breakdown_snapshot = [{'business_date': x['business_date'].isoformat(), 'amount': float(x['amount'])} for x in get_nightly_price_breakdown(room, check_in, check_out)]
+    db.session.add(history)
+    audit_service.record_event(hotel_id=br.hotel_id, actor_user_id=current_user.id, action='reschedule_booking_keep_price' if price_mode == 'keep' else 'reschedule_booking_reprice', entity_type='booking_room', entity_id=br.id, before_data=before, after_data={'room_id': room.id, 'check_in': check_in.isoformat(), 'check_out': check_out.isoformat(), 'reason': reason, 'price_mode': price_mode})
+    db.session.commit()
+    return jsonify({'success': True, 'msg': 'Đã dời lịch booking.'})
+
+# ========================================================
+# 6. API HỦY PHÒNG (CANCEL) & HOÀN TIỀN
 # ========================================================
 @timeline_bp.route('/api/bookings/cancel', methods=['POST'])
 @login_required
