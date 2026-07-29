@@ -1016,6 +1016,21 @@ body.login-page {
     font-weight: 750;
 }
 
+.page-header__eyebrow {
+    color: var(--color-primary);
+    font-size: 11px;
+    font-weight: 750;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.page-header__description {
+    margin-top: 4px;
+    color: var(--color-muted-text);
+    font-size: 13px;
+    line-height: 1.4;
+}
+
 .page-header__actions,
 .filter-bar {
     display: flex;

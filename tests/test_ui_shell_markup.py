@@ -42,6 +42,7 @@ def test_shared_styles_define_semantic_tokens_focus_and_tablet_layout():
 
     assert ":focus-visible" in source
     assert ".page-header" in source
+    assert ".page-header__description" in source
     assert ".filter-bar" in source
     assert "@media (max-width: 991.98px)" in source
     assert ".app-sidebar" in source
