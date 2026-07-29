@@ -112,7 +112,7 @@ def upgrade():
             unit_cost=item['price'] or 0,
             status='active',
         ))
-        batch_id = result.inserted_primary_key[0]
+        batch_id = result.inserted_primary_key[0] if result.inserted_primary_key else result.lastrowid
         bind.execute(movement_table.insert().values(
             hotel_id=item['hotel_id'],
             inventory_item_id=item['id'],
