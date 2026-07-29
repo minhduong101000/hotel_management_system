@@ -8,7 +8,7 @@ def admin_required(f):
         # Nếu chưa đăng nhập HOẶC role không phải admin -> Đá ra ngoài
         if not current_user.is_authenticated or current_user.role != 'admin':
             flash("Bạn không có quyền truy cập khu vực này!", "error")
-            return redirect(url_for('room.index')) # Chuyển về trang sơ đồ phòng
+            return redirect(url_for('room.map_view'))
         return f(*args, **kwargs)
     return decorated_function
 
