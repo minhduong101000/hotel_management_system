@@ -67,7 +67,7 @@ def get_expenses():
         end_str = request.args.get('end')
         category = request.args.get('category')
         
-        query = tenant_query(Expense)
+        query = tenant_query(Expense).filter(Expense.is_voided.is_(False))
         
         if start_str:
             query = query.filter(Expense.expense_date >= datetime.strptime(start_str, '%Y-%m-%d').date())
@@ -269,3 +269,27 @@ def delete_expense(expense_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'msg': str(e)})
+
+
+@expense_bp.route('/api/expenses/<int:expense_id>/void', methods=['POST'])
+@login_required
+@admin_required
+def void_expense(expense_id):
+    data = request.get_json() or {}
+    reason = str(data.get('reason') or '').strip()
+    if not reason:
+        return jsonify({'success': False, 'msg': 'Cần nhập lý do hủy ghi nhận chi phí.'}), 400
+    expense = tenant_query(Expense).filter_by(id=expense_id).first()
+    if not expense:
+        return jsonify({'success': False, 'msg': 'Không tìm thấy chi phí.'}), 404
+    if expense.is_voided:
+        return jsonify({'success': False, 'msg': 'Khoản chi đã được hủy ghi nhận.'}), 409
+    expense.is_voided = True
+    expense.void_reason = reason
+    expense.voided_at = datetime.now()
+    expense.voided_by = current_user.id
+    audit_service.record_event(hotel_id=expense.hotel_id, actor_user_id=current_user.id,
+        action='void_expense', entity_type='expense', entity_id=expense.id,
+        after_data={'reason': reason, 'inventory_unchanged': bool(_extract_inventory_code(expense.description))})
+    db.session.commit()
+    return jsonify({'success': True, 'msg': 'Đã hủy ghi nhận chi phí; tồn kho không thay đổi.'})
