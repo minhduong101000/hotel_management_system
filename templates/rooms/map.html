@@ -333,75 +333,7 @@
     </div>
 </div>
 
-<!-- Modal Đặt Đoàn (Copy từ Timeline) -->
-<div class="modal fade" id="groupBookingModal" tabindex="-1">
-    <div class="modal-dialog modal-lg workflow-modal workflow-modal--fullscreen">
-        <div class="modal-content">
-            <div class="modal-header bg-success text-white">
-                <h5 class="modal-title"><i class="fas fa-users"></i> ĐẶT PHÒNG THEO ĐOÀN</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body bg-light">
-                <form id="groupBookingForm">
-                    <section class="card border-0 shadow-sm p-3 mb-3">
-                        <h6 class="text-success fw-bold mb-2">1. Thời gian lưu trú</h6>
-                        <div class="row g-2 align-items-end">
-                            <div class="col-md-5"><label class="small fw-bold text-muted" for="g_check_in">Check-in (14:00)</label><input type="date" class="form-control" id="g_check_in" name="check_in" required></div>
-                            <div class="col-md-5"><label class="small fw-bold text-muted" for="g_check_out">Check-out (12:00)</label><input type="date" class="form-control" id="g_check_out" name="check_out" required></div>
-                            <div class="col-md-2"><button type="button" class="btn btn-primary w-100" onclick="searchRoomsForGroup()"><i class="fas fa-search"></i> Tìm</button></div>
-                        </div>
-                    </section>
-                    <section class="mb-3">
-                        <label class="form-label fw-bold">2. Chọn phòng trống (<span id="availCount">0</span> phòng)</label>
-                        <div id="roomSelectionList" class="border rounded bg-white p-2 shadow-sm" style="height: 200px; overflow-y: auto;"><div class="text-center text-muted mt-5">Chọn ngày rồi bấm “Tìm” để xem phòng trống.</div></div>
-                    </section>
-                    <div class="card border-0 shadow-sm p-4 mb-3 rounded-4 bg-white">
-                         <h6 class="text-success fw-bold mb-3 border-bottom pb-2">
-                             <i class="fas fa-user-tie me-2"></i>Thông tin Trưởng đoàn
-                         </h6>
-                         <div class="row g-3 mb-3">
-                            <div class="col-md-4">
-                                <label class="form-label small fw-bold text-secondary mb-1">Số điện thoại <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control shadow-sm border-secondary-subtle" name="group_phone" id="group_phone" required autocomplete="off" placeholder="Nhập SĐT...">
-                            </div>
-                            <div class="col-md-4">
-                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                    <label class="form-label small mb-0 fw-bold text-secondary">Trưởng đoàn <span class="text-danger">*</span></label>
-                                    <button type="button" class="btn btn-xs btn-outline-success border-0 py-0 px-2 fw-bold" style="font-size: 0.75rem;" onclick="openQRScanner('group')">
-                                        <i class="fas fa-qrcode me-1"></i>QUÉT QR
-                                    </button>
-                                </div>
-                                <input type="text" class="form-control shadow-sm border-secondary-subtle" name="group_name" id="group_name" required autocomplete="off" placeholder="Tên trưởng đoàn...">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label small fw-bold text-secondary mb-1">Số CCCD</label>
-                                <input type="text" class="form-control shadow-sm border-secondary-subtle" name="group_cccd" id="group_cccd" autocomplete="off" placeholder="Số CCCD...">
-                            </div>
-                        </div>
-                        <div class="row g-3">
-                            <div class="col-md-12">
-                                <label class="form-label small fw-bold text-secondary mb-1">Địa chỉ cư trú</label>
-                                <input type="text" class="form-control shadow-sm border-secondary-subtle" name="group_address" id="group_address" autocomplete="off" placeholder="Địa chỉ thường trú / tạm trú...">
-                            </div>
-                        </div>
-                        <div class="row g-3 mt-1">
-                            <div class="col-md-6"><label class="form-label small" for="group_total_deposit">Tiền cọc tổng (VND)</label><div class="input-group"><input type="number" class="form-control fw-bold" name="total_deposit" id="group_total_deposit" value="0" min="0"><button class="btn btn-outline-primary" type="button" onclick="calculateGroupQuickDeposit(0.5)">50%</button><button class="btn btn-outline-primary" type="button" onclick="calculateGroupQuickDeposit(1)">100%</button></div><small class="text-muted" id="group-deposit-hint"></small></div>
-                            <div class="col-md-6"><label class="form-label small" for="group_note">Ghi chú</label><input type="text" class="form-control" name="note" id="group_note" placeholder="Ví dụ: Đoàn công ty"></div>
-                        </div>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer bg-light border-top shadow-sm">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
-                <button type="button" class="btn btn-success fw-bold px-4 shadow" onclick="submitGroupBooking()">
-                    <i class="fas fa-check-circle me-2"></i> XÁC NHẬN ĐẶT
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-</div>
-
+{% include "rooms/_group_booking_modal.html" %}
 {% include "rooms/_qr_scanner_modal.html" %}
 <!-- Modal Thanh toán đoàn (Map version) -->
 <div class="modal fade" id="groupCheckoutModal" tabindex="-1">
