@@ -147,60 +147,7 @@
 {% include "rooms/_checkout_modal.html" %}
 {% include "rooms/_group_booking_modal.html" %}
 {% include "rooms/_qr_scanner_modal.html" %}
-<div class="modal fade" id="groupCheckoutModal" tabindex="-1">
-    <div class="modal-dialog modal-lg workflow-modal workflow-modal--fullscreen">
-        <div class="modal-content">
-            <div class="modal-header bg-warning text-dark">
-                <h5 class="modal-title"><i class="fas fa-users me-2"></i>THANH TOÁN ĐOÀN — <span id="gc-booking-code">...</span></h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="d-flex justify-content-between mb-3">
-                    <span>Khách hàng: <strong id="gc-customer-name">...</strong></span>
-                </div>
-                
-                <table class="table table-sm table-bordered align-middle">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Phòng</th>
-                            <th class="text-end">Tiền phòng</th>
-                            <th class="text-end">Dịch vụ</th>
-                            <th class="text-end">Phụ thu</th>
-                            <th class="text-end">Tổng</th>
-                        </tr>
-                    </thead>
-                    <tbody id="gc-room-list"></tbody>
-                    <tfoot class="table-light">
-                        <tr><td colspan="4" class="text-end fw-bold">Tổng cộng:</td><td class="text-end fw-bold fs-5" id="gc-grand-total">0</td></tr>
-                        <tr>
-                            <td colspan="4" class="text-end fw-bold">
-                                <div class="d-inline-flex align-items-center gap-2">
-                                    <span>VAT 8%:</span>
-                                    <div class="form-check form-switch m-0">
-                                        <input class="form-check-input" type="checkbox" id="gc-tax-toggle">
-                                        <label class="form-check-label small" for="gc-tax-toggle">Bật</label>
-                                    </div>
-                                    <span id="gc-tax-status" class="small text-muted">Đang tắt</span>
-                                </div>
-                            </td>
-                            <td class="text-end fw-bold text-primary" id="gc-tax-amount">0</td>
-                        </tr>
-                        <tr class="text-danger"><td colspan="4" class="text-end fw-bold"><i class="fas fa-minus-circle me-1"></i>Đặt cọc:</td><td class="text-end fw-bold" id="gc-deposit">0</td></tr>
-                        <tr class="table-success"><td colspan="4" class="text-end fw-bold fs-5">CẦN THU:</td><td class="text-end fw-bold fs-4 text-success" id="gc-final-total">0</td></tr>
-                    </tfoot>
-                </table>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
-                <button type="button" class="btn btn-warning fw-bold px-4" data-role="group-checkout-confirm" onclick="submitGroupCheckout()">
-                    <i class="fas fa-check-double me-2"></i>XÁC NHẬN TRẢ PHÒNG ĐOÀN
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal Xác nhận Nhận phòng -->
+{% include "rooms/_group_checkout_modal.html" %}
 <div class="modal fade" id="checkInConfirmModal" tabindex="-1">
     <div class="modal-dialog operation-modal">
         <div class="modal-content">

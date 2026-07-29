@@ -72,3 +72,14 @@ def test_room_map_and_timeline_share_the_booking_modal_partial():
     partial = (ROOT / 'templates/rooms/_booking_modal.html').read_text(encoding='utf-8')
     for element_id in ('bk-room-id', 'bk-phone', 'bk-daily-in', 'bk-hourly-in', 'bk-deposit'):
         assert f'id="{element_id}"' in partial
+
+
+def test_room_map_and_timeline_share_the_group_checkout_modal_partial():
+    for template in ('templates/rooms/map.html', 'templates/rooms/timeline.html'):
+        source = (ROOT / template).read_text(encoding='utf-8')
+
+        assert '{% include "rooms/_group_checkout_modal.html" %}' in source
+
+    partial = (ROOT / 'templates/rooms/_group_checkout_modal.html').read_text(encoding='utf-8')
+    for element_id in ('gc-booking-code', 'gc-room-list', 'gc-grand-total', 'gc-deposit', 'gc-final-total'):
+        assert f'id="{element_id}"' in partial
