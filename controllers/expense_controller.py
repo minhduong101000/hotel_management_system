@@ -245,6 +245,11 @@ def delete_expense(expense_id):
         expense = tenant_query(Expense).filter_by(id=expense_id).first()
         if not expense:
             return jsonify({'success': False, 'msg': 'Không tìm thấy!'})
+        if _extract_inventory_code(expense.description):
+            return jsonify({
+                'success': False,
+                'msg': 'Khoản chi đã đồng bộ kho không thể xóa trực tiếp. Hãy tạo phiếu điều chỉnh kho để giữ lịch sử đối soát.'
+            }), 409
         audit_service.record_event(
             hotel_id=expense.hotel_id,
             actor_user_id=current_user.id,
