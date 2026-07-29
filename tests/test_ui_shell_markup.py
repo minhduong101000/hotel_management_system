@@ -32,7 +32,9 @@ def test_shared_styles_define_semantic_tokens_focus_and_tablet_layout():
     source = STYLE_SHEET.read_text(encoding="utf-8")
 
     for token in (
+        "--font-sans",
         "--color-primary",
+        "--color-accent",
         "--color-surface",
         "--color-background",
         "--color-border",
@@ -49,3 +51,4 @@ def test_shared_styles_define_semantic_tokens_focus_and_tablet_layout():
     assert ".skip-link" in source
     assert "@media (max-width: 991.98px)" in source
     assert ".app-sidebar" in source
+    assert "Be+Vietnam+Pro" in source

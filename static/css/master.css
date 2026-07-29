@@ -1,6 +1,7 @@
-:root { --master-primary: #1e3a8a; --master-background: #f8fafc; --master-border: #e2e8f0; --master-muted: #64748b; }
-body.master-console, body.master-login { min-height: 100vh; background: var(--master-background); color: #1e293b; }
-.master-nav { min-height: 64px; background: #0f172a; }
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap');
+:root { --master-primary: #18212f; --master-action: #0f766e; --master-background: #f6f5f2; --master-border: #e7e2da; --master-muted: #6b7280; }
+body.master-console, body.master-login { min-height: 100vh; background: var(--master-background); color: #1f2937; font-family:'Be Vietnam Pro', sans-serif; }
+.master-nav { min-height: 64px; background: #18212f; }
 .master-shell { max-width: 1320px; }
 .master-page-header { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:20px 24px; background:#fff; border:1px solid var(--master-border); border-radius:12px; }
 .master-page-header__eyebrow { margin:0 0 4px; color:var(--master-primary); font-size:11px; font-weight:750; letter-spacing:.08em; text-transform:uppercase; }
@@ -11,5 +12,6 @@ body.master-console, body.master-login { min-height: 100vh; background: var(--ma
 .master-dashboard .card { border:1px solid var(--master-border); border-radius:12px; box-shadow:0 2px 8px rgba(15,23,42,.05); }
 .master-login__main { display:grid; min-height:100vh; place-items:center; padding:24px; }
 .master-login__card { width:min(100%, 420px); border:1px solid var(--master-border); border-radius:16px; box-shadow:0 20px 50px rgba(15,23,42,.12); }
-.master-login__brand { color:var(--master-primary); font-size:12px; font-weight:750; letter-spacing:.09em; text-transform:uppercase; }
+.master-login__brand { color:var(--master-action); font-size:12px; font-weight:750; letter-spacing:.09em; text-transform:uppercase; }
+.master-console .btn-primary, .master-login .btn-primary { --bs-btn-bg: #0f766e; --bs-btn-border-color: #0f766e; --bs-btn-hover-bg: #115e59; --bs-btn-hover-border-color: #115e59; }
 @media (max-width: 767.98px) { .master-page-header { padding:16px; align-items:flex-start; flex-direction:column; } }
