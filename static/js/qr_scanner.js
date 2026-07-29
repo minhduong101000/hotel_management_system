@@ -1,133 +1,162 @@
 let html5QrCode = null;
-let currentScanTarget = 'single'; // 'single', 'group', or 'edit'
+let currentScanTarget = 'single';
+let isCameraScanning = false;
+let qrPreviewUrl = null;
 
 function openQRScanner(target) {
     currentScanTarget = target;
-    const scannerModalElement = document.getElementById('qrScannerModal');
-    const scannerModal = new bootstrap.Modal(scannerModalElement);
-    scannerModal.show();
-    
-    // Đợi modal CSS transition xong mới init camera
-    setTimeout(() => {
-        if (!html5QrCode) {
-            html5QrCode = new Html5Qrcode("qr-reader");
+    resetQRImageImport();
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('qrScannerModal')).show();
+}
+
+function getQRCodeReader() {
+    if (!html5QrCode) {
+        html5QrCode = new Html5Qrcode('qr-reader');
+    }
+    return html5QrCode;
+}
+
+function setQRUploadStatus(message, state = 'default') {
+    const status = document.getElementById('qr-upload-status');
+    status.textContent = message;
+    status.dataset.state = state;
+}
+
+function resetQRImageImport() {
+    const input = document.getElementById('qr-image-input');
+    const preview = document.getElementById('qr-image-preview');
+    const previewWrap = document.getElementById('qr-image-preview-wrap');
+    const cameraPanel = document.getElementById('qr-camera-panel');
+    const cameraButton = document.getElementById('qr-camera-button');
+
+    if (!input || !preview || !previewWrap || !cameraPanel || !cameraButton) return;
+
+    if (qrPreviewUrl) URL.revokeObjectURL(qrPreviewUrl);
+    qrPreviewUrl = null;
+    input.value = '';
+    preview.removeAttribute('src');
+    previewWrap.classList.add('d-none');
+    cameraPanel.hidden = true;
+    cameraButton.disabled = false;
+    cameraButton.innerHTML = '<i class="fas fa-camera me-1" aria-hidden="true"></i>Dùng camera';
+    setQRUploadStatus('Ảnh chỉ được đọc trên trình duyệt, không tải lên hệ thống.');
+}
+
+async function handleQRImageUpload(input) {
+    const file = input.files && input.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+        setQRUploadStatus('Hãy chọn ảnh CCCD định dạng JPG, PNG hoặc WEBP.', 'error');
+        return;
+    }
+
+    stopQRScannerCamera();
+    const preview = document.getElementById('qr-image-preview');
+    const previewWrap = document.getElementById('qr-image-preview-wrap');
+    if (qrPreviewUrl) URL.revokeObjectURL(qrPreviewUrl);
+    qrPreviewUrl = URL.createObjectURL(file);
+    preview.src = qrPreviewUrl;
+    previewWrap.classList.remove('d-none');
+    setQRUploadStatus('Đang đọc mã QR từ ảnh…', 'loading');
+
+    try {
+        const decodedText = await getQRCodeReader().scanFile(file, true);
+        onScanSuccess(decodedText);
+    } catch (error) {
+        console.warn('Không đọc được QR từ ảnh CCCD.', error);
+        setQRUploadStatus('Chưa thấy mã QR. Hãy chọn ảnh rõ nét, đủ 4 góc CCCD và thử lại.', 'error');
+    }
+}
+
+async function startQRScannerCamera() {
+    const cameraPanel = document.getElementById('qr-camera-panel');
+    const cameraButton = document.getElementById('qr-camera-button');
+    if (isCameraScanning) return;
+
+    resetQRImageImport();
+    cameraPanel.hidden = false;
+    cameraButton.disabled = true;
+    cameraButton.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Đang mở camera';
+    setQRUploadStatus('Cho phép trình duyệt sử dụng camera để quét trực tiếp.', 'loading');
+
+    const config = {
+        fps: 12,
+        qrbox: (width, height) => {
+            const size = Math.floor(Math.min(width, height) * 0.72);
+            return { width: size, height: size };
+        },
+        aspectRatio: 1,
+        experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+    };
+
+    const reader = getQRCodeReader();
+    try {
+        await reader.start({ facingMode: 'environment' }, config, onScanSuccess, onScanFailure);
+        isCameraScanning = true;
+        cameraButton.innerHTML = '<i class="fas fa-camera me-1" aria-hidden="true"></i>Đang dùng camera';
+        setQRUploadStatus('Đưa mã QR CCCD vào khung hình.', 'loading');
+    } catch (rearCameraError) {
+        try {
+            await reader.start({ facingMode: 'user' }, config, onScanSuccess, onScanFailure);
+            isCameraScanning = true;
+            cameraButton.innerHTML = '<i class="fas fa-camera me-1" aria-hidden="true"></i>Đang dùng camera';
+            setQRUploadStatus('Đưa mã QR CCCD vào khung hình.', 'loading');
+        } catch (cameraError) {
+            console.warn('Không thể mở camera để đọc QR.', cameraError);
+            cameraPanel.hidden = true;
+            cameraButton.disabled = false;
+            cameraButton.innerHTML = '<i class="fas fa-camera me-1" aria-hidden="true"></i>Dùng camera';
+            setQRUploadStatus('Không mở được camera. Hãy dùng chức năng tải ảnh CCCD.', 'error');
         }
-        
-        // Tối ưu cấu hình để nhận diện mã QR mật độ cao (như trên CCCD)
-        const config = { 
-            fps: 20, // Tăng fps để bắt hình mượt hơn
-            qrbox: function(viewfinderWidth, viewfinderHeight) {
-                let minEdgePercentage = 0.7; // Chiếm 70% khung hình
-                let minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
-                let qrboxSize = Math.floor(minEdgeSize * minEdgePercentage);
-                return {
-                    width: qrboxSize,
-                    height: qrboxSize
-                };
-            },
-            aspectRatio: 1.0,
-            experimentalFeatures: {
-                useBarCodeDetectorIfSupported: true // Sử dụng tính năng phần cứng nếu có
-            }
-        };
-        
-        // Ưu tiên CAMERA SAU (facingMode: "environment") theo yêu cầu người dùng
-        html5QrCode.start(
-            { facingMode: "environment" }, 
-            config, 
-            onScanSuccess, 
-            onScanFailure
-        ).then(() => {
-            // Sau khi start thành công, thử bật tính năng AUTO-FOCUS nâng cao nếu trình duyệt hỗ trợ
-            const track = html5QrCode.getRunningTrack();
-            if (track && track.applyConstraints) {
-                const capabilities = track.getCapabilities();
-                const constraints = {};
-                
-                // Nếu hỗ trợ chế độ lấy nét liên tục (Continuous Focus)
-                if (capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
-                    constraints.focusMode = 'continuous';
-                }
-                
-                // Nếu hỗ trợ zoom (đôi khi zoom nhẹ giúp focus tốt hơn ở khoảng cách gần)
-                // Tuy nhiên ta ưu tiên focus trước
-                
-                if (Object.keys(constraints).length > 0) {
-                    track.applyConstraints({ advanced: [constraints] })
-                        .then(() => console.log("Đã bật Auto-focus nâng cao."))
-                        .catch(err => console.warn("Không thể áp dụng cấu hình focus: ", err));
-                }
-            }
-        }).catch(err => {
-            console.error("Lỗi khởi tạo camera sau: ", err);
-            // Nếu lỗi (có thể là PC/Laptop chỉ có cam trước), thử quét cam trước
-            html5QrCode.start(
-                { facingMode: "user" }, 
-                config, 
-                onScanSuccess
-            ).catch(err2 => {
-                alert("Không thể khởi động Camera: " + err2);
-            });
-        });
-    }, 500);
+    }
+}
+
+function stopQRScannerCamera() {
+    if (!html5QrCode || !isCameraScanning) return;
+    isCameraScanning = false;
+    html5QrCode.stop().catch(error => console.warn('Không thể dừng camera QR.', error));
 }
 
 function closeQRScanner() {
-    if (html5QrCode) {
-        html5QrCode.stop().then(() => {
-            console.log("Camera stopped.");
-        }).catch(err => {
-            console.error("Camera stop error: ", err);
-        });
-    }
-    const scannerModal = bootstrap.Modal.getInstance(document.getElementById('qrScannerModal'));
-    if (scannerModal) {
-        scannerModal.hide();
-    }
+    stopQRScannerCamera();
+    bootstrap.Modal.getInstance(document.getElementById('qrScannerModal'))?.hide();
 }
 
-function onScanSuccess(decodedText, decodedResult) {
-    // Format CCCD Việt Nam: 048000000001|123456789|NGUYEN VAN A|01012000|Nam|Ha Noi|01012021
+function onScanSuccess(decodedText) {
     const parts = decodedText.split('|');
-    console.log("QR Scanned Parts: ", parts);
-    
-    // CCCD hợp lệ thường có 7 phần phân cách bởi '|' hoặc ít nhất là có độ dài nhất định
-    if (parts.length >= 6) {
-        const cccd_num = parts[0].trim();
-        const full_name = titleCase(parts[2].trim());
-        const address = parts[5].trim();
-        
-        // Auto fill HTML
-        if (currentScanTarget === 'single') {
-            document.getElementById('bk-cccd').value = cccd_num;
-            document.getElementById('bk-name').value = full_name;
-            document.getElementById('bk-address').value = address;
-        } else if (currentScanTarget === 'group') {
-            document.getElementById('group_cccd').value = cccd_num;
-            document.getElementById('group_name').value = full_name;
-            document.getElementById('group_address').value = address;
-        } else if (currentScanTarget === 'edit') {
-            document.getElementById('edit-cccd').value = cccd_num;
-            document.getElementById('edit-customer').value = full_name;
-            document.getElementById('edit-address').value = address;
-        }
-        
-        // Phát âm thanh bíp và đóng form
-        alert(`Đã quét thành công CCCD: ${full_name}`);
-        closeQRScanner();
-    } else {
-        alert("Mã QR không hợp lệ (Không đúng định dạng CCCD).");
+    if (parts.length < 6) {
+        setQRUploadStatus('Mã QR không đúng định dạng CCCD. Hãy kiểm tra lại ảnh.', 'error');
+        return;
     }
+
+    const cccd = parts[0].trim();
+    const fullName = titleCase(parts[2].trim());
+    const address = parts[5].trim();
+
+    const targets = {
+        single: ['bk-cccd', 'bk-name', 'bk-address'],
+        group: ['group_cccd', 'group_name', 'group_address'],
+        edit: ['edit-cccd', 'edit-customer', 'edit-address'],
+    };
+    const fields = targets[currentScanTarget];
+    if (!fields || fields.some(id => !document.getElementById(id))) {
+        setQRUploadStatus('Không tìm thấy biểu mẫu cần điền thông tin.', 'error');
+        return;
+    }
+
+    document.getElementById(fields[0]).value = cccd;
+    document.getElementById(fields[1]).value = fullName;
+    document.getElementById(fields[2]).value = address;
+    setQRUploadStatus(`Đã điền thông tin cho ${fullName}.`, 'success');
+    stopQRScannerCamera();
+    window.setTimeout(closeQRScanner, 550);
 }
 
-function onScanFailure(error) {
-    // handle scan failure, usually better to ignore and keep scanning.
-    // console.warn(`Code scan error = ${error}`);
+function onScanFailure() {
+    // Việc không nhận được QR ở từng khung hình là bình thường, không hiển thị lỗi gây nhiễu.
 }
 
-// Hàm chuẩn hóa viết hoa chữ cái đầu: NGUYEN VAN A -> Nguyen Van A
-function titleCase(str) {
-    return str.toLowerCase().split(' ').map(function(word) {
-        return (word.charAt(0).toUpperCase() + word.slice(1));
-    }).join(' ');
+function titleCase(value) {
+    return value.toLowerCase().split(' ').filter(Boolean).map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 }

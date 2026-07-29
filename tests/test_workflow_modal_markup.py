@@ -38,7 +38,18 @@ def test_room_map_and_timeline_share_the_qr_scanner_modal_partial():
 
     partial = (ROOT / 'templates/rooms/_qr_scanner_modal.html').read_text(encoding='utf-8')
     assert 'id="qrScannerModal"' in partial
-    assert 'id="qr-reader"' in partial
+    assert 'id="qr-image-input"' in partial
+    assert 'id="qr-image-preview"' in partial
+    assert 'id="qr-upload-status"' in partial
+    assert 'startQRScannerCamera()' in partial
+
+
+def test_qr_scanner_supports_desktop_image_import_before_camera():
+    source = (ROOT / 'static/js/qr_scanner.js').read_text(encoding='utf-8')
+
+    assert 'function handleQRImageUpload' in source
+    assert '.scanFile(file, true)' in source
+    assert 'function startQRScannerCamera' in source
 
 
 def test_room_map_and_timeline_share_the_group_booking_modal_partial():

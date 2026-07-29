@@ -1,18 +1,34 @@
-<!-- Modal quét mã QR CCCD dùng chung cho Sơ đồ phòng và Timeline -->
-<div class="modal fade" id="qrScannerModal" tabindex="-1" data-bs-backdrop="static">
+<!-- Đọc QR CCCD: ưu tiên tải ảnh trên desktop, camera là phương án phụ. -->
+<div class="modal fade" id="qrScannerModal" tabindex="-1" data-bs-backdrop="static" aria-labelledby="qr-scanner-title" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered operation-modal">
         <div class="modal-content">
             <div class="modal-header bg-dark text-white">
-                <h5 class="modal-title"><i class="fas fa-qrcode me-2"></i> Quét mã QR CCCD</h5>
+                <div>
+                    <h5 class="modal-title" id="qr-scanner-title"><i class="fas fa-id-card me-2"></i>Đọc QR CCCD</h5>
+                    <p class="mb-0 small text-white-50">Tải ảnh CCCD để điền nhanh thông tin khách.</p>
+                </div>
                 <button type="button" class="btn-close btn-close-white" aria-label="Đóng" onclick="closeQRScanner()"></button>
             </div>
-            <div class="modal-body p-0 text-center bg-light">
-                <div id="qr-reader" style="width: 100%; border: none;"></div>
+            <div class="modal-body qr-import-modal-body">
+                <input class="visually-hidden" type="file" id="qr-image-input" accept="image/png,image/jpeg,image/webp" onchange="handleQRImageUpload(this)">
+                <label class="qr-upload-dropzone" for="qr-image-input">
+                    <span class="qr-upload-icon"><i class="fas fa-cloud-arrow-up" aria-hidden="true"></i></span>
+                    <span class="fw-bold">Tải ảnh CCCD</span>
+                    <span class="small text-muted">Chọn hoặc kéo ảnh có mã QR vào đây</span>
+                    <span class="btn btn-primary btn-sm mt-2"><i class="fas fa-image me-1" aria-hidden="true"></i>Chọn ảnh</span>
+                </label>
+                <div class="qr-image-preview-wrap d-none" id="qr-image-preview-wrap">
+                    <img id="qr-image-preview" alt="Ảnh CCCD đã chọn để đọc mã QR">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="resetQRImageImport()"><i class="fas fa-rotate-left me-1" aria-hidden="true"></i>Chọn ảnh khác</button>
+                </div>
+                <p class="qr-upload-status mb-0" id="qr-upload-status" role="status" aria-live="polite">Ảnh chỉ được đọc trên trình duyệt, không tải lên hệ thống.</p>
+                <div class="qr-camera-panel" id="qr-camera-panel" hidden>
+                    <div id="qr-reader" aria-label="Khung quét QR bằng camera"></div>
+                </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary w-100 fw-bold" onclick="closeQRScanner()">
-                    <i class="fas fa-times me-2"></i> Hủy
-                </button>
+                <button type="button" class="btn btn-outline-secondary" id="qr-camera-button" onclick="startQRScannerCamera()"><i class="fas fa-camera me-1" aria-hidden="true"></i>Dùng camera</button>
+                <button type="button" class="btn btn-secondary" onclick="closeQRScanner()">Hủy</button>
             </div>
         </div>
     </div>
