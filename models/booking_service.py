@@ -20,6 +20,7 @@ class BookingService(db.Model):
     booking = db.relationship('Booking', back_populates='services')
     room = db.relationship('Room') # Link đơn giản để biết phòng nào gọi
     service = db.relationship('Service') # Link để lấy tên dịch vụ
+    batch_allocations = db.relationship('BookingServiceBatchAllocation', back_populates='booking_service')
 
     def to_dict(self):
         return {

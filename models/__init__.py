@@ -11,8 +11,12 @@ from .price_rule import PriceRule
 from .business_operation import BusinessOperation
 from .audit_event import AuditEvent
 from .booking_reschedule import BookingReschedule
+from .inventory_batch import InventoryBatch
+from .inventory_movement import InventoryMovement
+from .booking_service_batch_allocation import BookingServiceBatchAllocation
 
 __all__ = [
     'User', 'Hotel', 'Room', 'Customer', 'Booking', 'BookingRoom',
     'BookingService', 'Service', 'Payment', 'PriceRule', 'BusinessOperation', 'AuditEvent', 'BookingReschedule',
+    'InventoryBatch', 'InventoryMovement', 'BookingServiceBatchAllocation',
 ]

@@ -19,6 +19,8 @@ class InventoryItem(db.Model):
     # Liên kết với dịch vụ (optional) — khi khách dùng dịch vụ sẽ tự trừ kho
     service_id = db.Column(db.Integer, db.ForeignKey('services.id'), nullable=True)
     service = db.relationship('Service', backref='inventory_items')
+    batches = db.relationship('InventoryBatch', back_populates='item')
+    movements = db.relationship('InventoryMovement', back_populates='item')
 
     def to_dict(self):
         return {
