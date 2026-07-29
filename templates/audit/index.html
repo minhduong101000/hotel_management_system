@@ -1,10 +1,76 @@
 {% extends "layouts/base.html" %}
 {% block content %}
 <section class="container-fluid py-4 audit-log-page">
-  <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4"><div><p class="text-uppercase small fw-semibold text-primary mb-1">Quản trị vận hành</p><h1 class="h3 mb-1">Nhật ký hoạt động</h1><p class="text-secondary mb-0">100 thao tác gần nhất của khách sạn này.</p></div><button id="audit-refresh" class="btn btn-outline-primary" type="button"><i class="fas fa-rotate-right me-2" aria-hidden="true"></i>Làm mới</button></div>
-  <div class="card shadow-sm border-0"><div class="card-body border-bottom"><div class="row g-3 align-items-end"><div class="col-md-3"><label for="audit-start" class="form-label">Từ ngày</label><input id="audit-start" type="date" class="form-control"></div><div class="col-md-3"><label for="audit-end" class="form-label">Đến ngày</label><input id="audit-end" type="date" class="form-control"></div><div class="col-md-3"><label for="audit-action" class="form-label">Thao tác</label><input id="audit-action" class="form-control" placeholder="Ví dụ: checkin"></div><div class="col-md-3"><label for="audit-entity" class="form-label">Đối tượng</label><input id="audit-entity" class="form-control" placeholder="Ví dụ: booking_room"></div><div class="col-md-auto"><button id="audit-filter" class="btn btn-primary w-100" type="button">Lọc nhật ký</button></div></div></div><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="table-light"><tr><th>Thời gian</th><th>Thao tác</th><th>Đối tượng</th><th class="text-end">Chi tiết</th></tr></thead><tbody id="audit-list"><tr><td colspan="4" class="text-center text-secondary py-5">Đang tải nhật ký…</td></tr></tbody></table></div></div>
+  <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <div>
+      <p class="text-uppercase small fw-semibold text-primary mb-1">Quản trị vận hành</p>
+      <h1 class="h3 mb-1">Nhật ký hoạt động</h1>
+      <p class="text-secondary mb-0">Theo dõi thao tác vận hành của khách sạn theo thời gian thực.</p>
+    </div>
+    <button id="audit-refresh" class="btn btn-outline-primary" type="button"><i class="fas fa-rotate-right me-2" aria-hidden="true"></i>Làm mới</button>
+  </div>
+  <div class="card shadow-sm border-0">
+    <div class="card-body border-bottom">
+      <div class="row g-3 align-items-end">
+        <div class="col-lg-2 col-md-3"><label for="audit-start" class="form-label">Từ ngày</label><input id="audit-start" type="date" class="form-control"></div>
+        <div class="col-lg-2 col-md-3"><label for="audit-end" class="form-label">Đến ngày</label><input id="audit-end" type="date" class="form-control"></div>
+        <div class="col-lg-2 col-md-3"><label for="audit-group" class="form-label">Nhóm nghiệp vụ</label><select id="audit-group" class="form-select"><option value="">Tất cả nhóm</option><option value="room">Phòng</option><option value="booking">Booking</option><option value="service">Dịch vụ</option><option value="inventory">Kho</option><option value="price">Giá</option><option value="expense">Chi phí</option><option value="staff">Nhân sự</option></select></div>
+        <div class="col-lg-2 col-md-3"><label for="audit-action" class="form-label">Mã thao tác</label><input id="audit-action" class="form-control" placeholder="Ví dụ: checkin"></div>
+        <div class="col-lg-2 col-md-3"><label for="audit-entity" class="form-label">Mã đối tượng</label><input id="audit-entity" class="form-control" placeholder="Ví dụ: booking_room"></div>
+        <div class="col-lg-2 col-md-3"><button id="audit-filter" class="btn btn-primary w-100" type="button"><i class="fas fa-filter me-1" aria-hidden="true"></i>Lọc nhật ký</button></div>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0"><thead class="table-light"><tr><th>Thời gian</th><th>Người thực hiện</th><th>Thao tác</th><th>Đối tượng</th><th class="text-end">Chi tiết</th></tr></thead><tbody id="audit-list"><tr><td colspan="5" class="text-center text-secondary py-5">Đang tải nhật ký…</td></tr></tbody></table>
+    </div>
+    <div class="card-footer bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <span id="audit-summary" class="small text-secondary" aria-live="polite"></span>
+      <nav id="audit-pagination" aria-label="Phân trang nhật ký"></nav>
+    </div>
+  </div>
 </section>
 {% endblock %}
-{% block scripts %}<script>
-(()=>{const list=document.getElementById('audit-list'),esc=v=>String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])),labels={checkin:'Check-in',checkout:'Checkout',create_booking:'Tạo đặt phòng',cancel_booking:'Hủy phòng',add_booking_order:'Gọi thêm dịch vụ',clean_room:'Dọn phòng',booking_room:'Phòng đặt',booking_service:'Dịch vụ phòng',inventory_item:'Hàng trong kho',user:'Nhân sự'};async function load(){list.innerHTML='<tr><td colspan="4" class="text-center text-secondary py-5">Đang tải nhật ký…</td></tr>';const p=new URLSearchParams(),a=document.getElementById('audit-action').value.trim(),e=document.getElementById('audit-entity').value.trim(),s=document.getElementById('audit-start').value,z=document.getElementById('audit-end').value;if(a)p.set('action',a);if(e)p.set('entity_type',e);if(s)p.set('start',s);if(z)p.set('end',z);try{const r=await fetch(`api/events?${p}`),d=await r.json();if(!r.ok)throw Error('Không thể tải nhật ký.');list.innerHTML=d.items.length?d.items.map(i=>`<tr><td class="text-nowrap">${esc(new Date(i.created_at).toLocaleString('vi-VN'))}</td><td><span class="badge text-bg-primary">${esc(labels[i.action]||i.action)}</span></td><td>${esc(labels[i.entity_type]||i.entity_type)} #${esc(i.entity_id)}</td><td class="text-end"><details><summary class="btn btn-sm btn-outline-secondary">Xem dữ liệu</summary><pre class="text-start small mt-2 mb-0">${esc(JSON.stringify({trước:i.before_data,sau:i.after_data},null,2))}</pre></details></td></tr>`).join(''):'<tr><td colspan="4" class="text-center text-secondary py-5">Chưa có dữ liệu phù hợp.</td></tr>'}catch(x){list.innerHTML=`<tr><td colspan="4" class="text-center text-danger py-5" role="alert">${esc(x.message)}</td></tr>`}}document.getElementById('audit-filter').addEventListener('click',load);document.getElementById('audit-refresh').addEventListener('click',load);load()})();
-</script>{% endblock %}
+{% block scripts %}
+<script>
+(() => {
+  const list = document.getElementById('audit-list');
+  const pagination = document.getElementById('audit-pagination');
+  const summary = document.getElementById('audit-summary');
+  const esc = value => String(value ?? '').replace(/[&<>'"]/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[character]));
+  const labels = {
+    checkin:'Check-in', checkout:'Checkout', create_booking:'Tạo đặt phòng', create_group_booking:'Tạo booking đoàn', update_booking_timeline:'Cập nhật Timeline', reschedule_booking_keep_price:'Dời lịch - giữ giá', reschedule_booking_reprice:'Dời lịch - áp dụng giá mới', cancel_booking:'Hủy phòng', group_checkout:'Checkout đoàn', add_booking_order:'Gọi thêm dịch vụ', update_booking_service_quantity:'Cập nhật số lượng dịch vụ', update_group_booking_services:'Cập nhật dịch vụ đoàn', clean_room:'Dọn phòng', restock_inventory:'Nhập kho', create_inventory:'Tạo vật tư', update_inventory:'Cập nhật vật tư', delete_inventory:'Xóa vật tư', update_base_price:'Cập nhật giá phòng', create_price_rule:'Tạo luật giá', update_price_rule:'Cập nhật luật giá', delete_price_rule:'Xóa luật giá', create_expense:'Tạo chi phí', delete_expense:'Xóa chi phí', create_staff_user:'Tạo nhân sự', reset_staff_password:'Đặt lại mật khẩu nhân sự', delete_staff_user:'Xóa nhân sự', booking:'Booking', booking_room:'Phòng đặt', booking_service:'Dịch vụ phòng', inventory_item:'Hàng trong kho', room:'Phòng', price_rule:'Luật giá', expense:'Chi phí', user:'Nhân sự'
+  };
+  let currentPage = 1;
+  const filters = () => ({
+    start: document.getElementById('audit-start').value,
+    end: document.getElementById('audit-end').value,
+    group: document.getElementById('audit-group').value,
+    action: document.getElementById('audit-action').value.trim(),
+    entity_type: document.getElementById('audit-entity').value.trim()
+  });
+  function renderPagination(data) {
+    pagination.replaceChildren();
+    if (data.total_pages <= 1) return;
+    const controls = document.createElement('div'); controls.className = 'btn-group btn-group-sm';
+    [[data.page - 1, '‹', 'Trang trước'], [data.page + 1, '›', 'Trang sau']].forEach(([page, text, label]) => {
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'btn btn-outline-secondary'; button.textContent = text; button.setAttribute('aria-label', label); button.disabled = page < 1 || page > data.total_pages; button.addEventListener('click', () => load(page)); controls.appendChild(button);
+    });
+    const current = document.createElement('span'); current.className = 'btn btn-outline-secondary disabled'; current.textContent = `Trang ${data.page}/${data.total_pages}`; controls.insertBefore(current, controls.children[1]); pagination.appendChild(controls);
+  }
+  function renderRows(items) {
+    list.innerHTML = items.length ? items.map(item => `<tr><td class="text-nowrap small">${esc(new Date(item.created_at).toLocaleString('vi-VN'))}</td><td><span class="fw-semibold">${esc(item.actor_name)}</span></td><td><span class="badge text-bg-primary">${esc(labels[item.action] || item.action)}</span></td><td>${esc(labels[item.entity_type] || item.entity_type)} #${esc(item.entity_id)}</td><td class="text-end"><details><summary class="btn btn-sm btn-outline-secondary">Xem dữ liệu</summary><pre class="text-start small mt-2 mb-0">${esc(JSON.stringify({trước:item.before_data,sau:item.after_data}, null, 2))}</pre></details></td></tr>`).join('') : '<tr><td colspan="5" class="text-center text-secondary py-5">Chưa có dữ liệu phù hợp.</td></tr>';
+  }
+  async function load(page = 1) {
+    currentPage = page; list.innerHTML = '<tr><td colspan="5" class="text-center text-secondary py-5">Đang tải nhật ký…</td></tr>';
+    const query = new URLSearchParams({page: String(page), per_page: '25'}); const active = filters(); Object.entries(active).forEach(([key, value]) => { if (value) query.set(key, value); });
+    try {
+      const response = await fetch(`api/events?${query}`); const data = await response.json(); if (!response.ok) throw Error('Không thể tải nhật ký.');
+      renderRows(data.items); summary.textContent = `Có ${data.total} thao tác`; renderPagination(data);
+    } catch (error) { list.innerHTML = `<tr><td colspan="5" class="text-center text-danger py-5" role="alert">${esc(error.message)}</td></tr>`; summary.textContent = ''; pagination.replaceChildren(); }
+  }
+  document.getElementById('audit-filter').addEventListener('click', () => load(1));
+  document.getElementById('audit-refresh').addEventListener('click', () => load(currentPage));
+  load();
+})();
+</script>
+{% endblock %}
