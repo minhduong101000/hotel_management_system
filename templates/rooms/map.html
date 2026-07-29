@@ -343,6 +343,18 @@
             </div>
             <div class="modal-body bg-light">
                 <form id="groupBookingForm">
+                    <section class="card border-0 shadow-sm p-3 mb-3">
+                        <h6 class="text-success fw-bold mb-2">1. Thời gian lưu trú</h6>
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-5"><label class="small fw-bold text-muted" for="g_check_in">Check-in (14:00)</label><input type="date" class="form-control" id="g_check_in" name="check_in" required></div>
+                            <div class="col-md-5"><label class="small fw-bold text-muted" for="g_check_out">Check-out (12:00)</label><input type="date" class="form-control" id="g_check_out" name="check_out" required></div>
+                            <div class="col-md-2"><button type="button" class="btn btn-primary w-100" onclick="searchRoomsForGroup()"><i class="fas fa-search"></i> Tìm</button></div>
+                        </div>
+                    </section>
+                    <section class="mb-3">
+                        <label class="form-label fw-bold">2. Chọn phòng trống (<span id="availCount">0</span> phòng)</label>
+                        <div id="roomSelectionList" class="border rounded bg-white p-2 shadow-sm" style="height: 200px; overflow-y: auto;"><div class="text-center text-muted mt-5">Chọn ngày rồi bấm “Tìm” để xem phòng trống.</div></div>
+                    </section>
                     <div class="card border-0 shadow-sm p-4 mb-3 rounded-4 bg-white">
                          <h6 class="text-success fw-bold mb-3 border-bottom pb-2">
                              <i class="fas fa-user-tie me-2"></i>Thông tin Trưởng đoàn
@@ -371,6 +383,10 @@
                                 <label class="form-label small fw-bold text-secondary mb-1">Địa chỉ cư trú</label>
                                 <input type="text" class="form-control shadow-sm border-secondary-subtle" name="group_address" id="group_address" autocomplete="off" placeholder="Địa chỉ thường trú / tạm trú...">
                             </div>
+                        </div>
+                        <div class="row g-3 mt-1">
+                            <div class="col-md-6"><label class="form-label small" for="group_total_deposit">Tiền cọc tổng (VND)</label><div class="input-group"><input type="number" class="form-control fw-bold" name="total_deposit" id="group_total_deposit" value="0" min="0"><button class="btn btn-outline-primary" type="button" onclick="calculateGroupQuickDeposit(0.5)">50%</button><button class="btn btn-outline-primary" type="button" onclick="calculateGroupQuickDeposit(1)">100%</button></div><small class="text-muted" id="group-deposit-hint"></small></div>
+                            <div class="col-md-6"><label class="form-label small" for="group_note">Ghi chú</label><input type="text" class="form-control" name="note" id="group_note" placeholder="Ví dụ: Đoàn công ty"></div>
                         </div>
                     </div>
                 </form>
