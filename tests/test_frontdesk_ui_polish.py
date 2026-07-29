@@ -14,3 +14,13 @@ def test_service_price_and_warehouse_pages_use_shared_page_header(client, seed_h
         response = client.get(f'/{hotel.slug}{path}')
         assert response.status_code == 200
         assert b'page-header' in response.data
+
+
+def test_customer_search_uses_a_spaced_search_bar(client, seed_hotels, login_as):
+    hotel, _, admin, _, _, _ = seed_hotels
+    login_as(client, admin)
+
+    response = client.get(f'/{hotel.slug}/customers/customers')
+
+    assert response.status_code == 200
+    assert b'customer-search-bar' in response.data
