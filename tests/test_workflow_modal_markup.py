@@ -28,3 +28,14 @@ def test_room_map_group_booking_contains_controls_required_by_group_booking_scri
 
     for element_id in ('g_check_in', 'g_check_out', 'roomSelectionList', 'availCount', 'group_total_deposit', 'group_note'):
         assert f'id="{element_id}"' in source
+
+
+def test_room_map_and_timeline_share_the_qr_scanner_modal_partial():
+    for template in ('templates/rooms/map.html', 'templates/rooms/timeline.html'):
+        source = (ROOT / template).read_text(encoding='utf-8')
+
+        assert '{% include "rooms/_qr_scanner_modal.html" %}' in source
+
+    partial = (ROOT / 'templates/rooms/_qr_scanner_modal.html').read_text(encoding='utf-8')
+    assert 'id="qrScannerModal"' in partial
+    assert 'id="qr-reader"' in partial

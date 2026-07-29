@@ -1,0 +1,19 @@
+<!-- Modal quét mã QR CCCD dùng chung cho Sơ đồ phòng và Timeline -->
+<div class="modal fade" id="qrScannerModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered operation-modal">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title"><i class="fas fa-qrcode me-2"></i> Quét mã QR CCCD</h5>
+                <button type="button" class="btn-close btn-close-white" aria-label="Đóng" onclick="closeQRScanner()"></button>
+            </div>
+            <div class="modal-body p-0 text-center bg-light">
+                <div id="qr-reader" style="width: 100%; border: none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary w-100 fw-bold" onclick="closeQRScanner()">
+                    <i class="fas fa-times me-2"></i> Hủy
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
