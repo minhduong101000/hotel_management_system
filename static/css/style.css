@@ -218,6 +218,30 @@ body:not(.login-page) {
     transition: box-shadow 180ms ease, transform 180ms ease;
 }
 
+.app-topbar {
+    min-height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 10px 24px;
+    background: rgba(255,255,255,.96);
+    border-bottom: 1px solid var(--color-border);
+    box-shadow: 0 1px 2px rgba(15,23,42,.04);
+}
+.app-topbar__identity, .app-topbar__user { display:flex; align-items:center; gap:10px; }
+.app-topbar__identity strong { display:block; color:var(--color-text); font-size:14px; }
+.app-topbar__eyebrow { display:block; color:var(--color-muted-text); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }
+.app-topbar__user { color:var(--color-muted-text); font-weight:600; font-size:13px; }
+.app-topbar__user i { color:var(--color-primary); font-size:20px; }
+
+.app-content > .container-fluid, .app-content > .container { overflow-y:auto; }
+.app-content .card { border:1px solid var(--color-border); border-radius:12px; box-shadow:0 2px 10px rgba(15,23,42,.05); }
+.app-content .table > :not(caption) > * > * { padding:12px 14px; border-color:#edf1f6; }
+.app-content .table thead th { color:#475569; font-size:11px; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; }
+.app-content .btn { border-radius:8px; font-weight:600; transition:background-color 180ms ease,border-color 180ms ease,box-shadow 180ms ease; }
+.app-content .form-control, .app-content .form-select { min-height:38px; border-color:#cbd5e1; border-radius:8px; }
+
 .sidebar-brand__icon {
     flex: 0 0 auto;
     margin-right: 8px;

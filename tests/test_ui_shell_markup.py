@@ -15,6 +15,7 @@ def test_authenticated_room_map_uses_application_shell(client, seed_hotels, logi
     assert response.status_code == 200
     assert b"app-sidebar" in response.data
     assert b"app-content" in response.data
+    assert b"app-topbar" in response.data
 
 
 def test_base_layout_has_viewport_and_shared_ui_components():
@@ -22,6 +23,7 @@ def test_base_layout_has_viewport_and_shared_ui_components():
 
     assert 'name="viewport"' in source
     assert '<main class="app-content"' in source
+    assert 'class="app-topbar"' in source
 
 
 def test_shared_styles_define_semantic_tokens_focus_and_tablet_layout():
