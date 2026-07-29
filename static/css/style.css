@@ -656,6 +656,9 @@ body:not(.login-page) {
     color: #3b82f6;
     font-size: 1.1rem;
 }
+.timeline-page-heading { padding: 4px 2px; }
+.timeline-subtitle { margin:4px 0 0 30px; color:var(--color-muted-text); font-size:13px; }
+.room-map-toolbar, .timeline-ops-toolbar { box-shadow:0 2px 10px rgba(15,23,42,.05); }
 
 .timeline-ops-toolbar {
     display: flex;
