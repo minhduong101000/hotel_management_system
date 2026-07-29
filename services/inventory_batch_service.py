@@ -159,3 +159,25 @@ def dispose_batch(*, batch, quantity, reason, actor_user_id=None, hotel_id=None,
         created_by=actor_user_id,
     ))
     return batch
+
+
+def adjust_batch(*, batch, quantity_delta, reason, actor_user_id=None, hotel_id=None, note=None):
+    if hotel_id is not None and batch.hotel_id != hotel_id:
+        raise ValueError('Lô hàng không thuộc khách sạn hiện tại.')
+    quantity_delta = int(quantity_delta or 0)
+    if quantity_delta == 0:
+        raise ValueError('Số lượng điều chỉnh phải khác 0.')
+    if not (reason or '').strip():
+        raise ValueError('Cần nhập lý do điều chỉnh.')
+    if int(batch.quantity_available or 0) + quantity_delta < 0:
+        raise ValueError('Điều chỉnh không được làm tồn kho âm.')
+    batch.quantity_available += quantity_delta
+    batch.status = 'active' if batch.quantity_available > 0 else 'depleted'
+    item = batch.item
+    item.quantity = int(item.quantity or 0) + quantity_delta
+    db.session.add(InventoryMovement(
+        hotel_id=batch.hotel_id, inventory_item_id=item.id, batch_id=batch.id,
+        movement_type='adjustment_in' if quantity_delta > 0 else 'adjustment_out',
+        quantity_delta=quantity_delta, reason=reason.strip(), note=note, created_by=actor_user_id,
+    ))
+    return batch

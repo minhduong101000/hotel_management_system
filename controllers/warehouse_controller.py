@@ -247,3 +247,26 @@ def dispose_batch(batch_id):
     except ValueError as error:
         db.session.rollback()
         return jsonify({'success': False, 'msg': str(error)}), 400
+
+
+@warehouse_bp.route('/api/warehouse/batches/<int:batch_id>/adjust', methods=['POST'])
+@login_required
+@admin_required
+def adjust_batch(batch_id):
+    data = request.get_json() or {}
+    batch = tenant_query(InventoryBatch).filter_by(id=batch_id).first()
+    if not batch:
+        return jsonify({'success': False, 'msg': 'Không tìm thấy lô hàng.'}), 404
+    try:
+        inventory_batch_service.adjust_batch(
+            batch=batch, quantity_delta=data.get('quantity_delta'), reason=data.get('reason'),
+            note=data.get('note'), actor_user_id=current_user.id, hotel_id=batch.hotel_id,
+        )
+        audit_service.record_event(hotel_id=batch.hotel_id, actor_user_id=current_user.id,
+            action='adjust_inventory', entity_type='inventory_batch', entity_id=batch.id,
+            after_data={'quantity_delta': data.get('quantity_delta'), 'reason': data.get('reason')})
+        db.session.commit()
+        return jsonify({'success': True, 'msg': 'Đã điều chỉnh tồn kho.'})
+    except ValueError as error:
+        db.session.rollback()
+        return jsonify({'success': False, 'msg': str(error)}), 400
