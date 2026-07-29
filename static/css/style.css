@@ -1081,6 +1081,17 @@ body.login-page {
     .customer-search-bar__button { width: 100%; }
 }
 
+/* Shared modal shell for short operational actions. */
+.operation-modal { max-width: 540px; }
+.operation-modal.operation-modal--wide { max-width: 860px; }
+.operation-modal .modal-content { overflow: hidden; border: 1px solid var(--color-border); border-radius: 14px; box-shadow: 0 20px 48px rgba(24, 33, 47, 0.2); }
+.operation-modal .modal-header { min-height: 64px; padding: 16px 20px; border-bottom: 1px solid var(--color-border); }
+.operation-modal .modal-title { color: inherit; font-size: 16px; font-weight: 750; }
+.operation-modal .modal-body { max-height: min(66vh, 680px); padding: 20px; overflow-y: auto; }
+.operation-modal .modal-footer { gap: 8px; padding: 14px 20px; background: #fbfaf8; border-top: 1px solid var(--color-border); }
+.operation-modal .form-label { margin-bottom: 6px; color: var(--color-text); font-size: 13px; font-weight: 650; }
+.operation-modal--danger .modal-footer { background: #fff8f7; }
+
 .status-badge {
     display: inline-flex;
     align-items: center;

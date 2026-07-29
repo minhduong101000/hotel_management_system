@@ -44,7 +44,7 @@
 
 <!-- Modal Thêm/Sửa -->
 <div class="modal fade" id="itemModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog operation-modal">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title" id="modal-title"><i class="fas fa-box me-2"></i>Thêm vật tư</h5>
@@ -90,7 +90,7 @@
 
 <!-- Modal Nhập kho -->
 <div class="modal fade" id="restockModal" tabindex="-1">
-    <div class="modal-dialog modal-sm">
+    <div class="modal-dialog modal-sm operation-modal">
         <div class="modal-content">
             <div class="modal-header bg-success text-white">
                 <h5 class="modal-title"><i class="fas fa-truck me-2"></i>Nhập thêm kho</h5>
@@ -113,9 +113,9 @@
     </div>
 </div>
 
-<div class="modal fade" id="batchModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Lô hàng</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div id="batch-list" class="small">Đang tải…</div></div></div></div></div>
-<div class="modal fade" id="disposeModal" tabindex="-1"><div class="modal-dialog modal-sm"><div class="modal-content"><div class="modal-header bg-danger text-white"><h5 class="modal-title">Hủy hàng</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="dispose-batch-id"><label class="form-label" for="dispose-quantity">Số lượng</label><input id="dispose-quantity" type="number" min="1" class="form-control mb-2"><label class="form-label" for="dispose-reason">Lý do</label><select id="dispose-reason" class="form-select"><option>Quá hạn sử dụng</option><option>Hư hỏng</option><option>Thất thoát</option><option>Kiểm kê điều chỉnh</option></select></div><div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button><button class="btn btn-danger" onclick="submitDispose()">Xác nhận hủy</button></div></div></div></div>
-<div class="modal fade" id="adjustModal" tabindex="-1"><div class="modal-dialog modal-sm"><div class="modal-content"><div class="modal-header bg-primary text-white"><h5 class="modal-title">Điều chỉnh tồn</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="adjust-batch-id"><label class="form-label" for="adjust-quantity">Số lượng thay đổi</label><input id="adjust-quantity" type="number" class="form-control mb-2" placeholder="Dương để tăng, âm để giảm"><label class="form-label" for="adjust-reason">Lý do</label><input id="adjust-reason" type="text" class="form-control" required></div><div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button><button class="btn btn-primary" onclick="submitAdjust()">Lưu điều chỉnh</button></div></div></div></div>
+<div class="modal fade" id="batchModal" tabindex="-1"><div class="modal-dialog operation-modal"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Lô hàng</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div id="batch-list" class="small">Đang tải…</div></div></div></div></div>
+<div class="modal fade" id="disposeModal" tabindex="-1"><div class="modal-dialog modal-sm operation-modal operation-modal--danger"><div class="modal-content"><div class="modal-header bg-danger text-white"><h5 class="modal-title">Hủy hàng</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="dispose-batch-id"><label class="form-label" for="dispose-quantity">Số lượng</label><input id="dispose-quantity" type="number" min="1" class="form-control mb-2"><label class="form-label" for="dispose-reason">Lý do</label><select id="dispose-reason" class="form-select"><option>Quá hạn sử dụng</option><option>Hư hỏng</option><option>Thất thoát</option><option>Kiểm kê điều chỉnh</option></select></div><div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button><button class="btn btn-danger" onclick="submitDispose()">Xác nhận hủy</button></div></div></div></div>
+<div class="modal fade" id="adjustModal" tabindex="-1"><div class="modal-dialog modal-sm operation-modal"><div class="modal-content"><div class="modal-header bg-primary text-white"><h5 class="modal-title">Điều chỉnh tồn</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="adjust-batch-id"><label class="form-label" for="adjust-quantity">Số lượng thay đổi</label><input id="adjust-quantity" type="number" class="form-control mb-2" placeholder="Dương để tăng, âm để giảm"><label class="form-label" for="adjust-reason">Lý do</label><input id="adjust-reason" type="text" class="form-control" required></div><div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button><button class="btn btn-primary" onclick="submitAdjust()">Lưu điều chỉnh</button></div></div></div></div>
 {% endblock %}
 
 {% block scripts %}
