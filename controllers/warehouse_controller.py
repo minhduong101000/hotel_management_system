@@ -226,6 +226,20 @@ def get_batches(item_id):
     } for batch in item.batches])
 
 
+@warehouse_bp.route('/api/warehouse/batches/<int:batch_id>/movements')
+@login_required
+def get_batch_movements(batch_id):
+    batch = tenant_query(InventoryBatch).filter_by(id=batch_id).first()
+    if not batch:
+        return jsonify({'success': False, 'msg': 'Không tìm thấy lô hàng.'}), 404
+    return jsonify([{
+        'movement_type': movement.movement_type,
+        'quantity_delta': movement.quantity_delta,
+        'reason': movement.reason,
+        'created_at': movement.created_at.strftime('%d/%m/%Y %H:%M') if movement.created_at else '',
+    } for movement in batch.movements])
+
+
 @warehouse_bp.route('/api/warehouse/batches/<int:batch_id>/dispose', methods=['POST'])
 @login_required
 @admin_required
