@@ -115,3 +115,44 @@ def backfill_opening_batch(item, actor_user_id=None):
         created_by=actor_user_id,
     ))
     return batch
+
+
+def available_quantity(item, on_date=None):
+    on_date = on_date or date.today()
+    return sum(
+        int(batch.quantity_available or 0)
+        for batch in InventoryBatch.query.filter_by(inventory_item_id=item.id).all()
+        if batch.status == 'active' and (batch.expires_at is None or batch.expires_at >= on_date)
+    )
+
+
+def batches_for_consumption(item, on_date=None):
+    on_date = on_date or date.today()
+    batches = InventoryBatch.query.filter_by(inventory_item_id=item.id, status='active').all()
+    return sorted(
+        (batch for batch in batches if int(batch.quantity_available or 0) > 0 and (batch.expires_at is None or batch.expires_at >= on_date)),
+        key=lambda batch: (batch.expires_at is None, batch.expires_at or date.max, batch.id),
+    )
+
+
+def dispose_batch(*, batch, quantity, reason, actor_user_id=None, hotel_id=None, note=None):
+    if hotel_id is not None and batch.hotel_id != hotel_id:
+        raise ValueError('Lô hàng không thuộc khách sạn hiện tại.')
+    quantity = int(quantity or 0)
+    if quantity <= 0:
+        raise ValueError('Số lượng hủy phải lớn hơn 0.')
+    if not (reason or '').strip():
+        raise ValueError('Cần nhập lý do hủy hàng.')
+    if quantity > int(batch.quantity_available or 0):
+        raise ValueError('Số lượng hủy vượt quá tồn của lô.')
+    batch.quantity_available -= quantity
+    if batch.quantity_available == 0:
+        batch.status = 'depleted'
+    item = batch.item
+    item.quantity = max(0, int(item.quantity or 0) - quantity)
+    db.session.add(InventoryMovement(
+        hotel_id=batch.hotel_id, inventory_item_id=item.id, batch_id=batch.id,
+        movement_type='disposal', quantity_delta=-quantity, reason=reason.strip(), note=note,
+        created_by=actor_user_id,
+    ))
+    return batch

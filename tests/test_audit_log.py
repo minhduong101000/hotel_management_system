@@ -93,7 +93,7 @@ def test_update_inventory_records_before_and_after_snapshot(client, seed_hotels,
     assert event.before_data["quantity"] == 5
     assert event.before_data["price"] == 10000.0
     assert event.after_data["name"] == "Nước suối"
-    assert event.after_data["quantity"] == 9
+    assert event.after_data["quantity"] == 5
     assert event.after_data["price"] == 12000.0
 
 

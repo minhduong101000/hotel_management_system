@@ -9,6 +9,7 @@ from models.service import Service
 from datetime import datetime
 import re
 from services import audit_service
+from services import inventory_batch_service
 
 expense_bp = Blueprint('expense', __name__)
 
@@ -180,7 +181,6 @@ def add_expense():
             if item:
                 item.name = item_name
                 item.unit = unit or item.unit
-                item.quantity = int(item.quantity or 0) + qty
                 item.min_quantity = min_qty
                 item.price = float(data['amount']) / qty if qty > 0 else item.price
                 item.service_id = service_id
@@ -195,6 +195,14 @@ def add_expense():
                     service_id=service_id
                 )
                 db.session.add(item)
+
+            db.session.flush()
+            expires_at = datetime.strptime(warehouse['expires_at'], '%Y-%m-%d').date() if warehouse.get('expires_at') else None
+            inventory_batch_service.create_receipt_batch(
+                item=item, quantity=qty, received_at=datetime.strptime(data['expense_date'], '%Y-%m-%d').date(),
+                expires_at=expires_at, unit_cost=float(data['amount']) / qty,
+                expense_id=new_expense.id, actor_user_id=current_user.id,
+            )
 
             marker = f"[KHO:{item_code}]"
             if marker not in new_expense.description:

@@ -1,4 +1,5 @@
 from extensions import db
+from datetime import date, timedelta
 
 class InventoryItem(db.Model):
     __tablename__ = 'inventory_items'
@@ -23,6 +24,10 @@ class InventoryItem(db.Model):
     movements = db.relationship('InventoryMovement', back_populates='item')
 
     def to_dict(self):
+        today = date.today()
+        batches = self.batches or []
+        expired_quantity = sum(int(batch.quantity_available or 0) for batch in batches if batch.expires_at and batch.expires_at < today and batch.status != 'depleted')
+        expiring_quantity = sum(int(batch.quantity_available or 0) for batch in batches if batch.expires_at and today <= batch.expires_at <= today + timedelta(days=30) and batch.status == 'active')
         return {
             'id': self.id,
             'code': self.code,
@@ -33,5 +38,7 @@ class InventoryItem(db.Model):
             'price': float(self.price or 0),
             'service_id': self.service_id,
             'service_name': self.service.name if self.service else None,
-            'status': 'critical' if self.quantity <= 0 else ('low' if self.quantity <= self.min_quantity else 'ok')
+            'status': 'critical' if self.quantity <= 0 else ('low' if self.quantity <= self.min_quantity else 'ok'),
+            'expired_quantity': expired_quantity,
+            'expiring_quantity': expiring_quantity,
         }
