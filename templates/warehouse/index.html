@@ -17,6 +17,7 @@
         <div class="col-md-3"><div class="card border-warning"><div class="card-body py-2"><small>Sắp hết hạn (30 ngày)</small><strong id="warehouse-expiring-count" class="d-block text-warning">0</strong></div></div></div>
         <div class="col-md-3"><div class="card border-danger"><div class="card-body py-2"><small>Đã quá hạn</small><strong id="warehouse-expired-count" class="d-block text-danger">0</strong></div></div></div>
     </div>
+    <div id="warehouse-feedback" class="alert d-none" role="status" aria-live="polite"></div>
 
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
@@ -123,12 +124,21 @@ let allItems = [];
 document.addEventListener('DOMContentLoaded', () => { loadItems(); loadServices(); });
 
 function loadItems() {
-    fetch(api('/api/warehouse')).then(r => r.json()).then(data => {
+    fetch(api('/api/warehouse')).then(r => {
+        if (!r.ok) throw new Error('Không thể tải dữ liệu kho.');
+        return r.json();
+    }).then(data => {
         allItems = data;
         document.getElementById('warehouse-expiring-count').textContent = data.reduce((sum, item) => sum + (item.expiring_quantity || 0), 0);
         document.getElementById('warehouse-expired-count').textContent = data.reduce((sum, item) => sum + (item.expired_quantity || 0), 0);
         renderTable(data);
-    });
+    }).catch(error => showWarehouseFeedback(error.message, 'danger'));
+}
+
+function showWarehouseFeedback(message, type = 'success') {
+    const feedback = document.getElementById('warehouse-feedback');
+    feedback.className = `alert alert-${type}`;
+    feedback.textContent = message;
 }
 
 function loadServices() {
@@ -229,16 +239,17 @@ function openRestock(id, name) {
 function confirmRestock() {
     const id = document.getElementById('restock-id').value;
     const qty = document.getElementById('restock-qty').value;
+    if (Number(qty) <= 0) return showWarehouseFeedback('Số lượng nhập phải lớn hơn 0.', 'danger');
     fetch(api(`/api/warehouse/${id}/restock`), { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({quantity: qty, expires_at: document.getElementById('restock-expires-at').value || null}) })
     .then(r => r.json()).then(res => {
-        alert(res.msg);
+        showWarehouseFeedback(res.msg, res.success ? 'success' : 'danger');
         if (res.success) { bootstrap.Modal.getInstance(document.getElementById('restockModal')).hide(); loadItems(); }
     });
 }
 
 function showBatches(itemId) { fetch(api(`/api/warehouse/${itemId}/batches`)).then(r=>r.json()).then(batches=>{ document.getElementById('batch-list').innerHTML = batches.length ? batches.map(batch => `<div class="border-bottom py-2"><strong>${batch.batch_code}</strong> · còn ${batch.quantity_available}${batch.expires_at ? ` · hạn ${batch.expires_at}` : ''}<button class="btn btn-sm btn-outline-danger float-end" onclick="openDispose(${batch.id})">Hủy hàng</button></div>`).join('') : 'Chưa có lô hàng'; bootstrap.Modal.getOrCreateInstance(document.getElementById('batchModal')).show(); }); }
 function openDispose(id) { document.getElementById('dispose-batch-id').value=id; document.getElementById('dispose-quantity').value=1; bootstrap.Modal.getOrCreateInstance(document.getElementById('disposeModal')).show(); }
-function submitDispose() { const id=document.getElementById('dispose-batch-id').value; fetch(api(`/api/warehouse/batches/${id}/dispose`), {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({quantity:document.getElementById('dispose-quantity').value,reason:document.getElementById('dispose-reason').value})}).then(r=>r.json()).then(res=>{alert(res.msg);if(res.success){bootstrap.Modal.getInstance(document.getElementById('disposeModal')).hide();loadItems();}}); }
+function submitDispose() { const id=document.getElementById('dispose-batch-id').value; const quantity=document.getElementById('dispose-quantity').value; if(Number(quantity)<=0) return showWarehouseFeedback('Số lượng hủy phải lớn hơn 0.', 'danger'); fetch(api(`/api/warehouse/batches/${id}/dispose`), {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({quantity,reason:document.getElementById('dispose-reason').value})}).then(r=>r.json()).then(res=>{showWarehouseFeedback(res.msg,res.success?'success':'danger');if(res.success){bootstrap.Modal.getInstance(document.getElementById('disposeModal')).hide();loadItems();}}); }
 
 function deleteItem(id) {
     if (!confirm('Xóa vật tư này?')) return;
