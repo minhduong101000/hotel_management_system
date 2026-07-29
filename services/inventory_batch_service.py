@@ -119,9 +119,12 @@ def backfill_opening_batch(item, actor_user_id=None):
 
 def available_quantity(item, on_date=None):
     on_date = on_date or date.today()
+    batches = InventoryBatch.query.filter_by(inventory_item_id=item.id).all()
+    if not batches:
+        return int(item.quantity or 0)
     return sum(
         int(batch.quantity_available or 0)
-        for batch in InventoryBatch.query.filter_by(inventory_item_id=item.id).all()
+        for batch in batches
         if batch.status == 'active' and (batch.expires_at is None or batch.expires_at >= on_date)
     )
 
