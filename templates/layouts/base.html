@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ range(1, 1000000000) | random }}">
 </head>
 <body>
+    <a class="skip-link" href="#app-content">Bỏ qua điều hướng, đến nội dung chính</a>
     
     <aside class="app-sidebar" id="app-sidebar">
         <div class="sidebar-brand">
@@ -22,37 +23,37 @@
             <li class="menu-header">LỄ TÂN</li>
             
             <li class="menu-item">
-                <a href="{{ url_for('room.map_view') }}" class="{{ 'active' if 'room.map' in request.endpoint else '' }}">
+                <a href="{{ url_for('room.map_view') }}" class="{{ 'active' if 'room.map' in request.endpoint else '' }}" aria-current="{{ 'page' if 'room.map' in request.endpoint else 'false' }}">
                     <i class="fas fa-th-large"></i><span>Sơ đồ phòng</span>
                 </a>
             </li>
 
             <li class="menu-item">
-                <a href="{{ url_for('room.timeline_view') }}" class="{{ 'active' if 'room.timeline' in request.endpoint else '' }}">
+                <a href="{{ url_for('room.timeline_view') }}" class="{{ 'active' if 'room.timeline' in request.endpoint else '' }}" aria-current="{{ 'page' if 'room.timeline' in request.endpoint else 'false' }}">
                     <i class="fas fa-stream"></i><span>Timeline</span>
                 </a>
             </li>
 
             <li class="menu-item">
-                <a href="{{ url_for('customer.index') }}" class="{{ 'active' if 'customer' in request.endpoint else '' }}">
+                <a href="{{ url_for('customer.index') }}" class="{{ 'active' if 'customer' in request.endpoint else '' }}" aria-current="{{ 'page' if 'customer' in request.endpoint else 'false' }}">
                     <i class="fas fa-users"></i><span>Khách hàng</span>
                 </a>
             </li>
             
             <li class="menu-item">
-                <a href="{{ url_for('billing.index') }}" class="{{ 'active' if 'billing' in request.endpoint else '' }}">
+                <a href="{{ url_for('billing.index') }}" class="{{ 'active' if 'billing' in request.endpoint else '' }}" aria-current="{{ 'page' if 'billing' in request.endpoint else 'false' }}">
                     <i class="fas fa-file-invoice"></i><span>Hóa đơn cũ</span>
                 </a>
             </li>
             
             {% if current_user.role == 'admin' %}
             <li class="menu-item">
-                <a href="{{ url_for('cashier.cashier') }}" class="{{ 'active' if 'cashier' in request.endpoint else '' }}">
+                <a href="{{ url_for('cashier.cashier') }}" class="{{ 'active' if 'cashier' in request.endpoint else '' }}" aria-current="{{ 'page' if 'cashier' in request.endpoint else 'false' }}">
                     <i class="fas fa-cash-register text-success"></i><span class="text-success fw-bold">Sổ Quỹ</span>
                 </a>
             </li>
                 <li class="menu-item">
-                    <a href="{{ url_for('audit.index') }}" class="{{ 'active' if 'audit' in request.endpoint else '' }}">
+                    <a href="{{ url_for('audit.index') }}" class="{{ 'active' if 'audit' in request.endpoint else '' }}" aria-current="{{ 'page' if 'audit' in request.endpoint else 'false' }}">
                         <i class="fas fa-clipboard-list"></i><span>Nhật ký hoạt động</span>
                     </a>
                 </li>
@@ -61,21 +62,21 @@
             <li class="menu-header">DỊCH VỤ & KHO</li>
 
             <li class="menu-item">
-                <a href="{{ url_for('price.index') }}" class="{{ 'active' if 'price.' in request.endpoint else '' }}">
+                <a href="{{ url_for('price.index') }}" class="{{ 'active' if 'price.' in request.endpoint else '' }}" aria-current="{{ 'page' if 'price.' in request.endpoint else 'false' }}">
                     <i class="fas fa-tags"></i><span>Quản lý Giá phòng</span>
                 </a>
             </li>
             
             {% if current_user.role == 'admin' %}
             <li class="menu-item">
-                <a href="{{ url_for('service.index') }}" class="{{ 'active' if 'service' in request.endpoint else '' }}">
+                <a href="{{ url_for('service.index') }}" class="{{ 'active' if 'service' in request.endpoint else '' }}" aria-current="{{ 'page' if 'service' in request.endpoint else 'false' }}">
                     <i class="fas fa-concierge-bell"></i><span>Dịch vụ / Minibar</span>
                 </a>
             </li>
             {% endif %}      
 
             <li class="menu-item">
-                <a href="{{ url_for('warehouse.index') }}" class="{{ 'active' if 'warehouse' in request.endpoint else '' }}">
+                <a href="{{ url_for('warehouse.index') }}" class="{{ 'active' if 'warehouse' in request.endpoint else '' }}" aria-current="{{ 'page' if 'warehouse' in request.endpoint else 'false' }}">
                     <i class="fas fa-boxes"></i><span>Kho hàng</span>
                 </a>
             </li>
@@ -83,19 +84,19 @@
             {% if current_user.role == 'admin' %}
                 <li class="menu-header">QUẢN TRỊ VIÊN</li>
                 <li class="menu-item">
-                    <a href="{{ url_for('report.revenue') }}" class="{{ 'active' if 'report' in request.endpoint else '' }}">
+                    <a href="{{ url_for('report.revenue') }}" class="{{ 'active' if 'report' in request.endpoint else '' }}" aria-current="{{ 'page' if 'report' in request.endpoint else 'false' }}">
                         <i class="fas fa-chart-line"></i><span>Doanh thu</span>
                     </a>
                 </li>
 
                 <li class="menu-item">
-                    <a href="{{ url_for('expense.index') }}" class="{{ 'active' if 'expense' in request.endpoint else '' }}">
+                    <a href="{{ url_for('expense.index') }}" class="{{ 'active' if 'expense' in request.endpoint else '' }}" aria-current="{{ 'page' if 'expense' in request.endpoint else 'false' }}">
                         <i class="fas fa-money-bill-wave"></i><span>Chi phí</span>
                     </a>
                 </li>
                 
                 <li class="menu-item">
-                    <a href="{{ url_for('staff.index') }}" class="{{ 'active' if 'staff' in request.endpoint else '' }}">
+                    <a href="{{ url_for('staff.index') }}" class="{{ 'active' if 'staff' in request.endpoint else '' }}" aria-current="{{ 'page' if 'staff' in request.endpoint else 'false' }}">
                         <i class="fas fa-cogs"></i><span>Cấu hình & Nhân sự</span>
                     </a>
                 </li>

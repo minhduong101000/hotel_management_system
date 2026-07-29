@@ -998,6 +998,21 @@ body.login-page {
     outline-offset: 2px;
 }
 
+.skip-link {
+    position: fixed;
+    z-index: 1000;
+    top: 8px;
+    left: 8px;
+    padding: 10px 14px;
+    color: #fff;
+    background: var(--color-primary);
+    border-radius: 8px;
+    transform: translateY(-150%);
+    transition: transform 180ms ease;
+}
+
+.skip-link:focus { transform: translateY(0); color: #fff; }
+
 .page-header {
     display: flex;
     align-items: center;

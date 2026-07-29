@@ -24,6 +24,8 @@ def test_base_layout_has_viewport_and_shared_ui_components():
     assert 'name="viewport"' in source
     assert '<main class="app-content"' in source
     assert 'class="app-topbar"' in source
+    assert 'class="skip-link"' in source
+    assert 'aria-current=' in source
 
 
 def test_shared_styles_define_semantic_tokens_focus_and_tablet_layout():
@@ -44,5 +46,6 @@ def test_shared_styles_define_semantic_tokens_focus_and_tablet_layout():
     assert ".page-header" in source
     assert ".page-header__description" in source
     assert ".filter-bar" in source
+    assert ".skip-link" in source
     assert "@media (max-width: 991.98px)" in source
     assert ".app-sidebar" in source
