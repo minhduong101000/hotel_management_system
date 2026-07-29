@@ -633,6 +633,96 @@ body:not(.login-page) {
     font-size: 1.1rem;
 }
 
+.timeline-ops-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 12px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+}
+
+.timeline-range-controls,
+.timeline-toolbar-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.timeline-ops-toolbar .btn {
+    min-height: 38px;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+.timeline-view-switch .btn { min-width: 58px; }
+.timeline-view-switch .btn.active {
+    background: #1e3a8a;
+    border-color: #1e3a8a;
+    color: #fff;
+}
+
+.timeline-range-label {
+    min-width: 148px;
+    color: #334155;
+    font-size: 0.875rem;
+    font-weight: 700;
+    text-align: center;
+}
+
+#timeline-status-filter {
+    width: 176px;
+    min-height: 38px;
+    border-radius: 8px;
+    font-size: 0.875rem;
+}
+
+.timeline-legend { gap: 8px; }
+.legend-overstay { background: linear-gradient(135deg, #ef4444, #b91c1c); }
+
+.timeline-inline-notice {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 16px 16px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: #eff6ff;
+    color: #1e3a8a;
+    font-size: 0.875rem;
+}
+
+.timeline-state {
+    display: flex;
+    min-height: 550px;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 24px;
+    color: #475569;
+    font-weight: 600;
+    text-align: center;
+}
+
+.timeline-state .fa-triangle-exclamation { color: #dc2626; }
+
+@media (max-width: 767.98px) {
+    .timeline-ops-toolbar { align-items: stretch; }
+    .timeline-range-controls,
+    .timeline-toolbar-actions { width: 100%; }
+    .timeline-range-label { flex: 1; }
+    #timeline-status-filter { flex: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .vis-item.tl-overstay { animation: none; }
+}
+
 .legend-bar {
     display: flex;
     align-items: center;

@@ -2,6 +2,9 @@
 
 var timeline;
 var roomMap = {}; // Dùng để map ID phòng -> Số phòng
+let timelineData = null;
+let timelineViewMode = '3days';
+let timelineAnchorDate = new Date();
 let selectedDepositRatio = null;
 let bookingDetailServicesCatalog = [];
 let bookingDetailServicesLines = [];
@@ -19,63 +22,150 @@ document.addEventListener('DOMContentLoaded', () => {
 // 1. LOAD TIMELINE (VIS.JS)
 // ========================================================
 function loadTimeline() {
+    showTimelineState('loading');
     fetch(api('/api/bookings/timeline'))
-        .then(res => res.json())
-        .then(data => {
-            // Lưu map để dùng khi click tạo mới
-            if (data.groups) {
-                data.groups.forEach(g => {
-                    roomMap[g.id] = g.room_number || g.content;
-                });
-            }
-
-            var container = document.getElementById('visualization');
-            
-            // QUAN TRỌNG: Khai báo items ra biến để dùng trong sự kiện click
-            var items = new vis.DataSet(data.items);
-            var groups = new vis.DataSet(data.groups);
-
-            var options = {
-                groupOrder: 'content', 
-                orientation: 'top',
-                stack: true, 
-                zoomKey: 'ctrlKey', 
-                minHeight: '550px',
-                start: new Date(new Date().getTime() - 24 * 60 * 60 * 1000), 
-                end: new Date(new Date().getTime() + 3 * 24 * 60 * 60 * 1000), 
-                locale: 'vi', 
-                tooltip: {
-                    followMouse: true,
-                    overflowMethod: 'cap'
-                }
-            };
-
-            if (timeline) timeline.destroy();
-            timeline = new vis.Timeline(container, items, groups, options);
-
-            // BẮT SỰ KIỆN CLICK
-            timeline.on('click', function (properties) {
-                if (properties.item) {
-                    // --- SỬA LOGIC LẤY DATA TẠI ĐÂY ---
-                    // Lấy toàn bộ data của item (bao gồm booking_id mà backend trả về)
-                    var itemData = items.get(properties.item);
-                    
-                    if (itemData) {
-                        if (itemData.is_finalized || itemData.status === 'checked_out' || itemData.status === 'cancelled') {
-                            alert('Booking này đã hoàn tất hoặc đã hủy, không thể mở/sửa trên timeline.');
-                            return;
-                        }
-                        // itemData.id = ID của BookingRoom (Chi tiết phòng)
-                        // itemData.booking_id = ID của Booking (Đoàn/Tổng)
-                        openEditModal(itemData.id, itemData.booking_id);
-                    }
-                } else if (properties.what === 'background' && properties.group) {
-                    // Click vào ô trống -> Mở Modal Tạo mới
-                    openCreateModal(properties.group, properties.time);
-                }
-            });
+        .then(res => {
+            if (!res.ok) throw new Error(`Không thể tải Timeline (${res.status})`);
+            return res.json();
         })
-        .catch(err => console.error("Lỗi tải timeline:", err));
+        .then(data => {
+            if (!Array.isArray(data.groups) || !Array.isArray(data.items)) {
+                throw new Error('Dữ liệu Timeline không hợp lệ');
+            }
+            // Lưu map để dùng khi click tạo mới
+            roomMap = {};
+            data.groups.forEach(g => { roomMap[g.id] = g.room_number || g.content; });
+            timelineData = data;
+            renderTimeline();
+        })
+        .catch(err => {
+            console.error("Lỗi tải timeline:", err);
+            showTimelineState('error', 'Không thể tải Timeline. Vui lòng thử lại.');
+        });
+}
+
+function startOfDay(value) {
+    const date = new Date(value);
+    date.setHours(0, 0, 0, 0);
+    return date;
+}
+
+function getTimelineRange() {
+    const start = startOfDay(timelineAnchorDate);
+    const end = new Date(start);
+    if (timelineViewMode === 'week') {
+        const day = (start.getDay() + 6) % 7;
+        start.setDate(start.getDate() - day);
+        end.setTime(start.getTime());
+        end.setDate(end.getDate() + 7);
+    } else {
+        end.setDate(end.getDate() + (timelineViewMode === 'day' ? 1 : 3));
+    }
+    return { start, end };
+}
+
+function formatTimelineRange(range) {
+    const format = { day: '2-digit', month: '2-digit', year: 'numeric' };
+    const lastDay = new Date(range.end);
+    lastDay.setDate(lastDay.getDate() - 1);
+    const startText = range.start.toLocaleDateString('vi-VN', format);
+    const endText = lastDay.toLocaleDateString('vi-VN', format);
+    return startText === endText ? startText : `${startText} – ${endText}`;
+}
+
+function updateTimelineControls() {
+    const range = getTimelineRange();
+    const label = document.getElementById('timeline-range-label');
+    if (label) label.textContent = formatTimelineRange(range);
+    ['day', '3days', 'week'].forEach(mode => {
+        document.getElementById(`timeline-view-${mode}`)?.classList.toggle('active', mode === timelineViewMode);
+    });
+}
+
+function setTimelineViewMode(mode) {
+    timelineViewMode = mode;
+    renderTimeline();
+}
+
+function shiftTimeline(direction) {
+    const range = getTimelineRange();
+    const step = timelineViewMode === 'week' ? 7 : timelineViewMode === 'day' ? 1 : 3;
+    timelineAnchorDate = new Date(range.start);
+    timelineAnchorDate.setDate(timelineAnchorDate.getDate() + direction * step);
+    renderTimeline();
+}
+
+function goToToday() {
+    timelineAnchorDate = new Date();
+    renderTimeline();
+}
+
+function applyTimelineStatusFilter() {
+    renderTimeline();
+}
+
+function getFilteredTimelineItems(items) {
+    const filter = document.getElementById('timeline-status-filter')?.value || 'all';
+    if (filter === 'all') return items;
+    return items.filter(item => {
+        if (filter === 'overstay') return item.className?.includes('tl-overstay');
+        if (filter === 'booked') return item.status === 'booked';
+        return item.status === filter;
+    });
+}
+
+function showTimelineState(state, message = '') {
+    const container = document.getElementById('visualization');
+    const stateNode = document.getElementById('timeline-state');
+    const emptyNotice = document.getElementById('timeline-empty-notice');
+    if (!container || !stateNode || !emptyNotice) return;
+
+    stateNode.classList.toggle('d-none', state !== 'loading' && state !== 'error' && state !== 'empty');
+    emptyNotice.classList.toggle('d-none', state !== 'no-items');
+    container.classList.toggle('d-none', state === 'loading' || state === 'error' || state === 'empty');
+    if (state === 'loading') stateNode.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i><span>Đang tải Timeline…</span>';
+    if (state === 'error') stateNode.innerHTML = `<i class="fas fa-triangle-exclamation" aria-hidden="true"></i><span>${message}</span>`;
+    if (state === 'empty') stateNode.innerHTML = '<i class="fas fa-bed" aria-hidden="true"></i><span>Khách sạn chưa có phòng để hiển thị trên Timeline.</span>';
+}
+
+function renderTimeline() {
+    if (!timelineData) return;
+    updateTimelineControls();
+    if (timelineData.groups.length === 0) {
+        if (timeline) timeline.destroy();
+        timeline = null;
+        showTimelineState('empty');
+        return;
+    }
+
+    const filteredItems = getFilteredTimelineItems(timelineData.items);
+    const container = document.getElementById('visualization');
+    const items = new vis.DataSet(filteredItems);
+    const groups = new vis.DataSet(timelineData.groups);
+    const range = getTimelineRange();
+    const options = {
+        groupOrder: 'content', orientation: 'top', stack: true, zoomKey: 'ctrlKey', minHeight: '550px',
+        start: range.start, end: range.end, locale: 'vi',
+        tooltip: { followMouse: true, overflowMethod: 'cap' }
+    };
+
+    if (timeline) timeline.destroy();
+    timeline = new vis.Timeline(container, items, groups, options);
+    showTimelineState(filteredItems.length === 0 ? 'no-items' : 'ready');
+    timeline.on('click', function (properties) {
+        if (properties.item) {
+            const itemData = items.get(properties.item);
+            if (itemData) {
+                if (itemData.is_finalized || itemData.status === 'checked_out' || itemData.status === 'cancelled') {
+                    alert('Booking này đã hoàn tất hoặc đã hủy, không thể mở/sửa trên timeline.');
+                    return;
+                }
+                openEditModal(itemData.id, itemData.booking_id);
+            }
+        } else if (properties.what === 'background' && properties.group) {
+            openCreateModal(properties.group, properties.time);
+        }
+    });
 }
 
 // ========================================================

@@ -5,32 +5,48 @@
 
 <div class="container-fluid p-4">
     <div class="timeline-header mb-3">
-        <div class="timeline-title">
-            <i class="fas fa-stream"></i> SƠ ĐỒ TIMELINE
-        </div>
-        
-        <div class="d-flex gap-2 align-items-center flex-wrap">
-            <div class="legend-bar d-none d-md-flex">
-                <span class="legend-item legend-booked"><i class="far fa-calendar-check"></i> Đặt trước</span>
-                <span class="legend-item legend-active"><i class="fas fa-bed"></i> Đang ở</span>
-                <span class="legend-item legend-hourly"><i class="fas fa-clock"></i> Theo giờ</span>
-                <span class="legend-item legend-checkout"><i class="fas fa-check-circle"></i> Đã trả</span>
-                <span class="legend-item legend-cancel"><i class="fas fa-ban"></i> Đã hủy</span>
-                <span class="legend-item legend-group"><i class="fas fa-users"></i> Đoàn</span>
-            </div>
+        <div class="timeline-title"><i class="fas fa-stream"></i>SƠ ĐỒ TIMELINE</div>
+    </div>
 
-            <button class="btn btn-sm btn-success fw-bold shadow-sm" style="border-radius: 20px; padding: 5px 16px;" data-bs-toggle="modal" data-bs-target="#groupBookingModal">
-                <i class="fas fa-users-cog"></i> Đặt Đoàn
-            </button>
-            <button class="btn btn-sm btn-outline-primary" style="border-radius: 20px; padding: 5px 14px;" onclick="loadTimeline()">
-                <i class="fas fa-sync"></i> Refresh
-            </button>
+    <section class="timeline-ops-toolbar mb-3" aria-label="Điều khiển Timeline">
+        <div class="timeline-range-controls" role="group" aria-label="Điều hướng thời gian">
+            <button type="button" id="timeline-prev" class="btn btn-outline-secondary" onclick="shiftTimeline(-1)" aria-label="Khoảng thời gian trước"><i class="fas fa-chevron-left" aria-hidden="true"></i></button>
+            <button type="button" id="timeline-today" class="btn btn-outline-primary" onclick="goToToday()">Hôm nay</button>
+            <button type="button" id="timeline-next" class="btn btn-outline-secondary" onclick="shiftTimeline(1)" aria-label="Khoảng thời gian tiếp theo"><i class="fas fa-chevron-right" aria-hidden="true"></i></button>
+            <span id="timeline-range-label" class="timeline-range-label" aria-live="polite">Đang tải khoảng thời gian</span>
         </div>
+
+        <div class="timeline-toolbar-actions">
+            <div class="btn-group timeline-view-switch" role="group" aria-label="Chế độ xem">
+                <button type="button" id="timeline-view-day" class="btn btn-outline-primary" onclick="setTimelineViewMode('day')">Ngày</button>
+                <button type="button" id="timeline-view-3days" class="btn btn-outline-primary active" onclick="setTimelineViewMode('3days')">3 ngày</button>
+                <button type="button" id="timeline-view-week" class="btn btn-outline-primary" onclick="setTimelineViewMode('week')">Tuần</button>
+            </div>
+            <label class="visually-hidden" for="timeline-status-filter">Lọc trạng thái phòng</label>
+            <select id="timeline-status-filter" class="form-select" onchange="applyTimelineStatusFilter()">
+                <option value="all">Tất cả trạng thái</option>
+                <option value="booked">Đặt trước</option>
+                <option value="checked_in">Đang ở</option>
+                <option value="overstay">Quá giờ</option>
+            </select>
+            <button type="button" class="btn btn-success fw-semibold" data-bs-toggle="modal" data-bs-target="#groupBookingModal"><i class="fas fa-users-cog me-1" aria-hidden="true"></i>Đặt đoàn</button>
+            <button type="button" class="btn btn-outline-primary" onclick="loadTimeline()" aria-label="Làm mới Timeline"><i class="fas fa-sync" aria-hidden="true"></i><span class="d-none d-lg-inline ms-1">Làm mới</span></button>
+        </div>
+    </section>
+
+    <div class="legend-bar timeline-legend mb-3" aria-label="Chú thích trạng thái">
+        <span class="legend-item legend-booked"><i class="far fa-calendar-check"></i>Đặt trước</span>
+        <span class="legend-item legend-active"><i class="fas fa-bed"></i>Đang ở</span>
+        <span class="legend-item legend-hourly"><i class="fas fa-clock"></i>Theo giờ</span>
+        <span class="legend-item legend-group"><i class="fas fa-users"></i>Đặt đoàn</span>
+        <span class="legend-item legend-overstay"><i class="fas fa-exclamation-triangle"></i>Quá giờ</span>
     </div>
 
     <div class="card timeline-card">
         <div class="card-body p-0">
             <div id="visualization" style="width: 100%; min-height: 550px;"></div>
+            <div id="timeline-empty-notice" class="timeline-inline-notice d-none" role="status"><i class="fas fa-calendar-plus" aria-hidden="true"></i><span>Chưa có booking trong bộ lọc này. Chọn vùng trống của phòng để tạo đặt phòng.</span></div>
+            <div id="timeline-state" class="timeline-state d-none" role="status" aria-live="polite"></div>
         </div>
     </div>
 </div>
