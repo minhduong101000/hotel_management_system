@@ -38,7 +38,7 @@
 </div>
 
 <div class="modal fade" id="orderModal" tabindex="-1" data-bs-backdrop="static">
-    <div class="modal-dialog modal-lg modal-dialog-centered"> 
+    <div class="modal-dialog modal-lg modal-dialog-centered workflow-modal workflow-modal--wide">
         <div class="modal-content border-0 shadow-lg">
             
             <div class="modal-header bg-primary text-white">
@@ -104,7 +104,7 @@
 </div>
 
 <div class="modal fade" id="customerInfoModal" tabindex="-1">
-    <div class="modal-dialog modal-sm"> <div class="modal-content">
+    <div class="modal-dialog modal-sm operation-modal"> <div class="modal-content">
             <div class="modal-header bg-info text-white">
                 <h5 class="modal-title"><i class="fas fa-address-card"></i> THÔNG TIN KHÁCH</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
@@ -144,7 +144,7 @@
 </div>
 
 <div class="modal fade" id="checkoutModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg"> <div class="modal-content">
+    <div class="modal-dialog modal-lg workflow-modal workflow-modal--fullscreen"> <div class="modal-content">
             <div class="modal-header bg-success text-white">
                 <h5 class="modal-title">
                     <i class="fas fa-file-invoice-dollar me-2"></i>HÓA ĐƠN PHÒNG <span id="co-room-number" class="fw-bold text-warning">...</span>
@@ -273,7 +273,7 @@
 
 <!-- Modal Đặt Phòng Lẻ (Copy từ Timeline) -->
 <div class="modal fade" id="bookingModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog workflow-modal workflow-modal--wide">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title">TẠO ĐẶT PHÒNG: <span id="bk-room-number" class="fw-bold text-warning">...</span></h5>
@@ -335,7 +335,7 @@
 
 <!-- Modal Đặt Đoàn (Copy từ Timeline) -->
 <div class="modal fade" id="groupBookingModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg workflow-modal workflow-modal--fullscreen">
         <div class="modal-content">
             <div class="modal-header bg-success text-white">
                 <h5 class="modal-title"><i class="fas fa-users"></i> ĐẶT PHÒNG THEO ĐOÀN</h5>
@@ -388,7 +388,7 @@
 
 <!-- Modal quét mã QR CCCD -->
 <div class="modal fade" id="qrScannerModal" tabindex="-1" data-bs-backdrop="static">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered operation-modal">
         <div class="modal-content">
             <div class="modal-header bg-dark text-white">
                 <h5 class="modal-title"><i class="fas fa-qrcode me-2"></i> Quét mã QR CCCD</h5>
@@ -407,7 +407,7 @@
 </div>
 <!-- Modal Thanh toán đoàn (Map version) -->
 <div class="modal fade" id="groupCheckoutModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg workflow-modal workflow-modal--fullscreen">
         <div class="modal-content">
             <div class="modal-header bg-warning text-dark">
                 <h5 class="modal-title"><i class="fas fa-users me-2"></i>THANH TOÁN ĐOÀN — <span id="gc-booking-code">...</span></h5>
@@ -461,7 +461,7 @@
 
 <!-- Modal Xác nhận Nhận phòng -->
 <div class="modal fade" id="checkInConfirmModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog operation-modal">
         <div class="modal-content">
             <div class="modal-header bg-success text-white">
                 <h5 class="modal-title"><i class="fas fa-sign-in-alt me-2"></i>Xác nhận nhận phòng</h5>
