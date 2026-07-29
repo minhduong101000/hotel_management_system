@@ -13,6 +13,10 @@
             </button>
         </div>
     </div>
+    <div class="row g-2 mb-3" aria-label="Cảnh báo hạn dùng">
+        <div class="col-md-3"><div class="card border-warning"><div class="card-body py-2"><small>Sắp hết hạn (30 ngày)</small><strong id="warehouse-expiring-count" class="d-block text-warning">0</strong></div></div></div>
+        <div class="col-md-3"><div class="card border-danger"><div class="card-body py-2"><small>Đã quá hạn</small><strong id="warehouse-expired-count" class="d-block text-danger">0</strong></div></div></div>
+    </div>
 
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
@@ -98,6 +102,7 @@
                     <label class="form-label fw-bold">Số lượng nhập thêm</label>
                     <input type="number" class="form-control" id="restock-qty" min="1" value="1">
                 </div>
+                <div class="mb-3"><label class="form-label fw-bold" for="restock-expires-at">Hạn sử dụng <small class="text-muted">(nếu có)</small></label><input type="date" class="form-control" id="restock-expires-at"></div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
@@ -106,6 +111,9 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="batchModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Lô hàng</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div id="batch-list" class="small">Đang tải…</div></div></div></div></div>
+<div class="modal fade" id="disposeModal" tabindex="-1"><div class="modal-dialog modal-sm"><div class="modal-content"><div class="modal-header bg-danger text-white"><h5 class="modal-title">Hủy hàng</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="dispose-batch-id"><label class="form-label" for="dispose-quantity">Số lượng</label><input id="dispose-quantity" type="number" min="1" class="form-control mb-2"><label class="form-label" for="dispose-reason">Lý do</label><select id="dispose-reason" class="form-select"><option>Quá hạn sử dụng</option><option>Hư hỏng</option><option>Thất thoát</option><option>Kiểm kê điều chỉnh</option></select></div><div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button><button class="btn btn-danger" onclick="submitDispose()">Xác nhận hủy</button></div></div></div></div>
 {% endblock %}
 
 {% block scripts %}
@@ -117,6 +125,8 @@ document.addEventListener('DOMContentLoaded', () => { loadItems(); loadServices(
 function loadItems() {
     fetch(api('/api/warehouse')).then(r => r.json()).then(data => {
         allItems = data;
+        document.getElementById('warehouse-expiring-count').textContent = data.reduce((sum, item) => sum + (item.expiring_quantity || 0), 0);
+        document.getElementById('warehouse-expired-count').textContent = data.reduce((sum, item) => sum + (item.expired_quantity || 0), 0);
         renderTable(data);
     });
 }
@@ -153,6 +163,7 @@ function renderTable(items) {
             </td>
             <td class="text-center">${badge}</td>
             <td class="text-end">
+                <button class="btn btn-sm btn-outline-secondary me-1" onclick="showBatches(${item.id})" aria-label="Xem lô ${item.name}"><i class="fas fa-layer-group"></i></button>
                 <button class="btn btn-sm btn-outline-success me-1" onclick="openRestock(${item.id}, '${item.name}')" title="Nhập kho"><i class="fas fa-truck"></i></button>
                 <button class="btn btn-sm btn-outline-primary me-1" onclick="editItem(${item.id})" title="Sửa"><i class="fas fa-edit"></i></button>
                 <button class="btn btn-sm btn-outline-danger" onclick="deleteItem(${item.id})" title="Xóa"><i class="fas fa-trash"></i></button>
@@ -211,18 +222,23 @@ function openRestock(id, name) {
     document.getElementById('restock-id').value = id;
     document.getElementById('restock-name').textContent = name;
     document.getElementById('restock-qty').value = 1;
+    document.getElementById('restock-expires-at').value = '';
     bootstrap.Modal.getOrCreateInstance(document.getElementById('restockModal')).show();
 }
 
 function confirmRestock() {
     const id = document.getElementById('restock-id').value;
     const qty = document.getElementById('restock-qty').value;
-    fetch(api(`/api/warehouse/${id}/restock`), { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({quantity: qty}) })
+    fetch(api(`/api/warehouse/${id}/restock`), { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({quantity: qty, expires_at: document.getElementById('restock-expires-at').value || null}) })
     .then(r => r.json()).then(res => {
         alert(res.msg);
         if (res.success) { bootstrap.Modal.getInstance(document.getElementById('restockModal')).hide(); loadItems(); }
     });
 }
+
+function showBatches(itemId) { fetch(api(`/api/warehouse/${itemId}/batches`)).then(r=>r.json()).then(batches=>{ document.getElementById('batch-list').innerHTML = batches.length ? batches.map(batch => `<div class="border-bottom py-2"><strong>${batch.batch_code}</strong> · còn ${batch.quantity_available}${batch.expires_at ? ` · hạn ${batch.expires_at}` : ''}<button class="btn btn-sm btn-outline-danger float-end" onclick="openDispose(${batch.id})">Hủy hàng</button></div>`).join('') : 'Chưa có lô hàng'; bootstrap.Modal.getOrCreateInstance(document.getElementById('batchModal')).show(); }); }
+function openDispose(id) { document.getElementById('dispose-batch-id').value=id; document.getElementById('dispose-quantity').value=1; bootstrap.Modal.getOrCreateInstance(document.getElementById('disposeModal')).show(); }
+function submitDispose() { const id=document.getElementById('dispose-batch-id').value; fetch(api(`/api/warehouse/batches/${id}/dispose`), {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({quantity:document.getElementById('dispose-quantity').value,reason:document.getElementById('dispose-reason').value})}).then(r=>r.json()).then(res=>{alert(res.msg);if(res.success){bootstrap.Modal.getInstance(document.getElementById('disposeModal')).hide();loadItems();}}); }
 
 function deleteItem(id) {
     if (!confirm('Xóa vật tư này?')) return;
