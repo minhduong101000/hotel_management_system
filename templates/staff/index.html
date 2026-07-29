@@ -1,95 +1,61 @@
 {% extends 'layouts/base.html' %}
 
 {% block content %}
-<div class="page-title" style="margin: 20px;">
-    <h2><i class="fa-solid fa-users-gear"></i> Quản lý Nhân viên</h2>
-</div>
+<section class="container-fluid py-3 staff-management">
+    <header class="page-header mb-3 rounded-3">
+        <div>
+            <h1 class="page-header__title"><i class="fa-solid fa-users-gear me-2"></i>Quản lý nhân sự</h1>
+            <p class="page-header__description mb-0">Tạo và quản lý tài khoản làm việc trong phạm vi khách sạn hiện tại.</p>
+        </div>
+    </header>
 
-{% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        {% for category, message in messages %}
-            <div class="alert alert-{{ 'danger' if category == 'error' else category }}">
-                <i class="fa-solid fa-circle-info"></i> {{ message }}
-            </div>
-        {% endfor %}
-    {% endif %}
-{% endwith %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'danger' if category == 'error' else category }}" role="alert">
+                    <i class="fa-solid fa-circle-info me-2"></i>{{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
 
-<div style="display: flex; gap: 20px;">
-    
-    <div class="card-box" style="width: 300px; height: fit-content;">
-        <h4 style="margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 10px;">Thêm tài khoản</h4>
-        <form method="POST" action="{{ url_for('staff.index') }}">
-            <div class="input-group" style="margin-bottom: 15px;">
-                <label style="font-weight: 500;">Username</label>
-                <input type="text" name="username" required class="form-control" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-            </div>
+    <div class="row g-3 align-items-start">
+        <div class="col-xl-4">
+            <section class="card shadow-sm border-0">
+                <div class="card-header bg-white"><h2 class="h6 fw-bold mb-0"><i class="fa-solid fa-user-plus text-primary me-2"></i>Tạo tài khoản</h2></div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('staff.index') }}" class="vstack gap-3">
+                        <div><label class="form-label" for="staff-username">Tên đăng nhập</label><input id="staff-username" type="text" name="username" required class="form-control" autocomplete="username"></div>
+                        <div><label class="form-label" for="staff-password">Mật khẩu</label><input id="staff-password" type="password" name="password" required class="form-control" autocomplete="new-password"></div>
+                        <div><label class="form-label" for="staff-role">Vai trò</label><select id="staff-role" name="role" class="form-select"><option value="staff">Nhân viên</option><option value="admin">Quản lý</option></select></div>
+                        <button type="submit" class="btn btn-primary w-100"><i class="fa-solid fa-plus me-2"></i>Tạo tài khoản</button>
+                    </form>
+                </div>
+            </section>
+        </div>
 
-            <div class="input-group" style="margin-bottom: 15px;">
-                <label style="font-weight: 500;">Mật khẩu</label>
-                <input type="password" name="password" required class="form-control" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-            </div>
-
-            <div class="input-group" style="margin-bottom: 15px;">
-                <label style="font-weight: 500;">Chức vụ</label>
-                <select name="role" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                    <option value="staff">Nhân viên (Staff)</option>
-                    <option value="admin">Quản lý (Admin)</option>
-                </select>
-            </div>
-
-            <button type="submit" style="width: 100%; padding: 10px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                <i class="fa-solid fa-plus"></i> Tạo ngay
-            </button>
-        </form>
+        <div class="col-xl-8">
+            <section class="card shadow-sm border-0">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center"><h2 class="h6 fw-bold mb-0"><i class="fa-solid fa-users text-primary me-2"></i>Danh sách tài khoản</h2><span class="text-muted small">{{ users|length }} tài khoản</span></div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light"><tr><th>Tên đăng nhập</th><th>Vai trò</th><th>Đổi mật khẩu</th><th class="text-end">Thao tác</th></tr></thead>
+                        <tbody>
+                            {% for user in users %}
+                            <tr>
+                                <td class="fw-semibold">{{ user.username }}{% if user.id == current_user.id %}<span class="text-muted small ms-1">(bạn)</span>{% endif %}</td>
+                                <td><span class="status-badge {{ 'status-badge--danger' if user.role == 'admin' else 'status-badge--info' }}">{{ 'Quản lý' if user.role == 'admin' else 'Nhân viên' }}</span></td>
+                                <td><form action="{{ url_for('staff.reset_password', user_id=user.id) }}" method="POST" class="d-flex gap-2"><input aria-label="Mật khẩu mới cho {{ user.username }}" type="password" name="new_password" required class="form-control form-control-sm" placeholder="Mật khẩu mới"><button type="submit" class="btn btn-sm btn-outline-primary" title="Lưu mật khẩu"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i></button></form></td>
+                                <td class="text-end">{% if user.id != current_user.id %}<form class="d-inline" action="{{ url_for('staff.delete_user', user_id=user.id) }}" method="POST" onsubmit="return confirm('Xóa tài khoản {{ user.username }}?');"><button type="submit" class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-trash-can me-1"></i>Xóa</button></form>{% else %}<span class="text-muted small">Đang sử dụng</span>{% endif %}</td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="4" class="text-center text-muted py-4">Chưa có tài khoản nào.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
     </div>
-
-    <div class="card-box" style="flex: 1;">
-        <h4 style="margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 10px;">Danh sách tài khoản</h4>
-        
-        <table style="width: 100%; border-collapse: collapse;">
-            <thead>
-                <tr style="background: #f8f9fa; text-align: left; border-bottom: 2px solid #ddd;">
-                    <th style="padding: 12px;">Tên đăng nhập</th>
-                    <th style="padding: 12px;">Chức vụ</th>
-                    <th style="padding: 12px;">Đổi mật khẩu</th>
-                    <th style="padding: 12px; text-align: right;">Hành động</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for user in users %}
-                <tr style="border-bottom: 1px solid #eee;">
-                    <td style="padding: 12px; font-weight: bold;">{{ user.username }}</td>
-                    <td style="padding: 12px;">
-                        {% if user.role == 'admin' %}
-                            <span style="background: #e74c3c; color: white; padding: 4px 8px; font-size: 11px; border-radius: 4px;">ADMIN</span>
-                        {% else %}
-                            <span style="background: #3498db; color: white; padding: 4px 8px; font-size: 11px; border-radius: 4px;">STAFF</span>
-                        {% endif %}
-                    </td>
-                    
-                    <td style="padding: 12px;">
-                        <form action="{{ url_for('staff.reset_password', user_id=user.id) }}" method="POST" style="display: flex; align-items: center;">
-                            <input type="text" name="new_password" placeholder="Pass mới..." style="padding: 6px; width: 120px; font-size: 12px; border: 1px solid #ddd; border-radius: 4px 0 0 4px; border-right: none;">
-                            <button type="submit" style="background: #f39c12; color: white; border: none; padding: 6px 10px; cursor: pointer; border-radius: 0 4px 4px 0;">
-                                <i class="fa-solid fa-save"></i>
-                            </button>
-                        </form>
-                    </td>
-
-                    <td style="padding: 12px; text-align: right;">
-                        {% if user.id != current_user.id %}
-                        <a href="{{ url_for('staff.delete_user', user_id=user.id) }}" onclick="return confirm('Xóa tài khoản {{ user.username }}?');" style="color: #c0392b; text-decoration: none;">
-                            <i class="fa-solid fa-trash-can"></i> Xóa
-                        </a>
-                        {% else %}
-                            <span style="color: #ccc; font-style: italic;">(Đang dùng)</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
+</section>
 {% endblock %}
