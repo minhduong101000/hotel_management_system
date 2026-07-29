@@ -50,3 +50,25 @@ def test_room_map_and_timeline_share_the_group_booking_modal_partial():
     partial = (ROOT / 'templates/rooms/_group_booking_modal.html').read_text(encoding='utf-8')
     for element_id in ('g_check_in', 'g_check_out', 'roomSelectionList', 'availCount', 'group_total_deposit', 'group_note'):
         assert f'id="{element_id}"' in partial
+
+
+def test_room_map_and_timeline_share_the_checkout_modal_partial():
+    for template in ('templates/rooms/map.html', 'templates/rooms/timeline.html'):
+        source = (ROOT / template).read_text(encoding='utf-8')
+
+        assert '{% include "rooms/_checkout_modal.html" %}' in source
+
+    partial = (ROOT / 'templates/rooms/_checkout_modal.html').read_text(encoding='utf-8')
+    for element_id in ('co-room-number', 'co-customer', 'room-fee-table-body', 'table-services-body', 'co-final-payment'):
+        assert f'id="{element_id}"' in partial
+
+
+def test_room_map_and_timeline_share_the_booking_modal_partial():
+    for template in ('templates/rooms/map.html', 'templates/rooms/timeline.html'):
+        source = (ROOT / template).read_text(encoding='utf-8')
+
+        assert '{% include "rooms/_booking_modal.html" %}' in source
+
+    partial = (ROOT / 'templates/rooms/_booking_modal.html').read_text(encoding='utf-8')
+    for element_id in ('bk-room-id', 'bk-phone', 'bk-daily-in', 'bk-hourly-in', 'bk-deposit'):
+        assert f'id="{element_id}"' in partial

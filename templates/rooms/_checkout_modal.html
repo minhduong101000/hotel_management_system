@@ -1,0 +1,127 @@
+<div class="modal fade" id="checkoutModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg workflow-modal workflow-modal--fullscreen"> <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-file-invoice-dollar me-2"></i>HÓA ĐƠN PHÒNG <span id="co-room-number" class="fw-bold text-warning">...</span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="d-flex justify-content-between border-bottom pb-2 mb-3">
+                    <span class="text-muted">Khách hàng:</span>
+                    <span id="co-customer" class="fw-bold text-dark">...</span>
+                </div>
+
+                <div class="row mb-3 bg-light py-2 rounded mx-0 border">
+                    <div class="col-6 border-end">
+                        <small class="text-muted d-block">Check-in</small>
+                        <strong id="co-checkin" class="text-primary">...</strong>
+                    </div>
+                    <div class="col-6">
+                        <small class="text-muted d-block">Check-out</small>
+                        <strong id="co-checkout" class="text-danger">...</strong>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <h6 class="text-success fw-bold border-bottom pb-2 mb-2">1. TIỀN PHÒNG</h6>
+                    
+                    <div class="d-flex justify-content-between mb-2 px-1">
+                        <span class="text-muted">Hình thức thuê:</span>
+                        <span id="co-type" class="fw-bold text-dark">...</span>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered align-middle mb-0">
+                            <thead class="table-light text-secondary" style="font-size: 0.85rem;">
+                                <tr>
+                                    <th class="text-uppercase fw-bold" style="width: 35%;">Hạng mục</th>
+                                    <th class="text-uppercase fw-bold">Chi tiết</th>
+                                    <th class="text-end text-uppercase fw-bold" style="width: 25%;">Thành tiền</th>
+                                </tr>
+                            </thead>
+                            <tbody id="room-fee-table-body" style="font-size: 0.95rem;">
+                                </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <td colspan="2" class="text-end fw-bold text-dark small text-uppercase">Tổng tiền phòng:</td>
+                                    <td class="text-end fw-bold text-success" id="co-room-fee-table">0 đ</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <h6 class="text-primary fw-bold border-bottom pb-2 mb-2">2. DỊCH VỤ & ĐỒ UỐNG</h6>
+                    
+                    <div id="service-section" style="display: block;">
+                        <table class="table table-sm table-bordered mb-1 align-middle">
+                            <thead class="table-light text-muted" style="font-size: 0.85rem;">
+                                <tr>
+                                    <th>Tên dịch vụ / Đơn giá</th>
+                                    <th class="text-end">Thành tiền</th>
+                                    <th class="text-center" style="width: 120px;">Số lượng</th>
+                                </tr>
+                            </thead>
+                            
+                            <tbody id="table-services-body" style="font-size: 0.9rem;">
+                                </tbody>
+                        </table>
+
+                        <div class="d-flex justify-content-end mt-1 mb-2 px-1">
+                            <span class="me-3 small text-muted text-uppercase fw-bold">Tổng dịch vụ:</span>
+                            <span id="co-service-fee" class="fw-bold text-primary">0 đ</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-light p-3 rounded mt-4 border">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Tổng cộng hóa đơn:</span>
+                        <span id="co-total-bill" class="fw-bold fs-5">0 đ</span>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="form-check form-switch m-0">
+                            <input class="form-check-input" type="checkbox" id="co-tax-toggle">
+                            <label class="form-check-label" for="co-tax-toggle">Thêm thuế VAT 8%</label>
+                        </div>
+                        <span id="co-tax-status" class="small text-muted">Đang tắt</span>
+                    </div>
+
+                    <div id="tax-section" class="d-flex justify-content-between mb-2 text-primary" style="display: none;">
+                        <span><i class="fas fa-receipt me-1"></i>Thuế VAT (8%):</span>
+                        <span id="co-tax-amount" class="fw-bold">0 đ</span>
+                    </div>
+                    
+                    <div id="deposit-section" class="d-flex justify-content-between mb-2 text-danger" style="display: none;">
+                        <span><i class="fas fa-minus-circle me-1"></i>Đã đặt cọc:</span>
+                        <span id="co-deposit" class="fw-bold">- 0 đ</span>
+                    </div>
+                    
+                    <hr class="my-2">
+                    
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <span id="label-payment-type" class="fs-5 fw-bold text-dark">KHÁCH CẦN TRẢ:</span>
+                        <div class="text-end">
+                            <span id="co-final-payment" class="fs-2 fw-bold text-success">0</span> 
+                            <small class="fs-6 text-muted fw-bold">VNĐ</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <input type="hidden" id="co-amount-raw">
+                <input type="hidden" id="co-tax-amount-raw" value="0">
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy bỏ</button>
+                <button type="button" class="btn btn-success fw-bold px-4 py-2" onclick="confirmCheckout()">
+                    <i class="fas fa-check-circle me-2"></i> XÁC NHẬN THANH TOÁN
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
