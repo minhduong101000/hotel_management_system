@@ -282,11 +282,11 @@ def update_service_quantity():
                 int(service_id): applied_change
             })
             inventory_service.deduct_inventory(
-                line_item.hotel_id, int(service_id), applied_change
+                line_item.hotel_id, int(service_id), applied_change, booking_service=line_item
             )
         elif applied_change < 0:
             inventory_service.restore_inventory(
-                line_item.hotel_id, int(service_id), -applied_change
+                line_item.hotel_id, int(service_id), -applied_change, booking_service=line_item
             )
 
         if new_quantity == 0:
@@ -755,6 +755,8 @@ def add_order():
 
             if existing:
                 existing.quantity += qty
+                db.session.flush()
+                line_item = existing
             else:
                 new_bs = BookingService(
                     hotel_id=room.hotel_id,
@@ -765,8 +767,10 @@ def add_order():
                     price_at_booking=svc.price
                 )
                 db.session.add(new_bs)
+                db.session.flush()
+                line_item = new_bs
 
-            inventory_service.deduct_inventory(room.hotel_id, s_id, qty)
+            inventory_service.deduct_inventory(room.hotel_id, s_id, qty, booking_service=line_item)
 
         audit_service.record_event(
             hotel_id=room.hotel_id,

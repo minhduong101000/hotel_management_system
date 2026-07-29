@@ -4,6 +4,7 @@ from collections import defaultdict
 
 from models.inventory_item import InventoryItem
 from models.inventory_movement import InventoryMovement
+from models.booking_service_batch_allocation import BookingServiceBatchAllocation
 from services import inventory_batch_service
 from extensions import db
 
@@ -42,7 +43,7 @@ def validate_inventory(hotel_id: int, requirements: dict[int, int]) -> None:
             )
 
 
-def deduct_inventory(hotel_id: int, service_id: int, quantity: int) -> None:
+def deduct_inventory(hotel_id: int, service_id: int, quantity: int, booking_service=None) -> None:
     """Deduct already-validated stock for one service within one hotel."""
     quantity = int(quantity or 0)
     if quantity <= 0:
@@ -73,6 +74,11 @@ def deduct_inventory(hotel_id: int, service_id: int, quantity: int) -> None:
                 hotel_id=hotel_id, inventory_item_id=item.id, batch_id=batch.id,
                 movement_type='consumption', quantity_delta=-deducted, reason='Dùng dịch vụ',
             ))
+            if booking_service is not None:
+                db.session.add(BookingServiceBatchAllocation(
+                    hotel_id=hotel_id, booking_service_id=booking_service.id,
+                    batch_id=batch.id, quantity=deducted,
+                ))
             remaining -= deducted
             if remaining == 0:
                 return
@@ -80,7 +86,7 @@ def deduct_inventory(hotel_id: int, service_id: int, quantity: int) -> None:
     raise InsufficientInventoryError("Tồn kho đã thay đổi trước khi ghi nhận dịch vụ.")
 
 
-def restore_inventory(hotel_id: int, service_id: int, quantity: int) -> None:
+def restore_inventory(hotel_id: int, service_id: int, quantity: int, booking_service=None) -> None:
     """Restore stock when a bill quantity is reduced; no-op if unmanaged."""
     quantity = int(quantity or 0)
     if quantity <= 0:
@@ -92,16 +98,26 @@ def restore_inventory(hotel_id: int, service_id: int, quantity: int) -> None:
         if not item.batches:
             item.quantity = int(item.quantity or 0) + quantity
             return
-        batches = inventory_batch_service.batches_for_consumption(item)
-        if batches:
-            batch = batches[0]
-            batch.quantity_available += quantity
-            batch.status = 'active'
-            item.quantity = int(item.quantity or 0) + quantity
-            db.session.add(InventoryMovement(
-                hotel_id=hotel_id, inventory_item_id=item.id, batch_id=batch.id,
-                movement_type='adjustment_in', quantity_delta=quantity, reason='Hoàn dịch vụ',
-            ))
+        allocations = list(booking_service.batch_allocations) if booking_service is not None else []
+        remaining = quantity
+        for allocation in reversed(allocations):
+            restored = min(allocation.quantity, remaining)
+            allocation.batch.quantity_available += restored
+            allocation.batch.status = 'active'
+            item.quantity = int(item.quantity or 0) + restored
+            allocation.quantity -= restored
+            if allocation.quantity == 0:
+                db.session.delete(allocation)
+            db.session.add(InventoryMovement(hotel_id=hotel_id, inventory_item_id=item.id, batch_id=allocation.batch_id, movement_type='adjustment_in', quantity_delta=restored, reason='Hoàn dịch vụ'))
+            remaining -= restored
+            if remaining == 0:
+                return
+        if remaining:
+            batches = inventory_batch_service.batches_for_consumption(item)
+            if batches:
+                batch = batches[0]
+                batch.quantity_available += remaining
+                item.quantity = int(item.quantity or 0) + remaining
 
 
 def aggregate_quantities(items):
