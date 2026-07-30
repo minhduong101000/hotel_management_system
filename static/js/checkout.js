@@ -355,6 +355,35 @@ function confirmCheckout() {
 // Hàm hỗ trợ Format tiền VND (đặt tên riêng để tránh đụng global khác)
 const checkoutFormatVND = (num) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num);
 let groupCheckoutIncludeTax = false;
+let currentGroupCheckoutQuote = null;
+let groupCheckoutSubmitting = false;
+
+function checkoutEscapeHtml(value) {
+    const element = document.createElement('div');
+    element.textContent = value == null ? '' : String(value);
+    return element.innerHTML;
+}
+
+function showGroupCheckoutStatus(message, level = 'info') {
+    const status = document.getElementById('gc-checkout-status');
+    if (!status) return;
+    status.textContent = message || '';
+    status.className = `alert alert-${level} py-2`;
+    status.classList.toggle('d-none', !message);
+}
+
+function setGroupCheckoutConfirmState({busy = false, blocked = false} = {}) {
+    const button = document.querySelector(
+        '#groupCheckoutModal [data-role="group-checkout-confirm"]'
+    );
+    if (!button) return;
+    button.disabled = busy || blocked;
+    button.dataset.blocked = blocked ? '1' : '0';
+    button.setAttribute('aria-busy', busy ? 'true' : 'false');
+    button.innerHTML = busy
+        ? '<i class="fas fa-spinner fa-spin me-2"></i>Đang xử lý...'
+        : '<i class="fas fa-check-circle me-2"></i>XÁC NHẬN THANH TOÁN ĐOÀN';
+}
 
 function bindGroupCheckoutTaxToggle() {
     const taxToggle = document.getElementById('gc-tax-toggle');
@@ -397,6 +426,10 @@ function openGroupCheckout(passedBookingId = null) {
     }
 
     currentBookingId = bookingId;
+    currentGroupCheckoutQuote = null;
+    groupCheckoutSubmitting = false;
+    showGroupCheckoutStatus('Đang tải báo giá đoàn mới nhất...', 'info');
+    setGroupCheckoutConfirmState({blocked: true});
 
     const query = groupCheckoutIncludeTax ? '?include_tax=true' : '?include_tax=false';
     fetch(api(`/api/bookings/${bookingId}/group_billing${query}`))
@@ -405,6 +438,7 @@ function openGroupCheckout(passedBookingId = null) {
             if (!res.success) { alert(res.msg); return; }
 
             const data = res.data;
+            currentGroupCheckoutQuote = data.quote || null;
             document.getElementById('gc-booking-code').textContent = data.booking_code;
             const customerEl = document.getElementById('gc-customer-name');
             if (customerEl) {
@@ -424,42 +458,64 @@ function openGroupCheckout(passedBookingId = null) {
                 return 'bg-secondary';
             };
             
-            data.rooms.forEach(room => {
-                // Tính phụ thu và lấy chi tiết tóm tắt
-                let surchargeTotal = 0;
-                let surchargeDetail = "";
-                if (room.breakdown) {
-                    const surchargeItems = room.breakdown.filter(item => item.label === "Phụ thu phát sinh");
-                    surchargeTotal = surchargeItems.reduce((sum, item) => sum + item.amount, 0);
-                    // Lấy text mô tả (VD: "Sớm 2.5h, Muộn 1h")
-                    surchargeDetail = surchargeItems.map(item => item.detail.replace("Tổng ", "").split(" (")[1]?.replace(")", "") || item.detail).join(", ");
-                }
-
-                const serviceLines = (room.service_items || [])
-                    .map(s => `${s.name} x${s.quantity}: ${checkoutFormatVND(s.total)}`)
-                    .join('<br>');
-
-                const scopeText = room.include_in_settlement ? 'Thanh toán lần này' : 'Đã chốt trước đó';
-
-                tbody.innerHTML += `
-                    <tr>
-                        <td class="text-start">
-                            <div class="fw-bold text-primary">${room.room_name}</div>
-                            <small class="badge ${statusBadgeClass(room.status)}" style="font-size: 0.7rem;">${room.status_label || room.status || '--'}</small>
-                            <div class="text-muted" style="font-size: 0.72rem;">${scopeText}</div>
-                        </td>
-                        <td class="text-end">${checkoutFormatVND(room.room_fee - surchargeTotal)}</td>
-                        <td class="text-end text-secondary">
-                            <div>${checkoutFormatVND(room.service_fee)}</div>
-                            <div class="small text-muted" style="font-size: 0.72rem; line-height: 1.25;">${serviceLines || 'Không dùng dịch vụ'}</div>
-                        </td>
-                        <td class="text-end">
-                            <div class="text-danger fw-bold">${checkoutFormatVND(surchargeTotal)}</div>
-                            <div class="text-muted small" style="font-size: 0.7rem; line-height: 1;">${surchargeDetail}</div>
-                        </td>
-                        <td class="text-end fw-bold text-dark">${checkoutFormatVND(room.subtotal)}</td>
+            const roomGroups = [
+                ['checked_in', 'Đang ở'],
+                ['booked', 'Chưa nhận'],
+                ['checked_out', 'Đã trả'],
+                ['cancelled', 'Đã hủy']
+            ];
+            roomGroups.forEach(([status, label]) => {
+                const rooms = data.rooms.filter(room => room.status === status);
+                if (!rooms.length) return;
+                tbody.insertAdjacentHTML('beforeend', `
+                    <tr class="table-secondary">
+                        <th colspan="5" class="text-start">${label} (${rooms.length})</th>
                     </tr>
-                `;
+                `);
+                rooms.forEach(room => {
+                    let surchargeTotal = 0;
+                    let surchargeDetail = "";
+                    if (room.breakdown) {
+                        const surchargeItems = room.breakdown.filter(
+                            item => item.label === "Phụ thu phát sinh"
+                        );
+                        surchargeTotal = surchargeItems.reduce(
+                            (sum, item) => sum + item.amount,
+                            0
+                        );
+                        surchargeDetail = surchargeItems
+                            .map(item => item.detail)
+                            .join(", ");
+                    }
+                    const serviceLines = (room.service_items || [])
+                        .map(service => (
+                            `${checkoutEscapeHtml(service.name)} x${service.quantity}: `
+                            + checkoutFormatVND(service.total)
+                        ))
+                        .join('<br>');
+                    const scopeText = room.include_in_settlement
+                        ? 'Thanh toán lần này'
+                        : 'Đã chốt trước đó';
+                    tbody.insertAdjacentHTML('beforeend', `
+                        <tr>
+                            <td class="text-start">
+                                <div class="fw-bold text-primary">${checkoutEscapeHtml(room.room_name)}</div>
+                                <small class="badge ${statusBadgeClass(room.status)}">${checkoutEscapeHtml(room.status_label || room.status || '--')}</small>
+                                <div class="text-muted small">${scopeText}</div>
+                            </td>
+                            <td class="text-end">${checkoutFormatVND(room.room_fee - surchargeTotal)}</td>
+                            <td class="text-end text-secondary">
+                                <div>${checkoutFormatVND(room.service_fee)}</div>
+                                <div class="small text-muted">${serviceLines || 'Không dùng dịch vụ'}</div>
+                            </td>
+                            <td class="text-end">
+                                <div class="text-danger fw-bold">${checkoutFormatVND(surchargeTotal)}</div>
+                                <div class="text-muted small">${checkoutEscapeHtml(surchargeDetail)}</div>
+                            </td>
+                            <td class="text-end fw-bold text-dark">${checkoutFormatVND(room.subtotal)}</td>
+                        </tr>
+                    `);
+                });
             });
 
             document.getElementById('gc-grand-total').textContent = checkoutFormatVND(data.grand_total);
@@ -486,11 +542,41 @@ function openGroupCheckout(passedBookingId = null) {
                 ? "fw-bold fs-4 text-end text-danger" 
                 : "fw-bold fs-4 text-end text-success";
 
+            const paymentLabel = document.getElementById('gc-payment-label');
+            if (paymentLabel) {
+                paymentLabel.textContent = data.final_total < 0
+                    ? 'KHÁCH CẦN HOÀN:'
+                    : 'KHÁCH CẦN TRẢ:';
+            }
+            const blockedRooms = data.blocked_room_numbers || [];
+            const checkedInRooms = (
+                currentGroupCheckoutQuote?.state_groups?.checked_in || []
+            );
+            if (blockedRooms.length) {
+                showGroupCheckoutStatus(
+                    `Cần check-in hoặc hủy trước các phòng: ${blockedRooms.join(', ')}.`,
+                    'warning'
+                );
+                setGroupCheckoutConfirmState({blocked: true});
+            } else if (!checkedInRooms.length) {
+                showGroupCheckoutStatus(
+                    'Không còn phòng đang ở để checkout đoàn.',
+                    'warning'
+                );
+                setGroupCheckoutConfirmState({blocked: true});
+            } else {
+                showGroupCheckoutStatus('', 'info');
+                setGroupCheckoutConfirmState();
+            }
             bootstrap.Modal.getOrCreateInstance(document.getElementById('groupCheckoutModal')).show();
         })
         .catch(err => {
             console.error("Lỗi fetch API billing:", err);
-            alert("Có lỗi xảy ra khi lấy dữ liệu hóa đơn đoàn!");
+            showGroupCheckoutStatus(
+                'Không thể tải báo giá đoàn. Vui lòng thử lại.',
+                'danger'
+            );
+            setGroupCheckoutConfirmState({blocked: true});
         });
 }
 
@@ -502,46 +588,72 @@ function submitGroupCheckout() {
         alert("Lỗi: Không xác định được ID đoàn để thanh toán.");
         return;
     }
+    if (groupCheckoutSubmitting) {
+        return;
+    }
+    if (!currentGroupCheckoutQuote) {
+        showGroupCheckoutStatus(
+            'Báo giá đoàn chưa sẵn sàng. Vui lòng tải lại.',
+            'warning'
+        );
+        return;
+    }
 
-    // Hỏi lại cho chắc chắn
     if(!confirm("Bạn có chắc chắn muốn chốt thanh toán toàn bộ các phòng còn lại của đoàn này?")) {
         return;
     }
 
-    // Disable nút bấm tránh click 2 lần
-    const btnConfirm = document.querySelector('#groupCheckoutModal [data-role="group-checkout-confirm"]');
-    if(btnConfirm) {
-        btnConfirm.disabled = true;
-        btnConfirm.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
-    }
+    groupCheckoutSubmitting = true;
+    setGroupCheckoutConfirmState({busy: true});
+    showGroupCheckoutStatus('Đang xác nhận checkout đoàn...', 'info');
 
-    // Gọi API Backend để Checkout
     fetch(api(`/api/bookings/${currentBookingId}/group_checkout`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            include_tax: groupCheckoutIncludeTax
+            include_tax: groupCheckoutIncludeTax,
+            payment_method: 'cash',
+            quote_fingerprint: currentGroupCheckoutQuote.fingerprint,
+            quote_checkout_at: currentGroupCheckoutQuote.checkout_at
         })
     })
     .then(response => response.json())
     .then(res => {
         if(res.success) {
+            showGroupCheckoutStatus(
+                `Thanh toán thành công. Mã đối soát: ${res.operation_key}`,
+                'success'
+            );
             alert("✅ " + res.msg);
-            location.reload(); // Load lại trang để cập nhật giao diện
+            location.reload();
         } else {
-            alert("❌ " + res.msg);
-            if(btnConfirm) {
-                btnConfirm.disabled = false;
-                btnConfirm.innerHTML = '<i class="fas fa-check-circle"></i> XÁC NHẬN THANH TOÁN ĐOÀN';
+            groupCheckoutSubmitting = false;
+            if (
+                res.error_code === 'quote_stale'
+                || res.error_code === 'rooms_not_checked_in'
+                || res.error_code === 'no_rooms_checked_in'
+            ) {
+                showGroupCheckoutStatus(
+                    res.msg || 'Trạng thái đoàn đã thay đổi. Đang tải lại.',
+                    'warning'
+                );
+                openGroupCheckout(currentBookingId);
+                return;
             }
+            showGroupCheckoutStatus(
+                res.msg || 'Không thể checkout đoàn.',
+                'danger'
+            );
+            setGroupCheckoutConfirmState();
         }
     })
     .catch(err => {
         console.error("Lỗi submit checkout:", err);
-        alert("Có lỗi xảy ra khi thanh toán!");
-        if(btnConfirm) {
-            btnConfirm.disabled = false;
-            btnConfirm.innerHTML = '<i class="fas fa-check-circle"></i> XÁC NHẬN THANH TOÁN ĐOÀN';
-        }
+        groupCheckoutSubmitting = false;
+        showGroupCheckoutStatus(
+            'Lỗi kết nối khi checkout đoàn. Vui lòng thử lại.',
+            'danger'
+        );
+        setGroupCheckoutConfirmState();
     });
 }

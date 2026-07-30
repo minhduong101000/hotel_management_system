@@ -1,11 +1,23 @@
-<div class="modal fade" id="groupCheckoutModal" tabindex="-1">
+<div
+    class="modal fade"
+    id="groupCheckoutModal"
+    tabindex="-1"
+    aria-hidden="true"
+    aria-labelledby="groupCheckoutModalLabel"
+>
     <div class="modal-dialog modal-lg workflow-modal workflow-modal--fullscreen">
         <div class="modal-content">
             <div class="modal-header bg-success text-white">
-                <h5 class="modal-title fw-bold"><i class="fas fa-users"></i> HÓA ĐƠN ĐOÀN: <span id="gc-booking-code">...</span></h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title fw-bold" id="groupCheckoutModalLabel"><i class="fas fa-users"></i> HÓA ĐƠN ĐOÀN: <span id="gc-booking-code">...</span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng hóa đơn đoàn"></button>
             </div>
             <div class="modal-body">
+                <div
+                    id="gc-checkout-status"
+                    class="alert alert-info py-2 d-none"
+                    role="status"
+                    aria-live="polite"
+                ></div>
                 <p><strong>Khách hàng:</strong> <span id="gc-customer-name">...</span></p>
                 
                 <table class="table table-bordered mt-3 text-center align-middle">
@@ -43,7 +55,7 @@
                             <td class="fw-bold text-end text-danger" id="gc-deposit">- 0 đ</td>
                         </tr>
                         <tr class="bg-light">
-                            <td colspan="4" class="fw-bold fs-5 text-end">KHÁCH CẦN TRẢ:</td>
+                            <td colspan="4" class="fw-bold fs-5 text-end" id="gc-payment-label">KHÁCH CẦN TRẢ:</td>
                             <td class="fw-bold fs-4 text-end text-success" id="gc-final-total">0 đ</td>
                         </tr>
                     </tfoot>
@@ -51,7 +63,14 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy bỏ</button>
-                <button type="button" class="btn btn-success fw-bold" data-role="group-checkout-confirm" onclick="submitGroupCheckout()">
+                <button
+                    type="button"
+                    class="btn btn-success fw-bold"
+                    data-role="group-checkout-confirm"
+                    aria-busy="false"
+                    aria-describedby="gc-checkout-status"
+                    onclick="submitGroupCheckout()"
+                >
                     <i class="fas fa-check-circle"></i> XÁC NHẬN THANH TOÁN ĐOÀN
                 </button>
             </div>

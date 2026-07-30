@@ -610,7 +610,18 @@ def test_group_checkout_records_audit_event(client, seed_hotels, login_as):
     booking_room.status = 'checked_in'
     booking_room.check_in_actual = datetime.now()
     db.session.commit(); login_as(client, user)
-    response = client.post(f'/{hotel.slug}/bookings/api/bookings/{booking_room.booking_id}/group_checkout', json={'include_tax': False})
+    preview = client.get(
+        f'/{hotel.slug}/bookings/api/bookings/{booking_room.booking_id}/group_billing'
+    )
+    quote = preview.json['data']['quote']
+    response = client.post(
+        f'/{hotel.slug}/bookings/api/bookings/{booking_room.booking_id}/group_checkout',
+        json={
+            'include_tax': False,
+            'quote_fingerprint': quote['fingerprint'],
+            'quote_checkout_at': quote['checkout_at'],
+        },
+    )
     assert response.status_code == 200
     event = AuditEvent.query.one()
     assert event.action == 'group_checkout'

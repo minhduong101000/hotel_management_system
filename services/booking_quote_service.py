@@ -231,6 +231,121 @@ def build_checkout_quote(
     return _finalize_quote(payload)
 
 
+def build_group_checkout_quote(
+    booking,
+    *,
+    checkout_at: datetime,
+    include_tax: bool,
+):
+    """Tạo một báo giá checkout đoàn từ trạng thái hiện tại của toàn booking."""
+    checkout_at = checkout_at.replace(microsecond=0)
+    state_groups = {
+        "checked_in": [],
+        "booked": [],
+        "checked_out": [],
+        "cancelled": [],
+    }
+    room_quotes = []
+    room_subtotal = Decimal("0")
+    service_subtotal = Decimal("0")
+    tax = Decimal("0")
+    settlement_total = Decimal("0")
+    finalized_total = Decimal("0")
+
+    for booking_room in sorted(booking.rooms, key=lambda row: row.id):
+        room_number = (
+            booking_room.room.room_number
+            if booking_room.room
+            else str(booking_room.room_id)
+        )
+        status = booking_room.status or "unknown"
+        state_groups.setdefault(status, []).append(room_number)
+
+        if status == "checked_in":
+            room_quote = build_checkout_quote(
+                booking_room,
+                checkout_at=checkout_at,
+                include_tax=include_tax,
+            )
+            current_room = money(room_quote["room_subtotal"])
+            current_service = money(room_quote["service_subtotal"])
+            current_tax = money(room_quote["tax"])
+            current_total = money(room_quote["total"])
+            room_subtotal += current_room
+            service_subtotal += current_service
+            tax += current_tax
+            settlement_total += current_total
+            room_quotes.append({
+                "booking_room_id": booking_room.id,
+                "room_id": booking_room.room_id,
+                "room_number": room_number,
+                "status": status,
+                "include_in_settlement": True,
+                "room_subtotal": money_string(current_room),
+                "service_subtotal": money_string(current_service),
+                "tax": money_string(current_tax),
+                "total": money_string(current_total),
+                "room_lines": room_quote["room_lines"],
+                "service_lines": room_quote["service_lines"],
+            })
+            continue
+
+        current_total = (
+            money(booking_room.final_amount)
+            if status in ("checked_out", "cancelled")
+            else Decimal("0")
+        )
+        if status in ("checked_out", "cancelled"):
+            finalized_total += current_total
+        room_quotes.append({
+            "booking_room_id": booking_room.id,
+            "room_id": booking_room.room_id,
+            "room_number": room_number,
+            "status": status,
+            "include_in_settlement": False,
+            "room_subtotal": money_string(current_total),
+            "service_subtotal": "0.00",
+            "tax": "0.00",
+            "total": money_string(current_total),
+            "room_lines": [],
+            "service_lines": [],
+        })
+
+    room_subtotal = money(room_subtotal)
+    service_subtotal = money(service_subtotal)
+    tax = money(tax)
+    settlement_subtotal = money(room_subtotal + service_subtotal)
+    settlement_total = money(settlement_total)
+    finalized_total = money(finalized_total)
+    booking_total = money(finalized_total + settlement_total)
+    deposit = money(booking.prepaid_amount)
+    balance = money(settlement_total - deposit)
+
+    payload = {
+        "version": QUOTE_VERSION,
+        "kind": "group_checkout",
+        "currency": "VND",
+        "hotel_id": booking.hotel_id,
+        "booking_id": booking.id,
+        "checkout_at": checkout_at.isoformat(),
+        "expires_at": (checkout_at + QUOTE_TTL).isoformat(),
+        "include_tax": bool(include_tax),
+        "rooms": room_quotes,
+        "state_groups": state_groups,
+        "room_subtotal": money_string(room_subtotal),
+        "service_subtotal": money_string(service_subtotal),
+        "settlement_subtotal": money_string(settlement_subtotal),
+        "tax_rate": money_string(TAX_RATE),
+        "tax": money_string(tax),
+        "settlement_total": money_string(settlement_total),
+        "finalized_total": money_string(finalized_total),
+        "booking_total": money_string(booking_total),
+        "deposit": money_string(deposit),
+        "balance": money_string(balance),
+    }
+    return _finalize_quote(payload)
+
+
 def is_expired(quote, now=None):
     now = (now or datetime.now()).replace(microsecond=0)
     return now > datetime.fromisoformat(quote["expires_at"])
