@@ -4,12 +4,14 @@
 
 // --- BIẾN TOÀN CỤC ---
 let currentOrderRoom = null; 
+let currentOrderBookingRoomId = null;
 let serviceMenu = [];        
 let cart = {};               
 
 // 1. HÀM MỞ MODAL ORDER
 function openOrderModal(roomNumber) {
     currentOrderRoom = roomNumber;
+    currentOrderBookingRoomId = null;
     cart = {}; // Reset giỏ hàng
     
     // Reset giao diện
@@ -53,6 +55,7 @@ function loadExistingOrders(roomNumber) {
     fetch(api(`/api/bookings/orders/room/${encodeURIComponent(roomNumber)}`))
         .then(response => response.ok ? response.json() : { items: [], total: 0 })
         .then(data => {
+            currentOrderBookingRoomId = data.booking_room_id || null;
             list.replaceChildren();
             const items = data.items || [];
             if (items.length === 0) {
@@ -200,6 +203,10 @@ function submitOrder() {
         alert("Giỏ hàng đang trống!");
         return;
     }
+    if (!currentOrderBookingRoomId) {
+        alert("Chưa tải xong thông tin phòng. Vui lòng thử lại.");
+        return;
+    }
 
     // Hiệu ứng disable nút để tránh bấm nhiều lần
     const btn = document.querySelector('#orderModal .btn-success'); // Nút xác nhận
@@ -214,6 +221,7 @@ function submitOrder() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             room_number: currentOrderRoom,
+            booking_room_id: currentOrderBookingRoomId,
             items: itemsToSend // Cấu trúc khớp với Controller: items = [{id, qty}]
         })
     })
@@ -270,6 +278,7 @@ function saveServiceChanges() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             number: roomNumber,
+            booking_room_id: currentBookingRoomId,
             services: servicesPayload
         })
     })

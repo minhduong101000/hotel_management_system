@@ -82,6 +82,54 @@ def _group_checkout_request_payload(data, booking_id):
         'quote_checkout_at': str(data.get('quote_checkout_at') or ''),
     }
 
+
+def _service_mutation_booking_room(data):
+    """Khóa và xác thực phòng trước mọi thay đổi hóa đơn dịch vụ."""
+    booking_room_id = data.get('booking_room_id')
+    if not booking_room_id:
+        return None, (
+            jsonify({
+                'success': False,
+                'error_code': 'booking_room_required',
+                'msg': 'Thiếu booking_room_id.',
+            }),
+            400,
+        )
+    try:
+        booking_room_id = int(booking_room_id)
+    except (TypeError, ValueError):
+        return None, (
+            jsonify({
+                'success': False,
+                'error_code': 'booking_room_required',
+                'msg': 'booking_room_id không hợp lệ.',
+            }),
+            400,
+        )
+
+    booking_room = tenant_query(BookingRoom).filter_by(
+        id=booking_room_id
+    ).with_for_update().first()
+    if booking_room is None:
+        return None, (
+            jsonify({
+                'success': False,
+                'error_code': 'booking_room_not_found',
+                'msg': 'Không tìm thấy phòng trong booking.',
+            }),
+            404,
+        )
+    if booking_room.status != 'checked_in':
+        return None, (
+            jsonify({
+                'success': False,
+                'error_code': 'service_bill_finalized',
+                'msg': 'Hóa đơn dịch vụ của phòng đã được chốt.',
+            }),
+            409,
+        )
+    return booking_room, None
+
 # =======================================================
 # 1. LẤY THÔNG TIN BOOKING SẮP TỚI (Dùng cho Timeline)
 # =======================================================
@@ -223,19 +271,31 @@ def print_deposit_invoice(booking_id):
 @login_required
 def update_service_quantity():
     try:
-        data = request.json
-        booking_id = data.get('booking_id')
+        data = request.get_json(silent=True) or {}
         service_id = data.get('service_id')
-        room_id = data.get('room_id')
-        change = int(data.get('change', 0))
+        if not service_id:
+            return jsonify({
+                'success': False,
+                'msg': 'Thiếu thông tin dịch vụ.',
+            }), 400
+        try:
+            service_id = int(service_id)
+            change = int(data.get('change', 0))
+        except (TypeError, ValueError):
+            return jsonify({
+                'success': False,
+                'msg': 'Dữ liệu số lượng không hợp lệ.',
+            }), 400
 
-        if not booking_id or not service_id:
-            return jsonify({'success': False, 'msg': 'Thiếu thông tin.'})
+        booking_room, error_response = _service_mutation_booking_room(data)
+        if error_response:
+            return error_response
 
-        filter_kwargs = {'booking_id': booking_id, 'service_id': service_id}
-        if room_id:
-            filter_kwargs['room_id'] = room_id
-        line_item = tenant_query(BookingService).filter_by(**filter_kwargs).first()
+        line_item = tenant_query(BookingService).filter_by(
+            booking_id=booking_room.booking_id,
+            room_id=booking_room.room_id,
+            service_id=service_id,
+        ).with_for_update().first()
 
         if not line_item:
             return jsonify({'success': False, 'msg': 'Không tìm thấy dịch vụ trên hóa đơn.'}), 404
@@ -252,20 +312,23 @@ def update_service_quantity():
 
         if applied_change > 0:
             inventory_service.validate_inventory(line_item.hotel_id, {
-                int(service_id): applied_change
+                service_id: applied_change
             })
             inventory_service.deduct_inventory(
-                line_item.hotel_id, int(service_id), applied_change, booking_service=line_item
+                line_item.hotel_id,
+                service_id,
+                applied_change,
+                booking_service=line_item,
             )
         elif applied_change < 0:
             inventory_service.restore_inventory(
-                line_item.hotel_id, int(service_id), -applied_change, booking_service=line_item
+                line_item.hotel_id,
+                service_id,
+                -applied_change,
+                booking_service=line_item,
             )
 
-        if new_quantity == 0:
-            db.session.delete(line_item)
-        else:
-            line_item.quantity = new_quantity
+        line_item.quantity = new_quantity
 
         audit_service.record_event(
             hotel_id=line_item.hotel_id,
@@ -287,10 +350,18 @@ def update_service_quantity():
 
     except inventory_service.InsufficientInventoryError as e:
         db.session.rollback()
-        return jsonify({'success': False, 'msg': str(e)}), 409
-    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error_code': 'insufficient_inventory',
+            'msg': str(e),
+        }), 409
+    except Exception:
         db.session.rollback()
-        return jsonify({'success': False, 'msg': str(e)})
+        return jsonify({
+            'success': False,
+            'error_code': 'service_update_failed',
+            'msg': 'Không thể cập nhật dịch vụ.',
+        }), 500
 
 # =======================================================
 # 5. PREVIEW HÓA ĐƠN TRẢ PHÒNG
@@ -622,6 +693,8 @@ def order_history(room_number):
     line_items = tenant_query(BookingService).filter_by(
         booking_id=booking_room.booking_id,
         room_id=room.id,
+    ).filter(
+        BookingService.quantity > 0
     ).all()
     items = [
         {
@@ -632,7 +705,11 @@ def order_history(room_number):
         }
         for item in line_items
     ]
-    return jsonify({'items': items, 'total': sum(item['total'] for item in items)})
+    return jsonify({
+        'booking_room_id': booking_room.id,
+        'items': items,
+        'total': sum(item['total'] for item in items),
+    })
 
 
 @booking_bp.route('/api/orders/add', methods=['POST'])
@@ -643,14 +720,20 @@ def add_order():
         room_number = data.get('room_number')
         items = data.get('items')
 
+        br, error_response = _service_mutation_booking_room(data)
+        if error_response:
+            return error_response
+
         if not isinstance(items, list) or not items:
             return jsonify({'success': False, 'msg': 'Cần chọn ít nhất một dịch vụ.'}), 400
 
-        room = tenant_query(Room).filter_by(room_number=room_number).first()
-        if not room: return jsonify({'success': False, 'msg': 'Phòng lỗi.'})
-
-        br = tenant_query(BookingRoom).filter_by(room_id=room.id, status='checked_in').first()
-        if not br: return jsonify({'success': False, 'msg': 'Phòng chưa check-in.'})
+        room = br.room
+        if room_number and str(room.room_number) != str(room_number):
+            return jsonify({
+                'success': False,
+                'error_code': 'booking_room_mismatch',
+                'msg': 'Phòng không khớp với booking_room_id.',
+            }), 409
 
         booking_id = br.booking_id
 
@@ -725,11 +808,18 @@ def add_order():
         return jsonify({'success': True, 'msg': 'Đã thêm dịch vụ và cập nhật tồn kho.'})
     except inventory_service.InsufficientInventoryError as e:
         db.session.rollback()
-        return jsonify({'success': False, 'msg': str(e)}), 409
-    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error_code': 'insufficient_inventory',
+            'msg': str(e),
+        }), 409
+    except Exception:
         db.session.rollback()
-        print(f"Lỗi thêm dịch vụ: {e}")
-        return jsonify({'success': False, 'msg': str(e)})
+        return jsonify({
+            'success': False,
+            'error_code': 'order_failed',
+            'msg': 'Không thể ghi nhận dịch vụ.',
+        }), 500
 
 # =======================================================
 # 7. TẠO BOOKING (Đoàn/Lẻ) - BỎ CHIA CỌC, GIỮ NGUYÊN CỤC
@@ -949,66 +1039,127 @@ def create_group_booking():
 @booking_bp.route('/api/bookings/update_services', methods=['POST'])
 @login_required
 def update_services_before_checkout():
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
     room_number = data.get('number')
     new_services = data.get('services', [])
 
-    room = tenant_query(Room).filter(Room.room_number == room_number).first()
-    if not room: return jsonify({'success': False, 'msg': 'Lỗi phòng.'})
-
-    booking_room = tenant_query(BookingRoom).filter_by(room_id=room.id, status='checked_in').first()
-    if not booking_room: return jsonify({'success': False, 'msg': 'Phòng chưa checkin.'})
-    
-    booking = booking_room.booking
-
     try:
-        normalized_services = []
+        booking_room, error_response = _service_mutation_booking_room(data)
+        if error_response:
+            return error_response
+        room = booking_room.room
+        if room_number and str(room.room_number) != str(room_number):
+            return jsonify({
+                'success': False,
+                'error_code': 'booking_room_mismatch',
+                'msg': 'Phòng không khớp với booking_room_id.',
+            }), 409
+        if not isinstance(new_services, list):
+            return jsonify({
+                'success': False,
+                'msg': 'Danh sách dịch vụ không hợp lệ.',
+            }), 400
+
+        booking = booking_room.booking
+        normalized_by_service = {}
         for item in new_services:
-            service_id = int(item['service_id'])
-            quantity = int(item['quantity'])
+            try:
+                service_id = int(item['service_id'])
+                quantity = int(item['quantity'])
+            except (KeyError, TypeError, ValueError):
+                return jsonify({
+                    'success': False,
+                    'msg': 'Dữ liệu dịch vụ không hợp lệ.',
+                }), 400
+            if quantity < 0:
+                return jsonify({
+                    'success': False,
+                    'msg': 'Số lượng dịch vụ không được âm.',
+                }), 400
             if quantity <= 0:
                 continue
             service_obj = tenant_query(Service).filter_by(id=service_id).first()
             if not service_obj:
                 return jsonify({'success': False, 'msg': 'Dịch vụ không thuộc khách sạn hiện tại.'}), 404
-            normalized_services.append((service_id, quantity, service_obj))
+            if service_id in normalized_by_service:
+                normalized_by_service[service_id]['quantity'] += quantity
+            else:
+                normalized_by_service[service_id] = {
+                    'quantity': quantity,
+                    'service': service_obj,
+                }
 
         old_items = tenant_query(BookingService).filter_by(
             booking_id=booking.id,
             room_id=room.id,
-        ).all()
-        old_totals = inventory_service.aggregate_quantities(
-            (item.service_id, item.quantity) for item in old_items
-        )
-        new_totals = inventory_service.aggregate_quantities(
-            (service_id, quantity) for service_id, quantity, _ in normalized_services
-        )
-        all_service_ids = set(old_totals) | set(new_totals)
-        positive_deltas = {
-            service_id: max(0, new_totals.get(service_id, 0) - old_totals.get(service_id, 0))
-            for service_id in all_service_ids
+        ).order_by(BookingService.id.asc()).with_for_update().all()
+        old_by_service = {
+            item.service_id: item
+            for item in old_items
         }
+        before_services = [
+            {
+                'service_id': item.service_id,
+                'quantity': int(item.quantity or 0),
+                'unit_price': float(item.price_at_booking or 0),
+            }
+            for item in old_items
+        ]
+        all_service_ids = set(old_by_service) | set(normalized_by_service)
+        positive_deltas = {}
+        for service_id in all_service_ids:
+            old_quantity = (
+                int(old_by_service[service_id].quantity or 0)
+                if service_id in old_by_service
+                else 0
+            )
+            new_quantity = normalized_by_service.get(
+                service_id,
+                {'quantity': 0},
+            )['quantity']
+            positive_deltas[service_id] = max(
+                0,
+                new_quantity - old_quantity,
+            )
         inventory_service.validate_inventory(room.hotel_id, positive_deltas)
 
-        # Thay danh sách dịch vụ trên hóa đơn sau khi đã xác thực đủ tồn kho.
-        tenant_query(BookingService).filter_by(booking_id=booking.id, room_id=room.id).delete()
-
-        for service_id, quantity, service_obj in normalized_services:
-            db.session.add(BookingService(
-                hotel_id=room.hotel_id,
-                booking_id=booking.id,
-                room_id=room.id,
-                service_id=service_id,
-                quantity=quantity,
-                price_at_booking=service_obj.price,
-            ))
-
-        for service_id in all_service_ids:
-            delta = new_totals.get(service_id, 0) - old_totals.get(service_id, 0)
+        for service_id in sorted(all_service_ids):
+            desired = normalized_by_service.get(
+                service_id,
+                {'quantity': 0, 'service': None},
+            )
+            quantity = desired['quantity']
+            line_item = old_by_service.get(service_id)
+            if line_item is None:
+                if quantity <= 0:
+                    continue
+                line_item = BookingService(
+                    hotel_id=room.hotel_id,
+                    booking_id=booking.id,
+                    room_id=room.id,
+                    service_id=service_id,
+                    quantity=0,
+                    price_at_booking=desired['service'].price,
+                )
+                db.session.add(line_item)
+                db.session.flush()
+            current_quantity = int(line_item.quantity or 0)
+            delta = quantity - current_quantity
             if delta > 0:
-                inventory_service.deduct_inventory(room.hotel_id, service_id, delta)
+                inventory_service.deduct_inventory(
+                    room.hotel_id,
+                    service_id,
+                    delta,
+                    booking_service=line_item,
+                )
             elif delta < 0:
-                inventory_service.restore_inventory(room.hotel_id, service_id, -delta)
+                inventory_service.restore_inventory(
+                    room.hotel_id,
+                    service_id,
+                    -delta,
+                    booking_service=line_item,
+                )
+            line_item.quantity = quantity
 
         audit_service.record_event(
             hotel_id=room.hotel_id,
@@ -1018,16 +1169,19 @@ def update_services_before_checkout():
             entity_id=booking.id,
             before_data={
                 'room_id': room.id,
-                'services': [
-                    {'service_id': item.service_id, 'quantity': int(item.quantity or 0), 'unit_price': float(item.price_at_booking or 0)}
-                    for item in old_items
-                ],
+                'services': before_services,
             },
             after_data={
                 'room_id': room.id,
                 'services': [
-                    {'service_id': service_id, 'quantity': quantity, 'unit_price': float(service_obj.price or 0)}
-                    for service_id, quantity, service_obj in normalized_services
+                    {
+                        'service_id': service_id,
+                        'quantity': values['quantity'],
+                        'unit_price': float(values['service'].price or 0),
+                    }
+                    for service_id, values in sorted(
+                        normalized_by_service.items()
+                    )
                 ],
             },
         )
@@ -1037,10 +1191,18 @@ def update_services_before_checkout():
 
     except inventory_service.InsufficientInventoryError as e:
         db.session.rollback()
-        return jsonify({'success': False, 'msg': str(e)}), 409
-    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error_code': 'insufficient_inventory',
+            'msg': str(e),
+        }), 409
+    except Exception:
         db.session.rollback()
-        return jsonify({'success': False, 'msg': str(e)})
+        return jsonify({
+            'success': False,
+            'error_code': 'service_update_failed',
+            'msg': 'Không thể cập nhật danh sách dịch vụ.',
+        }), 500
 
 
 # =======================================================

@@ -129,9 +129,19 @@ def available_quantity(item, on_date=None):
     )
 
 
-def batches_for_consumption(item, on_date=None):
+def batches_for_consumption(item, on_date=None, lock=False):
     on_date = on_date or date.today()
-    batches = InventoryBatch.query.filter_by(inventory_item_id=item.id, status='active').all()
+    query = InventoryBatch.query.filter_by(
+        inventory_item_id=item.id,
+        status='active',
+    ).order_by(
+        InventoryBatch.expires_at.is_(None),
+        InventoryBatch.expires_at.asc(),
+        InventoryBatch.id.asc(),
+    )
+    if lock:
+        query = query.with_for_update()
+    batches = query.all()
     return sorted(
         (batch for batch in batches if int(batch.quantity_available or 0) > 0 and (batch.expires_at is None or batch.expires_at >= on_date)),
         key=lambda batch: (batch.expires_at is None, batch.expires_at or date.max, batch.id),

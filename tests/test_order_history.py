@@ -21,6 +21,7 @@ def test_checked_in_room_order_history_is_scoped_to_current_tenant(client, seed_
 
     assert response.status_code == 200
     assert response.json == {
+        "booking_room_id": booking_room_a.id,
         "items": [{"service_name": "Nước suối", "quantity": 2, "price": 15000.0, "total": 30000.0}],
         "total": 30000.0,
     }

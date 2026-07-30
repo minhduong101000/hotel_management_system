@@ -1214,6 +1214,7 @@ function saveBookingServicesFromDetail() {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
             number: roomNumber,
+            booking_room_id: document.getElementById('bd-booking-room-id').value,
             services: servicesPayload,
         })
     })

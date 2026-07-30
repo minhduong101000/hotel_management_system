@@ -263,7 +263,7 @@ function changeServiceQty(serviceId, changeValue, currentQty) {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
-            booking_id: currentBookingId,
+            booking_room_id: currentBookingRoomId,
             service_id: serviceId,
             change: changeValue
         })

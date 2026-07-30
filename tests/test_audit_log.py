@@ -448,6 +448,7 @@ def test_checkin_records_audit_event(client, seed_hotels, login_as):
 
 def test_update_service_quantity_records_audit_event(client, seed_hotels, login_as):
     hotel, _, user, _, booking_room, _ = seed_hotels
+    booking_room.status = "checked_in"
     service = Service(hotel_id=hotel.id, name="Nước", price=10000)
     db.session.add(service)
     db.session.flush()
@@ -466,8 +467,7 @@ def test_update_service_quantity_records_audit_event(client, seed_hotels, login_
     response = client.post(
         f"/{hotel.slug}/bookings/api/bookings/update_service_quantity",
         json={
-            "booking_id": booking_room.booking_id,
-            "room_id": booking_room.room_id,
+            "booking_room_id": booking_room.id,
             "service_id": service.id,
             "change": -1,
         },
@@ -494,6 +494,7 @@ def test_add_order_records_audit_event(client, seed_hotels, login_as):
         f"/{hotel.slug}/bookings/api/orders/add",
         json={
             "room_number": booking_room.room.room_number,
+            "booking_room_id": booking_room.id,
             "items": [{"id": service.id, "qty": 2}],
         },
     )
@@ -594,7 +595,9 @@ def test_group_service_update_records_audit_event(client, seed_hotels, login_as)
     booking_room.status = 'checked_in'
     db.session.commit(); login_as(client, user)
     response = client.post(f'/{hotel.slug}/bookings/api/bookings/update_services', json={
-        'number': booking_room.room.room_number, 'services': [],
+        'number': booking_room.room.room_number,
+        'booking_room_id': booking_room.id,
+        'services': [],
     })
     assert response.status_code == 200
     event = AuditEvent.query.one()
