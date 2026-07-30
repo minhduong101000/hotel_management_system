@@ -189,7 +189,7 @@ def add_expense():
                     code=item_code,
                     name=item_name,
                     unit=unit,
-                    quantity=qty,
+                    quantity=0,
                     min_quantity=min_qty,
                     price=float(data['amount']) / qty if qty > 0 else 0,
                     service_id=service_id
