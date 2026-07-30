@@ -1,3 +1,9 @@
+from extensions import db
+from models.audit_event import AuditEvent
+from models.business_operation import BusinessOperation
+from models.payment import Payment
+
+
 def test_cancel_booking_room_marks_only_requested_room_cancelled(
     client, booked_room, login_as
 ):
@@ -13,6 +19,7 @@ def test_cancel_booking_room_marks_only_requested_room_cancelled(
     assert response.json["success"] is True
     assert booking_room_a.status == "cancelled"
     assert booking_room_b.status == "booked"
+    assert booking_room_a.booking.status == "confirmed"
 
 
 def test_cancel_booking_room_rejects_another_hotels_room(client, seed_hotels, login_as):
@@ -43,6 +50,7 @@ def test_cancel_booking_by_booking_id_cancels_all_active_rooms(client, booked_ro
     assert response.json["success"] is True
     assert booking_room_a.status == "cancelled"
     assert booking_room_b.status == "cancelled"
+    assert booking_room_a.booking.status == "cancelled"
 
 
 def test_cancel_booking_rejects_invalid_id_and_checked_out_room(
@@ -81,6 +89,7 @@ def test_cancel_booking_rejects_checked_in_room(client, seed_hotels, login_as):
     assert response.status_code == 409
     assert response.json["success"] is False
     assert booking_room.status == "checked_in"
+    assert BusinessOperation.query.count() == 0
 
 
 def test_cancel_booking_requires_a_reason_and_records_audit_event(
@@ -111,11 +120,6 @@ def test_cancel_booking_requires_a_reason_and_records_audit_event(
     assert event.entity_type == "booking_room"
     assert event.entity_id == booking_room.id
     assert event.after_data["reason"] == "Khách thay đổi kế hoạch"
-from models.audit_event import AuditEvent
-from models.business_operation import BusinessOperation
-from models.payment import Payment
-
-
 def test_repeated_cancellation_does_not_duplicate_refund_or_operation(client, seed_hotels, login_as):
     hotel, _, user, _, booking_room, _ = seed_hotels
     booking_room.booking.prepaid_amount = 100000
@@ -138,3 +142,67 @@ def test_repeated_cancellation_does_not_duplicate_refund_or_operation(client, se
     payment = Payment.query.filter_by(payment_type="refund").one()
     assert payment.business_operation_id == operation.id
     assert payment.component_key == "refund"
+
+
+def test_cancelling_last_booked_room_completes_booking_with_checked_out_room(
+    client,
+    booked_room,
+    login_as,
+):
+    hotel, user, checked_out_room, booked_booking_room = booked_room
+    checked_out_room.status = "checked_out"
+    checked_out_room.final_amount = 400000
+    checked_out_room.booking.status = "confirmed"
+    db.session.commit()
+    login_as(client, user)
+
+    response = client.post(
+        f"/{hotel.slug}/timeline/api/bookings/cancel",
+        json={
+            "booking_room_id": booked_booking_room.id,
+            "refund_percent": 0,
+            "reason": "Khách hủy phòng còn lại",
+        },
+    )
+
+    assert response.status_code == 200
+    assert booked_booking_room.status == "cancelled"
+    assert checked_out_room.booking.status == "completed"
+    assert checked_out_room.booking.payment_status == "paid"
+
+
+def test_booking_and_booking_room_cancellation_keys_do_not_collide(
+    client,
+    booked_room,
+    login_as,
+):
+    hotel, user, first_room, second_room = booked_room
+    login_as(client, user)
+
+    room_response = client.post(
+        f"/{hotel.slug}/timeline/api/bookings/cancel",
+        json={
+            "booking_room_id": first_room.id,
+            "refund_percent": 0,
+            "reason": "Hủy phòng thứ nhất",
+        },
+    )
+    booking_response = client.post(
+        f"/{hotel.slug}/timeline/api/bookings/cancel",
+        json={
+            "booking_id": first_room.booking_id,
+            "refund_percent": 0,
+            "reason": "Hủy phần còn lại của đơn",
+        },
+    )
+
+    assert room_response.status_code == 200
+    assert booking_response.status_code == 200
+    assert {
+        operation.operation_key
+        for operation in BusinessOperation.query.order_by(BusinessOperation.id).all()
+    } == {
+        f"cancel:booking_room:{first_room.id}",
+        f"cancel:booking:{first_room.booking_id}",
+    }
+    assert second_room.status == "cancelled"

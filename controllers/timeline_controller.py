@@ -21,6 +21,7 @@ from services.pricing_service import get_effective_room_prices, calculate_raw_ho
 from services import (
     audit_service,
     booking_quote_service,
+    booking_state_service,
     business_operation_service,
     payment_service,
 )
@@ -430,7 +431,11 @@ def check_reschedule_availability():
 
     if not br or not room:
         return jsonify({'available': False, 'msg': 'Không tìm thấy booking hoặc phòng.'}), 404
-    if br.status != 'booked' or check_out <= check_in:
+    try:
+        booking_state_service.ensure_reschedulable(br)
+    except booking_state_service.InvalidBookingTransition:
+        return jsonify({'available': False, 'msg': 'Booking hoặc thời gian không phù hợp để dời lịch.'}), 409
+    if check_out <= check_in:
         return jsonify({'available': False, 'msg': 'Booking hoặc thời gian không phù hợp để dời lịch.'}), 409
     if room.status == 'maintenance':
         return jsonify({'available': False, 'msg': 'Phòng đang bảo trì.'}), 409
@@ -602,7 +607,7 @@ def create_booking():
             price_snapshot=price_snapshot,
             room_deposit_amount=deposit_amount,
             room_deposit_original=deposit_amount,
-            status=status,
+            status='booked',
             check_in_expected=check_in_dt,
             check_out_expected=check_out_dt
         )
@@ -619,14 +624,18 @@ def create_booking():
                 'price_night': float(room.price_per_night or 0),
             }
 
-        # Nếu check-in ngay
-        if status == 'checked_in':
-            new_br.check_in_actual = datetime.now()
-            room.status = 'occupied'
-            # (Có thể thêm logic tạo BookingService mặc định ở đây nếu cần)
-
         db.session.add(new_br)
         db.session.flush()
+        if status == 'checked_in':
+            booking_state_service.check_in_room(
+                new_br,
+                checked_in_at=datetime.now(),
+            )
+        else:
+            booking_state_service.aggregate_booking_state(
+                new_booking,
+                changed_at=datetime.now(),
+            )
         audit_service.record_event(
             hotel_id=g.hotel_id,
             actor_user_id=current_user.id,
@@ -815,7 +824,11 @@ def reschedule_booking():
         return jsonify({'success': False, 'msg': 'Dữ liệu dời lịch không hợp lệ.'}), 400
     if not br or not room:
         return jsonify({'success': False, 'msg': 'Không tìm thấy booking hoặc phòng.'}), 404
-    if br.status != 'booked' or check_out <= check_in or room.status == 'maintenance':
+    try:
+        booking_state_service.ensure_reschedulable(br)
+    except booking_state_service.InvalidBookingTransition:
+        return jsonify({'success': False, 'msg': 'Booking hoặc phòng không phù hợp để dời lịch.'}), 409
+    if check_out <= check_in or room.status == 'maintenance':
         return jsonify({'success': False, 'msg': 'Booking hoặc phòng không phù hợp để dời lịch.'}), 409
     if _has_room_time_conflict(room_id=room.id, start_dt=check_in, end_dt=check_out, exclude_booking_room_id=br.id):
         return jsonify({'success': False, 'msg': 'Phòng mới đã có lịch trong khoảng thời gian này.'}), 409
@@ -908,17 +921,6 @@ def cancel_booking():
                     'msg': 'Yêu cầu hủy đang được xử lý.',
                     'operation_key': operation_key,
                 }), 409
-        operation = BusinessOperation(
-            hotel_id=booking.hotel_id,
-            operation_key=operation_key,
-            action='cancel_booking',
-            entity_type=operation_entity_type,
-            entity_id=operation_entity_id,
-            request_fingerprint=business_operation_service.request_fingerprint(data),
-        )
-        db.session.add(operation)
-        db.session.flush()
-
         # 2. Xác định danh sách phòng cần hủy
         # Nếu gửi booking_room_id -> Chỉ hủy 1 phòng đó
         # Nếu chỉ gửi booking_id -> Hủy toàn bộ phòng trong đơn
@@ -931,6 +933,21 @@ def cancel_booking():
 
         if not rooms_to_cancel:
             return jsonify({'success': False, 'msg': 'Các phòng đã ở trạng thái hủy trước đó.'}), 409
+        try:
+            booking_state_service.ensure_cancellable_rooms(rooms_to_cancel)
+        except booking_state_service.InvalidBookingTransition as error:
+            return jsonify({'success': False, 'msg': str(error)}), 409
+
+        operation = BusinessOperation(
+            hotel_id=booking.hotel_id,
+            operation_key=operation_key,
+            action='cancel_booking',
+            entity_type=operation_entity_type,
+            entity_id=operation_entity_id,
+            request_fingerprint=business_operation_service.request_fingerprint(data),
+        )
+        db.session.add(operation)
+        db.session.flush()
         
         # Kiểm tra xem có phải là hủy nốt phòng cuối cùng của đơn không (để xử lý cọc)
         total_non_cancelled = tenant_query(BookingRoom).filter(
@@ -998,10 +1015,9 @@ def cancel_booking():
         cancellation_fee = round(max(0.0, allocated_deposit - refund_amount), 2)
         room_labels = ', '.join([r.room.room_number if r.room else str(r.room_id) for r in rooms_to_cancel])
 
-        # 4. Thực hiện cập nhật trạng thái
+        # 4. Chốt dữ liệu tài chính trước khi chuyển trạng thái nguyên tử.
+        cancelled_at = datetime.now()
         for br in rooms_to_cancel:
-            br.status = 'cancelled'
-            br.check_out_actual = datetime.now()
             if br.final_amount is None:
                 br.final_amount = 0
 
@@ -1016,10 +1032,10 @@ def cancel_booking():
             br.cancellation_refund_amount = room_refund_share
             br.room_deposit_amount = 0
 
-            # Trả lại trạng thái cho phòng vật lý
-            room = tenant_query(Room).filter_by(id=br.room_id).first()
-            if room:
-                room.status = 'available'
+        booking_state_service.cancel_rooms(
+            rooms_to_cancel,
+            cancelled_at=cancelled_at,
+        )
 
         # 5. Ghi log và Xử lý Tiền (Refund/Fee)
         current_note = booking.note or ""
@@ -1074,15 +1090,6 @@ def cancel_booking():
             BookingRoom.status != 'cancelled'
         ).scalar()
         booking.prepaid_amount = max(0.0, round(float(remaining_room_deposit or 0), 2))
-
-        # Cập nhật tổng doanh thu booking theo toàn bộ phòng đã finalize.
-        all_rooms = tenant_query(BookingRoom).filter_by(booking_id=booking.id).all()
-        booking.total_amount = sum(float(r.final_amount or 0) for r in all_rooms)
-        booking.updated_at = datetime.now()
-
-        # Nếu là lần hủy cuối cùng, đánh dấu đơn là 'cancelled' để phân biệt với 'completed' (đã trả phòng)
-        if is_final_cancellation:
-            booking.status = 'cancelled'
 
         for cancelled_room in rooms_to_cancel:
             audit_service.record_event(
@@ -1179,6 +1186,12 @@ def update_booking():
             return jsonify({'success': False, 'msg': 'Không tìm thấy thông tin phòng cần sửa.'})
         if br.status in ['checked_out', 'cancelled'] or (br.booking and br.booking.status in ['completed', 'cancelled']):
             return jsonify({'success': False, 'msg': 'Booking đã hoàn tất/hủy, không thể chỉnh sửa.'})
+        if new_status and new_status != br.status:
+            return jsonify({
+                'success': False,
+                'error_code': 'state_transition_endpoint_required',
+                'msg': 'Hãy dùng chức năng check-in, checkout hoặc hủy phòng chuyên biệt.',
+            }), 409
 
         if new_deposit is not None:
             room_deposit = max(0.0, float(new_deposit))

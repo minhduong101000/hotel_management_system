@@ -185,12 +185,10 @@ def checkin_room():
     if booking_room.check_in_expected and booking_room.check_in_expected - now > timedelta(hours=3):
         return jsonify({'success': False, 'msg': 'Chỉ được check-in sớm tối đa 3 giờ trước giờ booking.'}), 400
 
-    booking_room.status = 'checked_in'
-    booking_room.check_in_actual = now
-    room.status = 'occupied'
-    
-    if booking_room.booking:
-         booking_room.booking.status = 'checked_in'
+    booking_state_service.check_in_room(
+        booking_room,
+        checked_in_at=now,
+    )
 
     audit_service.record_event(
         hotel_id=booking_room.hotel_id,
@@ -993,6 +991,11 @@ def create_group_booking():
                         allocated += share
                     br.room_deposit_amount = share
                     br.room_deposit_original = share
+
+            booking_state_service.aggregate_booking_state(
+                new_booking,
+                changed_at=datetime.now(),
+            )
 
             audit_service.record_event(
                 hotel_id=g.hotel_id,
