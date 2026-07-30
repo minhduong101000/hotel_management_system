@@ -1,12 +1,12 @@
-from services.tenant_service import tenant_query, tenant_get_or_404
-from flask import Blueprint, render_template, jsonify, request
+from datetime import datetime
+
+from flask import Blueprint, jsonify, render_template, request
 from flask_login import login_required
+
 from decorators import admin_required
-from extensions import db
 from models.payment import Payment
-from models.booking import Booking
-from datetime import datetime, timedelta
-from sqlalchemy import desc
+from services.reporting_service import resolve_report_period
+from services.tenant_service import tenant_query
 
 cashier_bp = Blueprint('cashier', __name__)
 
@@ -22,38 +22,27 @@ def cashier():
 def get_cashier_data():
     try:
         from models.expense import Expense
-        period = request.args.get('period', 'today') 
-        start_str = request.args.get('start')
-        end_str = request.args.get('end')
-        
         now = datetime.now()
-        
-        if period == 'today':
-            start_date = now.replace(hour=0, minute=0, second=0)
-            end_date = now
-        elif period == 'week':
-            start_date = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0) # Beginning of week
-            end_date = now
-        elif period == 'month':
-            start_date = now.replace(day=1, hour=0, minute=0, second=0)
-            end_date = now
-        elif period == 'custom' and start_str and end_str:
-            start_date = datetime.strptime(start_str, '%Y-%m-%d')
-            end_date = datetime.strptime(end_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
-        else:
-            start_date = now.replace(hour=0, minute=0, second=0)
-            end_date = now
+        report_period = resolve_report_period(
+            request.args.get('period', 'today'),
+            request.args.get('start'),
+            request.args.get('end'),
+            now,
+        )
+        start_date = report_period.start
+        end_exclusive = report_period.end_exclusive
 
         # 1. Lấy các khoản thu/hoàn tiền từ Payment
         payments_query = tenant_query(Payment).filter(
             Payment.created_at >= start_date,
-            Payment.created_at <= end_date
+            Payment.created_at < end_exclusive
         ).all()
 
         # 2. Lấy các khoản chi từ Expense
         expenses_query = tenant_query(Expense).filter(
             Expense.created_at >= start_date,
-            Expense.created_at <= end_date
+            Expense.created_at < end_exclusive,
+            Expense.is_voided.is_(False),
         ).all()
 
         total_received = 0
@@ -129,11 +118,13 @@ def get_cashier_data():
                 'total_refunded': total_refunded,
                 'total_expense': total_expense,
                 'net_amount': total_received - total_refunded - total_expense,
-                'period_label': f"Từ {start_date.strftime('%d/%m/%Y')} đến {end_date.strftime('%d/%m/%Y')}"
+                'period_label': f"Từ {report_period.start_date.strftime('%d/%m/%Y')} đến {report_period.end_date.strftime('%d/%m/%Y')}"
             }
         })
+    except ValueError as e:
+        return jsonify({'success': False, 'msg': str(e)}), 400
     except Exception as e:
         print(f"Lỗi sổ quỹ: {e}")
         import traceback
         traceback.print_exc()
-        return jsonify({'success': False, 'msg': str(e)})
+        return jsonify({'success': False, 'msg': str(e)}), 500
