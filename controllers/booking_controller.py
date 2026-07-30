@@ -20,7 +20,11 @@ from models.business_operation import BusinessOperation
 
 # Import Shared Logic
 from services.pricing_service import calculate_complex_hotel_bill, get_effective_room_prices, get_nightly_price_breakdown
-from services import inventory_service, payment_service
+from services import (
+    business_operation_service,
+    inventory_service,
+    payment_service,
+)
 from services import audit_service
 
 booking_bp = Blueprint('booking', __name__)
@@ -495,10 +499,34 @@ def checkout_room():
             status='checked_out',
         ).first()
         if completed_booking_room:
+            operation_key = f'checkout:{completed_booking_room.id}'
+            existing_operation = tenant_query(BusinessOperation).filter_by(
+                operation_key=operation_key
+            ).first()
+            if existing_operation:
+                try:
+                    return jsonify(
+                        business_operation_service.replay_operation(
+                            existing_operation,
+                            data,
+                        )
+                    )
+                except business_operation_service.OperationRequestConflict as error:
+                    return jsonify({
+                        'success': False,
+                        'msg': str(error),
+                        'operation_key': operation_key,
+                    }), 409
+                except business_operation_service.OperationInProgress:
+                    return jsonify({
+                        'success': False,
+                        'msg': 'Phòng này đang được checkout bởi thao tác khác.',
+                        'operation_key': operation_key,
+                    }), 409
             return jsonify({
                 'success': False,
                 'msg': 'Phòng này đã checkout.',
-                'operation_key': f'checkout:{completed_booking_room.id}',
+                'operation_key': operation_key,
             }), 409
 
     now = datetime.now()
@@ -516,11 +544,25 @@ def checkout_room():
             operation_key=operation_key
         ).first()
         if existing_operation:
-            return jsonify({
-                'success': False,
-                'msg': 'Phòng này đã checkout.',
-                'operation_key': operation_key,
-            }), 409
+            try:
+                return jsonify(
+                    business_operation_service.replay_operation(
+                        existing_operation,
+                        data,
+                    )
+                )
+            except business_operation_service.OperationRequestConflict as error:
+                return jsonify({
+                    'success': False,
+                    'msg': str(error),
+                    'operation_key': operation_key,
+                }), 409
+            except business_operation_service.OperationInProgress:
+                return jsonify({
+                    'success': False,
+                    'msg': 'Phòng này đang được checkout bởi thao tác khác.',
+                    'operation_key': operation_key,
+                }), 409
 
         operation = BusinessOperation(
             hotel_id=room.hotel_id,
@@ -528,12 +570,29 @@ def checkout_room():
             action='checkout',
             entity_type='booking_room',
             entity_id=booking_room.id,
+            request_fingerprint=business_operation_service.request_fingerprint(data),
         )
         db.session.add(operation)
         try:
             db.session.flush()
         except IntegrityError:
             db.session.rollback()
+            existing_operation = tenant_query(BusinessOperation).filter_by(
+                operation_key=operation_key
+            ).first()
+            if existing_operation:
+                try:
+                    return jsonify(
+                        business_operation_service.replay_operation(
+                            existing_operation,
+                            data,
+                        )
+                    )
+                except (
+                    business_operation_service.OperationRequestConflict,
+                    business_operation_service.OperationInProgress,
+                ):
+                    pass
             return jsonify({
                 'success': False,
                 'msg': 'Phòng này đang được checkout bởi thao tác khác.',
@@ -612,6 +671,8 @@ def checkout_room():
                     payment_type='room_payment',
                     note=f"Thanh toán tiền phòng {room.room_number}",
                     created_at=now,
+                    business_operation=operation,
+                    component_key='room_payment',
                 )
                 
             if actual_service_payment > 0:
@@ -622,6 +683,8 @@ def checkout_room():
                     payment_type='service_payment',
                     note=f"Thanh toán tiền dịch vụ phòng {room.room_number}",
                     created_at=now,
+                    business_operation=operation,
+                    component_key='service_payment',
                 )
 
             if actual_tax_payment > 0:
@@ -632,6 +695,8 @@ def checkout_room():
                     payment_type='tax_payment',
                     note=f"Thuế VAT 8% phòng {room.room_number}",
                     created_at=now,
+                    business_operation=operation,
+                    component_key='tax_payment',
                 )
 
             # --- KIỂM TRA ĐƠN TỔNG ---
@@ -652,8 +717,15 @@ def checkout_room():
             if all(r.status in ['checked_out', 'cancelled'] for r in all_rooms):
                 booking.status = 'completed'
 
-        operation.status = 'completed'
-        operation.completed_at = now
+        result_payload = {
+            'success': True,
+            'msg': f'Trả phòng {room_number} thành công!',
+            'operation_key': operation_key,
+        }
+        business_operation_service.complete_operation(
+            operation,
+            result_payload,
+        )
         audit_service.record_event(
             hotel_id=room.hotel_id,
             actor_user_id=current_user.id,
@@ -665,11 +737,7 @@ def checkout_room():
             after_data={'status': 'checked_out', 'final_amount': float(total_bill_with_tax)},
         )
         db.session.commit()
-        return jsonify({
-            'success': True,
-            'msg': f'Trả phòng {room_number} thành công!',
-            'operation_key': operation_key,
-        })
+        return jsonify(result_payload)
         
     return jsonify({'success': False, 'msg': 'Không tìm thấy đơn để thanh toán.'})
 

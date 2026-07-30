@@ -128,8 +128,13 @@ def test_repeated_cancellation_does_not_duplicate_refund_or_operation(client, se
     second_response = client.post(f"/{hotel.slug}/timeline/api/bookings/cancel", json=payload)
 
     assert first_response.status_code == 200
-    assert second_response.status_code == 409
+    assert second_response.status_code == 200
+    assert second_response.json == first_response.json
     assert Payment.query.filter_by(booking_id=booking_room.booking_id, payment_type="refund").count() == 1
     operation = BusinessOperation.query.one()
-    assert operation.operation_key == f"cancel:{booking_room.id}"
+    assert operation.operation_key == f"cancel:booking_room:{booking_room.id}"
     assert operation.status == "completed"
+    assert operation.result_snapshot == first_response.json
+    payment = Payment.query.filter_by(payment_type="refund").one()
+    assert payment.business_operation_id == operation.id
+    assert payment.component_key == "refund"

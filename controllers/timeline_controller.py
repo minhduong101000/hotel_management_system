@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 import random
 import string
 from services.pricing_service import get_effective_room_prices, calculate_raw_hourly_fee, get_nightly_price_breakdown
-from services import payment_service, audit_service
+from services import audit_service, business_operation_service, payment_service
 from decorators import booking_reschedule_required
 
 timeline_bp = Blueprint('timeline', __name__)
@@ -883,16 +883,36 @@ def cancel_booking():
             return jsonify({'success': False, 'msg': 'Không tìm thấy thông tin đơn đặt phòng.'}), 404
 
         operation_entity_id = target_br.id if target_br else booking.id
-        operation_key = f'cancel:{operation_entity_id}'
+        operation_entity_type = 'booking_room' if target_br else 'booking'
+        operation_key = f'cancel:{operation_entity_type}:{operation_entity_id}'
         existing_operation = tenant_query(BusinessOperation).filter_by(operation_key=operation_key).first()
         if existing_operation:
-            return jsonify({'success': False, 'msg': 'Yêu cầu hủy đã được xử lý.', 'operation_key': operation_key}), 409
+            try:
+                return jsonify(
+                    business_operation_service.replay_operation(
+                        existing_operation,
+                        data,
+                    )
+                )
+            except business_operation_service.OperationRequestConflict as error:
+                return jsonify({
+                    'success': False,
+                    'msg': str(error),
+                    'operation_key': operation_key,
+                }), 409
+            except business_operation_service.OperationInProgress:
+                return jsonify({
+                    'success': False,
+                    'msg': 'Yêu cầu hủy đang được xử lý.',
+                    'operation_key': operation_key,
+                }), 409
         operation = BusinessOperation(
             hotel_id=booking.hotel_id,
             operation_key=operation_key,
             action='cancel_booking',
-            entity_type='booking_room' if target_br else 'booking',
+            entity_type=operation_entity_type,
             entity_id=operation_entity_id,
+            request_fingerprint=business_operation_service.request_fingerprint(data),
         )
         db.session.add(operation)
         db.session.flush()
@@ -1027,6 +1047,8 @@ def cancel_booking():
                     f"(Cọc phân bổ {allocated_str} đ, hoàn {refund_percent_effective:.0f}%)"
                 ),
                 created_at=datetime.now(),
+                business_operation=operation,
+                component_key='refund',
             )
 
         # 2. Nếu có GIỮ LẠI một phần tiền cọc (Phí hủy)
@@ -1040,6 +1062,8 @@ def cancel_booking():
                     f"({fee_percent_effective:.0f}% cọc phân bổ, trích từ tiền cọc)"
                 ),
                 created_at=datetime.now(),
+                business_operation=operation,
+                component_key='cancellation_fee',
             )
 
         # Đã xử lý xong nhóm phòng hủy -> cọc còn lại = tổng cọc của các phòng chưa hủy.
@@ -1058,9 +1082,6 @@ def cancel_booking():
         if is_final_cancellation:
             booking.status = 'cancelled'
 
-        operation.status = 'completed'
-        operation.completed_at = datetime.now()
-
         for cancelled_room in rooms_to_cancel:
             audit_service.record_event(
                 hotel_id=booking.hotel_id,
@@ -1068,7 +1089,7 @@ def cancel_booking():
                 action='cancel_booking',
                 entity_type='booking_room',
                 entity_id=cancelled_room.id,
-                operation_key=f'cancel:{cancelled_room.id}',
+                operation_key=f'cancel:booking_room:{cancelled_room.id}',
                 before_data={'status': 'booked'},
                 after_data={
                     'status': 'cancelled',
@@ -1078,9 +1099,7 @@ def cancel_booking():
                 },
             )
 
-        db.session.commit()
-
-        return jsonify({
+        result_payload = {
             'success': True, 
             'msg': (
                 f'Hủy phòng thành công.\n'
@@ -1098,7 +1117,14 @@ def cancel_booking():
                 'deposit': deposit,
                 'is_final_cancellation': is_final_cancellation
             }
-        })
+        }
+        business_operation_service.complete_operation(
+            operation,
+            result_payload,
+        )
+        db.session.commit()
+
+        return jsonify(result_payload)
 
     except Exception as e:
         db.session.rollback()

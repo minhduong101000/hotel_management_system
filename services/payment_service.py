@@ -5,6 +5,8 @@ from decimal import Decimal
 from typing import Optional
 
 from extensions import db
+from models.booking import Booking
+from models.business_operation import BusinessOperation
 from models.payment import Payment
 
 
@@ -28,9 +30,30 @@ def _create_payment(
     payment_method: str = "cash",
     created_at: Optional[datetime] = None,
     flush: bool = False,
+    business_operation: Optional[BusinessOperation] = None,
+    component_key: Optional[str] = None,
 ) -> Payment:
+    booking = db.session.get(Booking, booking_id)
+    if booking is None:
+        raise ValueError("Không tìm thấy booking để ghi nhận thanh toán.")
+
+    if (business_operation is None) != (component_key is None):
+        raise ValueError(
+            "business_operation và component_key phải được cung cấp cùng nhau."
+        )
+    if (
+        business_operation is not None
+        and business_operation.hotel_id != booking.hotel_id
+    ):
+        raise ValueError(
+            "BusinessOperation khác khách sạn với booking."
+        )
+
     payment = Payment(
+        hotel_id=booking.hotel_id,
         booking_id=booking_id,
+        business_operation=business_operation,
+        component_key=component_key,
         amount=_to_decimal_amount(amount),
         payment_method=payment_method,
         payment_type=payment_type,
@@ -51,6 +74,8 @@ def record_deposit(
     payment_method: str = "cash",
     created_at: Optional[datetime] = None,
     flush: bool = False,
+    business_operation: Optional[BusinessOperation] = None,
+    component_key: Optional[str] = None,
 ) -> Payment:
     return _create_payment(
         booking_id=booking_id,
@@ -60,6 +85,8 @@ def record_deposit(
         note=note,
         created_at=created_at,
         flush=flush,
+        business_operation=business_operation,
+        component_key=component_key,
     )
 
 
@@ -72,6 +99,8 @@ def record_room_payment(
     created_at: Optional[datetime] = None,
     flush: bool = False,
     payment_type: str = "room_payment",
+    business_operation: Optional[BusinessOperation] = None,
+    component_key: Optional[str] = None,
 ) -> Payment:
     """Record a payment line for room/service settlement.
 
@@ -85,6 +114,8 @@ def record_room_payment(
         note=note,
         created_at=created_at,
         flush=flush,
+        business_operation=business_operation,
+        component_key=component_key,
     )
 
 
@@ -96,6 +127,8 @@ def record_refund(
     payment_method: str = "cash",
     created_at: Optional[datetime] = None,
     flush: bool = False,
+    business_operation: Optional[BusinessOperation] = None,
+    component_key: Optional[str] = None,
 ) -> Payment:
     """Record a refund as a negative amount in Payment (cashflow semantics)."""
     amt = abs(_to_decimal_amount(refund_amount))
@@ -107,6 +140,8 @@ def record_refund(
         note=note,
         created_at=created_at,
         flush=flush,
+        business_operation=business_operation,
+        component_key=component_key,
     )
 
 
@@ -118,6 +153,8 @@ def record_cancellation_fee(
     payment_method: str = "cash",
     created_at: Optional[datetime] = None,
     flush: bool = False,
+    business_operation: Optional[BusinessOperation] = None,
+    component_key: Optional[str] = None,
 ) -> Payment:
     """Record a cancellation fee note.
 
@@ -131,6 +168,8 @@ def record_cancellation_fee(
         note=note,
         created_at=created_at,
         flush=flush,
+        business_operation=business_operation,
+        component_key=component_key,
     )
 
 
@@ -142,6 +181,8 @@ def record_group_settlement(
     payment_method: str = "cash",
     created_at: Optional[datetime] = None,
     flush: bool = False,
+    business_operation: Optional[BusinessOperation] = None,
+    component_key: Optional[str] = None,
 ) -> Payment:
     return _create_payment(
         booking_id=booking_id,
@@ -151,4 +192,6 @@ def record_group_settlement(
         note=note,
         created_at=created_at,
         flush=flush,
+        business_operation=business_operation,
+        component_key=component_key,
     )

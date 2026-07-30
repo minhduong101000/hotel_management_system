@@ -5,7 +5,7 @@ from models.business_operation import BusinessOperation
 from models.payment import Payment
 
 
-def test_repeated_checkout_returns_conflict_without_duplicate_payment(
+def test_repeated_checkout_replays_result_without_duplicate_payment(
     client, seed_hotels, login_as
 ):
     hotel, _, user, _, booking_room, _ = seed_hotels
@@ -26,14 +26,14 @@ def test_repeated_checkout_returns_conflict_without_duplicate_payment(
 
     assert first_response.status_code == 200
     assert first_response.json["success"] is True
-    assert second_response.status_code == 409
-    assert second_response.json == {
-        "success": False,
-        "msg": "Phòng này đã checkout.",
-        "operation_key": f"checkout:{booking_room.id}",
-    }
+    assert second_response.status_code == 200
+    assert second_response.json == first_response.json
     assert Payment.query.filter_by(booking_id=booking_room.booking_id).count() == 1
     operation = BusinessOperation.query.one()
     assert operation.hotel_id == hotel.id
     assert operation.operation_key == f"checkout:{booking_room.id}"
     assert operation.status == "completed"
+    assert operation.result_snapshot == first_response.json
+    payment = Payment.query.one()
+    assert payment.business_operation_id == operation.id
+    assert payment.component_key == "room_payment"
