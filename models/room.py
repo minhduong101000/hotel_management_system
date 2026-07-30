@@ -2,6 +2,14 @@ from extensions import db
 
 class Room(db.Model):
     __tablename__ = 'rooms'
+    __table_args__ = (
+        db.UniqueConstraint(
+            'hotel_id',
+            'room_number',
+            name='uq_rooms_hotel_room_number',
+        ),
+    )
+
     id = db.Column(db.Integer, primary_key=True)
     hotel_id = db.Column(db.Integer, db.ForeignKey('hotels.id'), nullable=False)
     room_number = db.Column(db.String(10), nullable=False)
