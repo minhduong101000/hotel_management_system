@@ -5,7 +5,7 @@ Revises: f5a9b3c7d0e2
 """
 from datetime import date
 
-from alembic import op
+from alembic import context, op
 import sqlalchemy as sa
 
 
@@ -83,6 +83,55 @@ def upgrade():
     op.create_index('ix_booking_service_batch_allocations_hotel_id', 'booking_service_batch_allocations', ['hotel_id'])
     op.create_index('ix_booking_service_batch_allocations_booking_service_id', 'booking_service_batch_allocations', ['booking_service_id'])
     op.create_index('ix_booking_service_batch_allocations_batch_id', 'booking_service_batch_allocations', ['batch_id'])
+
+    if context.is_offline_mode():
+        op.execute(sa.text("""
+            INSERT INTO inventory_batches (
+                hotel_id,
+                inventory_item_id,
+                batch_code,
+                received_at,
+                quantity_received,
+                quantity_available,
+                unit_cost,
+                status
+            )
+            SELECT
+                hotel_id,
+                id,
+                CONCAT('TONDAU-', code, '-', id),
+                CURRENT_DATE,
+                quantity,
+                quantity,
+                COALESCE(price, 0),
+                'active'
+            FROM inventory_items
+            WHERE quantity > 0
+        """))
+        op.execute(sa.text("""
+            INSERT INTO inventory_movements (
+                hotel_id,
+                inventory_item_id,
+                batch_id,
+                movement_type,
+                quantity_delta,
+                reason
+            )
+            SELECT
+                item.hotel_id,
+                item.id,
+                batch.id,
+                'receipt',
+                item.quantity,
+                'Tồn đầu'
+            FROM inventory_items AS item
+            INNER JOIN inventory_batches AS batch
+                ON batch.hotel_id = item.hotel_id
+                AND batch.inventory_item_id = item.id
+                AND batch.batch_code = CONCAT('TONDAU-', item.code, '-', item.id)
+            WHERE item.quantity > 0
+        """))
+        return
 
     bind = op.get_bind()
     legacy_items = bind.execute(sa.text(
