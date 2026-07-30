@@ -1,7 +1,12 @@
 from app import app, db
-from sqlalchemy import text
+from sqlalchemy import inspect
 
-with app.app_context():
-    result = db.session.execute(text("DESCRIBE bookings")).fetchall()
-    for row in result:
-        print(row)
+
+def main():
+    with app.app_context():
+        for column in inspect(db.engine).get_columns("bookings"):
+            print(column)
+
+
+if __name__ == "__main__":
+    main()

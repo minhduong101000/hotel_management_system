@@ -1,15 +1,10 @@
 from flask import Flask, redirect, url_for, g, abort
 from extensions import db, login_manager, mail 
 from flask_migrate import Migrate
-import warnings
 from models import User
-from models.inventory_item import InventoryItem
-from models.expense import Expense
-from models.booking import Booking
-from models.booking_room import BookingRoom
 from models.hotel import Hotel
-from config import Config
-from sqlalchemy import inspect, text
+from commands import register_commands
+from config import apply_runtime_config
 
 # Import các Controllers (Blueprints)
 from controllers.auth_controller import auth_bp
@@ -28,19 +23,18 @@ from controllers.cashier_controller import cashier_bp
 from controllers.master_controller import master_bp
 from controllers.audit_controller import audit_bp
 
-def create_app(test_config=None):
+def create_app(test_config=None, environment=None):
     app = Flask(__name__)
 
     # --- 1. CẤU HÌNH APP ---
-    app.config.from_object(Config)
-    if test_config:
-        app.config.update(test_config)
+    apply_runtime_config(app, environment=environment, test_config=test_config)
 
     # --- 2. KHỞI TẠO EXTENSIONS ---
     db.init_app(app)
     login_manager.init_app(app)
     mail.init_app(app)
     Migrate(app, db)
+    register_commands(app)
 
     # --- [QUAN TRỌNG] CẤU HÌNH LOGIN MANAGER ---
     login_manager.login_view = 'auth.login' 
@@ -117,107 +111,26 @@ def create_app(test_config=None):
     def index():
         return redirect(url_for('room.map_view', hotel_slug='central')) 
 
+    @app.after_request
+    def add_production_security_headers(response):
+        if app.config["APP_ENV"] == "production":
+            response.headers["Content-Security-Policy-Report-Only"] = (
+                "default-src 'self'; object-src 'none'; base-uri 'self'; "
+                "frame-ancestors 'self'"
+            )
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            response.headers["Referrer-Policy"] = "same-origin"
+        return response
+
     return app
 
 app = create_app()
 
 
-
-def ensure_schema_updates():
-    warnings.warn(
-        "ensure_schema_updates() is deprecated; use Flask-Migrate instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    inspector = inspect(db.engine)
-    if 'booking_rooms' not in inspector.get_table_names():
-        return
-
-    columns = {col['name'] for col in inspector.get_columns('booking_rooms')}
-    if 'room_deposit_amount' not in columns:
-        db.session.execute(text("ALTER TABLE booking_rooms ADD COLUMN room_deposit_amount NUMERIC(15, 2) DEFAULT 0"))
-        db.session.commit()
-        print(">>> Đã thêm cột booking_rooms.room_deposit_amount")
-
-    if 'room_deposit_original' not in columns:
-        db.session.execute(text("ALTER TABLE booking_rooms ADD COLUMN room_deposit_original NUMERIC(15, 2) DEFAULT 0"))
-        db.session.commit()
-        print(">>> Đã thêm cột booking_rooms.room_deposit_original")
-
-    if 'cancellation_refund_percent' not in columns:
-        db.session.execute(text("ALTER TABLE booking_rooms ADD COLUMN cancellation_refund_percent NUMERIC(5, 2) DEFAULT 0"))
-        db.session.commit()
-        print(">>> Đã thêm cột booking_rooms.cancellation_refund_percent")
-
-    if 'cancellation_fee_percent' not in columns:
-        db.session.execute(text("ALTER TABLE booking_rooms ADD COLUMN cancellation_fee_percent NUMERIC(5, 2) DEFAULT 0"))
-        db.session.commit()
-        print(">>> Đã thêm cột booking_rooms.cancellation_fee_percent")
-
-    if 'cancellation_refund_amount' not in columns:
-        db.session.execute(text("ALTER TABLE booking_rooms ADD COLUMN cancellation_refund_amount NUMERIC(15, 2) DEFAULT 0"))
-        db.session.commit()
-        print(">>> Đã thêm cột booking_rooms.cancellation_refund_amount")
-
-
-def backfill_room_deposits():
-    bookings = Booking.query.filter(Booking.prepaid_amount > 0).all()
-    patched = 0
-
-    for booking in bookings:
-        active_rooms = [r for r in booking.rooms if r.status in ['booked', 'checked_in']]
-        if not active_rooms:
-            continue
-
-        current_sum = sum(float(r.room_deposit_amount or 0) for r in active_rooms)
-        target_sum = float(booking.prepaid_amount or 0)
-
-        if target_sum <= 0 or abs(current_sum - target_sum) < 0.01:
-            continue
-
-        weights = [float(r.price_snapshot or 0) if float(r.price_snapshot or 0) > 0 else 1.0 for r in active_rooms]
-        total_weight = sum(weights) or float(len(active_rooms))
-
-        allocated = 0.0
-        for idx, room_row in enumerate(active_rooms):
-            if idx == len(active_rooms) - 1:
-                share = max(0.0, round(target_sum - allocated, 2))
-            else:
-                share = round(target_sum * (weights[idx] / total_weight), 2)
-                allocated += share
-            room_row.room_deposit_amount = share
-            room_row.room_deposit_original = max(float(room_row.room_deposit_original or 0), share)
-
-        patched += 1
-
-    if patched > 0:
-        db.session.commit()
-        print(f">>> Đã backfill cọc theo phòng cho {patched} booking")
-
-
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-        ensure_schema_updates()
-        backfill_room_deposits()
-        
-        # 1. Tạo Admin
-        if not User.query.filter_by(username='admin').first():
-            # Bỏ full_name đi, chỉ giữ lại các trường có trong model
-            admin = User(username='admin', role='admin')
-            admin.set_password('admin123') 
-            db.session.add(admin)
-            print(">>> Đã tạo tài khoản: admin / admin123")
-
-        # 2. Tạo Staff 1
-        if not User.query.filter_by(username='staff1').first():
-            staff1 = User(username='staff1', role='staff')
-            staff1.set_password('staff123')
-            db.session.add(staff1)
-            print(">>> Đã tạo tài khoản: staff1 / staff123")
-
-        # 3. Lưu vào database
-        db.session.commit()
-        print("--- Hoàn tất khởi tạo ---")
-
-    app.run(debug=True)
+    if app.config["APP_ENV"] != "development":
+        raise RuntimeError(
+            "Entrypoint trực tiếp chỉ dành cho development; "
+            "production phải chạy qua WSGI server."
+        )
+    app.run(debug=app.config["DEBUG"])
