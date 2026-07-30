@@ -67,3 +67,5 @@ def test_checkout_frontend_submits_quote_identity_and_refreshes_stale_quote():
     assert "quote_checkout_at" in source
     assert "quote_stale" in source
     assert "checkout-status" in source
+    assert "amount: amount" not in source
+    assert "payment_method: 'cash'" in source

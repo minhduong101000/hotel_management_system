@@ -29,7 +29,11 @@ def test_repeated_checkout_replays_result_without_duplicate_payment(
         "quote_checkout_at": quote["checkout_at"],
     }
     first_response = client.post(f"/{hotel.slug}/bookings/api/rooms/checkout", json=payload)
-    second_response = client.post(f"/{hotel.slug}/bookings/api/rooms/checkout", json=payload)
+    retry_payload = {**payload, "amount": 999999999}
+    second_response = client.post(
+        f"/{hotel.slug}/bookings/api/rooms/checkout",
+        json=retry_payload,
+    )
 
     assert first_response.status_code == 200
     assert first_response.json["success"] is True

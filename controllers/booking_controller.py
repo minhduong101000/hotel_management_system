@@ -21,23 +21,20 @@ from models.business_operation import BusinessOperation
 # Import Shared Logic
 from services.pricing_service import calculate_complex_hotel_bill, get_effective_room_prices, get_nightly_price_breakdown
 from services import (
+    booking_state_service,
     booking_quote_service,
     business_operation_service,
     inventory_service,
     payment_service,
+    room_checkout_service,
 )
 from services import audit_service
 
 booking_bp = Blueprint('booking', __name__)
 
 
-def _resolve_active_booking_room(room, booking_id=None, booking_room_id=None, now=None, persist_sync=False):
-    """
-    Tìm booking_room đang ở (checked_in).
-    Nếu lệch trạng thái (room occupied nhưng booking_room còn booked), tự đồng bộ sang checked_in.
-    """
-    now = now or datetime.now()
-
+def _resolve_active_booking_room(room, booking_id=None, booking_room_id=None):
+    """Tìm đúng booking_room đang ở; không tự sửa trạng thái nghiệp vụ."""
     query = tenant_query(BookingRoom).filter(
         BookingRoom.room_id == room.id,
         BookingRoom.status == 'checked_in'
@@ -54,65 +51,21 @@ def _resolve_active_booking_room(room, booking_id=None, booking_room_id=None, no
 
     if booking_room:
         return booking_room
-
-    # Fallback cho dữ liệu cũ/lệch trạng thái:
-    # phòng đã occupied nhưng booking_room còn booked.
-    if room.status != 'occupied':
-        return None
-
-    fallback_query = tenant_query(BookingRoom).filter(
-        BookingRoom.room_id == room.id,
-        BookingRoom.status == 'booked',
-        BookingRoom.check_in_expected <= now + timedelta(hours=6)
-    )
-    if booking_room_id:
-        fallback_query = fallback_query.filter(BookingRoom.id == booking_room_id)
-    if booking_id:
-        fallback_query = fallback_query.filter(BookingRoom.booking_id == booking_id)
-
-    booking_room = fallback_query.order_by(BookingRoom.check_in_expected.desc()).first()
-    if not booking_room:
-        return None
-
-    changed = False
-    if booking_room.status != 'checked_in':
-        booking_room.status = 'checked_in'
-        changed = True
-    if booking_room.check_in_actual is None:
-        booking_room.check_in_actual = booking_room.check_in_expected or now
-        changed = True
-
-    if booking_room.booking and booking_room.booking.status not in ['checked_in', 'completed', 'cancelled']:
-        booking_room.booking.status = 'checked_in'
-        changed = True
-
-    if room.status != 'occupied':
-        room.status = 'occupied'
-        changed = True
-
-    if changed:
-        if persist_sync:
-            db.session.commit()
-        else:
-            db.session.flush()
-
-    return booking_room
+    return None
 
 
-def _is_last_active_room_for_booking(booking_id, current_booking_room_id=None):
-    """
-    True khi không còn phòng active nào khác trong cùng booking.
-    Active = booked hoặc checked_in.
-    """
-    query = tenant_query(BookingRoom).filter(
-        BookingRoom.booking_id == booking_id,
-        BookingRoom.status.in_(['booked', 'checked_in'])
-    )
-
-    if current_booking_room_id:
-        query = query.filter(BookingRoom.id != current_booking_room_id)
-
-    return query.first() is None
+def _checkout_request_payload(data, booking_room_id):
+    """Chuẩn hóa phần request có ảnh hưởng đến kết quả checkout."""
+    include_tax = str(data.get('include_tax', False)).strip().lower() in [
+        '1', 'true', 'yes', 'on'
+    ]
+    return {
+        'booking_room_id': int(booking_room_id),
+        'include_tax': include_tax,
+        'payment_method': str(data.get('payment_method') or 'cash').strip().lower(),
+        'quote_fingerprint': str(data.get('quote_fingerprint') or ''),
+        'quote_checkout_at': str(data.get('quote_checkout_at') or ''),
+    }
 
 # =======================================================
 # 1. LẤY THÔNG TIN BOOKING SẮP TỚI (Dùng cho Timeline)
@@ -343,12 +296,9 @@ def preview_checkout_room():
     if not room:
         return jsonify({'success': False, 'msg': 'Phòng không tồn tại.'})
 
-    now = datetime.now()
     booking_room = _resolve_active_booking_room(
         room=room,
         booking_id=booking_id,
-        now=now,
-        persist_sync=True
     )
 
     if not booking_room:
@@ -440,41 +390,16 @@ def checkout_room():
     room_number = data.get('number')
     booking_room_id = data.get('booking_room_id')
     booking_id = data.get('booking_id')
-    amount_raw = data.get('amount', '0')
     include_tax_raw = data.get('include_tax', False)
     include_tax = str(include_tax_raw).strip().lower() in ['1', 'true', 'yes', 'on']
 
-    def _parse_amount(raw):
-        if raw is None:
-            return 0.0
-        if isinstance(raw, (int, float)):
-            return float(raw)
-
-        s = str(raw).strip().replace('đ', '').replace('VND', '').replace(' ', '')
-
-        if s.count('.') > 1 and s.count(',') == 0:
-            s = s.replace('.', '')
-        if s.count(',') > 1 and s.count('.') == 0:
-            s = s.replace(',', '')
-
-        if ',' in s and '.' in s:
-            if s.rfind(',') > s.rfind('.'):
-                s = s.replace('.', '').replace(',', '.')
-            else:
-                s = s.replace(',', '')
-        elif ',' in s:
-            s = s.replace(',', '.')
-
-        try:
-            return float(s)
-        except ValueError:
-            return 0.0
-
-    payment_received = _parse_amount(amount_raw)
-
     room = tenant_query(Room).filter(Room.room_number == room_number).first()
     if not room:
-         return jsonify({'success': False, 'msg': 'Phòng không tồn tại.'})
+        return jsonify({
+            'success': False,
+            'error_code': 'room_not_found',
+            'msg': 'Phòng không tồn tại.',
+        }), 404
 
     if booking_room_id:
         completed_booking_room = tenant_query(BookingRoom).filter_by(
@@ -488,11 +413,15 @@ def checkout_room():
                 operation_key=operation_key
             ).first()
             if existing_operation:
+                operation_request = _checkout_request_payload(
+                    data,
+                    completed_booking_room.id,
+                )
                 try:
                     return jsonify(
                         business_operation_service.replay_operation(
                             existing_operation,
-                            data,
+                            operation_request,
                         )
                     )
                 except business_operation_service.OperationRequestConflict as error:
@@ -513,51 +442,106 @@ def checkout_room():
                 'operation_key': operation_key,
             }), 409
 
-    now = datetime.now()
     booking_room = _resolve_active_booking_room(
         room=room,
         booking_id=booking_id,
         booking_room_id=booking_room_id,
-        now=now,
-        persist_sync=False
     )
 
-    if booking_room:
-        fresh_quote = booking_quote_service.build_checkout_quote(
-            booking_room,
-            checkout_at=datetime.now().replace(microsecond=0),
-            include_tax=include_tax,
-        )
-        quote_fingerprint = str(data.get('quote_fingerprint') or '')
-        quote_checkout_at_raw = data.get('quote_checkout_at')
-        try:
-            quote_checkout_at = datetime.fromisoformat(
-                str(quote_checkout_at_raw)
-            ).replace(tzinfo=None, microsecond=0)
-            checkout_quote = booking_quote_service.build_checkout_quote(
-                booking_room,
-                checkout_at=quote_checkout_at,
-                include_tax=include_tax,
-            )
-        except (TypeError, ValueError):
-            checkout_quote = None
-
-        if (
-            checkout_quote is None
-            or not quote_fingerprint
-            or checkout_quote['fingerprint'] != quote_fingerprint
-            or booking_quote_service.is_expired(checkout_quote)
-        ):
+    if not booking_room:
+        invalid_query = tenant_query(BookingRoom).filter_by(room_id=room.id)
+        if booking_room_id:
+            invalid_query = invalid_query.filter_by(id=booking_room_id)
+        if booking_id:
+            invalid_query = invalid_query.filter_by(booking_id=booking_id)
+        invalid_booking_room = invalid_query.first()
+        if invalid_booking_room:
             return jsonify({
                 'success': False,
-                'error_code': 'quote_stale',
-                'msg': 'Báo giá đã thay đổi hoặc hết hạn. Vui lòng kiểm tra báo giá mới.',
-                'quote': fresh_quote,
+                'error_code': 'invalid_checkout_state',
+                'msg': 'Chỉ phòng đang ở mới được phép checkout.',
+                'current_status': invalid_booking_room.status,
+            }), 409
+        return jsonify({
+            'success': False,
+            'error_code': 'booking_room_not_found',
+            'msg': 'Không tìm thấy đơn để thanh toán.',
+        }), 404
+
+    fresh_quote = booking_quote_service.build_checkout_quote(
+        booking_room,
+        checkout_at=datetime.now().replace(microsecond=0),
+        include_tax=include_tax,
+    )
+    quote_fingerprint = str(data.get('quote_fingerprint') or '')
+    quote_checkout_at_raw = data.get('quote_checkout_at')
+    try:
+        quote_checkout_at = datetime.fromisoformat(
+            str(quote_checkout_at_raw)
+        ).replace(tzinfo=None, microsecond=0)
+        checkout_quote = booking_quote_service.build_checkout_quote(
+            booking_room,
+            checkout_at=quote_checkout_at,
+            include_tax=include_tax,
+        )
+    except (TypeError, ValueError):
+        checkout_quote = None
+
+    if (
+        checkout_quote is None
+        or not quote_fingerprint
+        or checkout_quote['fingerprint'] != quote_fingerprint
+        or booking_quote_service.is_expired(checkout_quote)
+    ):
+        return jsonify({
+            'success': False,
+            'error_code': 'quote_stale',
+            'msg': 'Báo giá đã thay đổi hoặc hết hạn. Vui lòng kiểm tra báo giá mới.',
+            'quote': fresh_quote,
+        }), 409
+
+    now = quote_checkout_at
+    operation_key = f'checkout:{booking_room.id}'
+    operation_request = _checkout_request_payload(data, booking_room.id)
+    existing_operation = tenant_query(BusinessOperation).filter_by(
+        operation_key=operation_key
+    ).first()
+    if existing_operation:
+        try:
+            return jsonify(
+                business_operation_service.replay_operation(
+                    existing_operation,
+                    operation_request,
+                )
+            )
+        except business_operation_service.OperationRequestConflict as error:
+            return jsonify({
+                'success': False,
+                'msg': str(error),
+                'operation_key': operation_key,
+            }), 409
+        except business_operation_service.OperationInProgress:
+            return jsonify({
+                'success': False,
+                'msg': 'Phòng này đang được checkout bởi thao tác khác.',
+                'operation_key': operation_key,
             }), 409
 
-        now = quote_checkout_at
-        payment_received = float(checkout_quote['balance'])
-        operation_key = f'checkout:{booking_room.id}'
+    operation = BusinessOperation(
+        hotel_id=room.hotel_id,
+        operation_key=operation_key,
+        action='checkout',
+        entity_type='booking_room',
+        entity_id=booking_room.id,
+        request_fingerprint=business_operation_service.request_fingerprint(
+            operation_request
+        ),
+    )
+    db.session.add(operation)
+    try:
+        db.session.flush()
+    except IntegrityError:
+        db.session.rollback()
         existing_operation = tenant_query(BusinessOperation).filter_by(
             operation_key=operation_key
         ).first()
@@ -566,198 +550,45 @@ def checkout_room():
                 return jsonify(
                     business_operation_service.replay_operation(
                         existing_operation,
-                        data,
+                        operation_request,
                     )
                 )
-            except business_operation_service.OperationRequestConflict as error:
-                return jsonify({
-                    'success': False,
-                    'msg': str(error),
-                    'operation_key': operation_key,
-                }), 409
-            except business_operation_service.OperationInProgress:
-                return jsonify({
-                    'success': False,
-                    'msg': 'Phòng này đang được checkout bởi thao tác khác.',
-                    'operation_key': operation_key,
-                }), 409
-
-        operation = BusinessOperation(
-            hotel_id=room.hotel_id,
-            operation_key=operation_key,
-            action='checkout',
-            entity_type='booking_room',
-            entity_id=booking_room.id,
-            request_fingerprint=business_operation_service.request_fingerprint(data),
-        )
-        db.session.add(operation)
-        try:
-            db.session.flush()
-        except IntegrityError:
-            db.session.rollback()
-            existing_operation = tenant_query(BusinessOperation).filter_by(
-                operation_key=operation_key
-            ).first()
-            if existing_operation:
-                try:
-                    return jsonify(
-                        business_operation_service.replay_operation(
-                            existing_operation,
-                            data,
-                        )
-                    )
-                except (
-                    business_operation_service.OperationRequestConflict,
-                    business_operation_service.OperationInProgress,
-                ):
-                    pass
-            return jsonify({
-                'success': False,
-                'msg': 'Phòng này đang được checkout bởi thao tác khác.',
-                'operation_key': operation_key,
-            }), 409
-
-        # Nếu rơi vào fallback booked -> ghi nhận thời điểm vào ở thực tế để tính bill đúng.
-        if booking_room.status == 'booked' and booking_room.check_in_actual is None:
-            booking_room.check_in_actual = booking_room.check_in_expected or now
-
-        # --- BƯỚC 1: TÍNH TOÀN BỘ TIỀN PHÒNG + DỊCH VỤ THỰC TẾ ---
-        # 1. Tiền phòng
-        room_fee, _ = calculate_complex_hotel_bill(
-            booking_room.check_in_actual or booking_room.check_in_expected or now, 
-            now, 
-            room, 
-            rental_type=booking_room.rental_type,
-            expected_check_in=booking_room.check_in_expected,
-            expected_check_out=booking_room.check_out_expected,
-            price_breakdown_snapshot=booking_room.price_breakdown_snapshot,
-            hourly_price_snapshot=booking_room.hourly_price_snapshot,
-        )
-        
-        # 2. Tiền dịch vụ
-        service_fee = 0.0
-        room_services = tenant_query(BookingService).filter_by(booking_id=booking_room.booking_id, room_id=room.id).all()
-        for item in room_services:
-            if item.service:
-                service_fee += item.quantity * float(item.price_at_booking or item.service.price)
-        
-        tax_rate = 0.08
-        tax_amount = round((room_fee + service_fee) * tax_rate, 2) if include_tax else 0.0
-        total_bill_with_tax = room_fee + service_fee + tax_amount
-
-        # --- BƯỚC 2: CẬP NHẬT DỮ LIỆU PHÒNG ---
-        booking_room.status = 'checked_out'
-        booking_room.check_out_actual = now
-        booking_room.final_amount = total_bill_with_tax # LƯU TỔNG CỘNG, không phải số tiền thực nhận
-        
-        room.status = 'available'
-        room.clean_status = 'dirty'
-
-        booking = tenant_query(Booking).filter_by(id=booking_room.booking_id).first()
-        if booking:
-            total_bill_nom = total_bill_with_tax
-            apply_deposit_now = _is_last_active_room_for_booking(
-                booking_id=booking.id,
-                current_booking_room_id=booking_room.id
-            )
-
-            # --- GHI NHẬN DOANH THU VÀO SỔ QUỸ (CASHIER) ---
-            # Tỷ lệ: Nếu payment_received < tổng bill (do trừ cọc), chia tỷ lệ tương đối.
-            if total_bill_nom > 0 and payment_received > 0:
-                ratio_room = room_fee / total_bill_nom
-                ratio_service = service_fee / total_bill_nom
-                ratio_tax = tax_amount / total_bill_nom
-
-                actual_room_payment = payment_received * ratio_room
-                actual_service_payment = payment_received * ratio_service
-                actual_tax_payment = payment_received * ratio_tax
-
-                distributed_total = actual_room_payment + actual_service_payment + actual_tax_payment
-                rounding_gap = payment_received - distributed_total
-                if rounding_gap != 0:
-                    actual_room_payment += rounding_gap
-            else:
-                actual_room_payment = payment_received
-                actual_service_payment = 0
-                actual_tax_payment = 0
-                
-            if actual_room_payment != 0:
-                payment_service.record_room_payment(
-                    booking_id=booking.id,
-                    amount=actual_room_payment,
-                    payment_method='cash',
-                    payment_type='room_payment',
-                    note=f"Thanh toán tiền phòng {room.room_number}",
-                    created_at=now,
-                    business_operation=operation,
-                    component_key='room_payment',
-                )
-                
-            if actual_service_payment > 0:
-                payment_service.record_room_payment(
-                    booking_id=booking.id,
-                    amount=actual_service_payment,
-                    payment_method='cash',
-                    payment_type='service_payment',
-                    note=f"Thanh toán tiền dịch vụ phòng {room.room_number}",
-                    created_at=now,
-                    business_operation=operation,
-                    component_key='service_payment',
-                )
-
-            if actual_tax_payment > 0:
-                payment_service.record_room_payment(
-                    booking_id=booking.id,
-                    amount=actual_tax_payment,
-                    payment_method='cash',
-                    payment_type='tax_payment',
-                    note=f"Thuế VAT 8% phòng {room.room_number}",
-                    created_at=now,
-                    business_operation=operation,
-                    component_key='tax_payment',
-                )
-
-            # --- KIỂM TRA ĐƠN TỔNG ---
-            all_rooms = tenant_query(BookingRoom).filter_by(booking_id=booking.id).all()
-
-            # Chỉ trừ cọc khi checkout phòng cuối cùng trong booking lẻ.
-            if apply_deposit_now:
-                booking.prepaid_amount = 0.0
-                for r in all_rooms:
-                    r.room_deposit_amount = 0.0
-            else:
-                booking.prepaid_amount = float(booking.prepaid_amount or 0)
-            
-            # CẬP NHẬT TỔNG TIỀN ĐƠN (Dùng để hiển thị trong Hóa đơn cũ - cập nhật liên tục)
-            booking.total_amount = sum(float(r.final_amount or 0) for r in all_rooms)
-            booking.updated_at = now # Cưỡng bức cập nhật thời gian
-            
-            if all(r.status in ['checked_out', 'cancelled'] for r in all_rooms):
-                booking.status = 'completed'
-
-        result_payload = {
-            'success': True,
-            'msg': f'Trả phòng {room_number} thành công!',
+            except (
+                business_operation_service.OperationRequestConflict,
+                business_operation_service.OperationInProgress,
+            ):
+                pass
+        return jsonify({
+            'success': False,
+            'msg': 'Phòng này đang được checkout bởi thao tác khác.',
             'operation_key': operation_key,
-        }
-        business_operation_service.complete_operation(
-            operation,
-            result_payload,
-        )
-        audit_service.record_event(
-            hotel_id=room.hotel_id,
+        }), 409
+
+    try:
+        result_payload = room_checkout_service.settle_room_checkout(
+            booking_room=booking_room,
+            quote=checkout_quote,
+            operation=operation,
+            payment_method=data.get('payment_method'),
+            checkout_at=now,
             actor_user_id=current_user.id,
-            action='checkout',
-            entity_type='booking_room',
-            entity_id=booking_room.id,
-            operation_key=operation_key,
-            before_data={'status': 'checked_in'},
-            after_data={'status': 'checked_out', 'final_amount': float(total_bill_with_tax)},
         )
         db.session.commit()
         return jsonify(result_payload)
-        
-    return jsonify({'success': False, 'msg': 'Không tìm thấy đơn để thanh toán.'})
+    except booking_state_service.InvalidBookingTransition as error:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error_code': 'invalid_checkout_state',
+            'msg': str(error),
+        }), 409
+    except Exception:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error_code': 'checkout_failed',
+            'msg': 'Không thể hoàn tất checkout. Dữ liệu chưa được thay đổi.',
+        }), 500
 
 # =======================================================
 # 6. THÊM ORDER DỊCH VỤ

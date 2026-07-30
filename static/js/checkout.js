@@ -292,14 +292,13 @@ function confirmCheckout() {
         showCheckoutStatus('Báo giá chưa sẵn sàng. Vui lòng tải lại.', 'warning');
         return;
     }
-    const amount = currentCheckoutQuote.balance;
     setCheckoutConfirmBusy(true);
     showCheckoutStatus('Đang xác nhận thanh toán...', 'info');
 
     const payload = { 
         number: currentCheckoutRoom,
-        amount: amount,
         include_tax: checkoutIncludeTax,
+        payment_method: 'cash',
         quote_fingerprint: currentCheckoutQuote.fingerprint,
         quote_checkout_at: currentCheckoutQuote.checkout_at
     };
