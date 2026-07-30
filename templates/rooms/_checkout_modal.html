@@ -8,6 +8,12 @@
             </div>
             
             <div class="modal-body">
+                <div
+                    id="checkout-status"
+                    class="alert alert-info py-2 d-none"
+                    role="status"
+                    aria-live="polite"
+                ></div>
                 <div class="d-flex justify-content-between border-bottom pb-2 mb-3">
                     <span class="text-muted">Khách hàng:</span>
                     <span id="co-customer" class="fw-bold text-dark">...</span>
@@ -118,7 +124,14 @@
 
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy bỏ</button>
-                <button type="button" class="btn btn-success fw-bold px-4 py-2" onclick="confirmCheckout()">
+                <button
+                    type="button"
+                    id="checkout-confirm-button"
+                    class="btn btn-success fw-bold px-4 py-2"
+                    aria-busy="false"
+                    aria-describedby="checkout-status"
+                    onclick="confirmCheckout()"
+                >
                     <i class="fas fa-check-circle me-2"></i> XÁC NHẬN THANH TOÁN
                 </button>
             </div>

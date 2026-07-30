@@ -66,6 +66,32 @@ def test_daily_bill_uses_existing_snapshot_over_current_rules(app, seed_hotels):
     assert total == 420000.0
 
 
+def test_daily_overstay_extends_with_last_snapshot_night(app, seed_hotels):
+    _, _, _, _, booking_room, _ = seed_hotels
+    with app.app_context():
+        total, breakdown = calculate_complex_hotel_bill(
+            datetime(2030, 1, 1, 14),
+            datetime(2030, 1, 4, 12),
+            booking_room.room,
+            rental_type='daily',
+            expected_check_in=datetime(2030, 1, 1, 14),
+            expected_check_out=datetime(2030, 1, 2, 12),
+            price_breakdown_snapshot=[
+                {'business_date': '2030-01-01', 'amount': 420000.0}
+            ],
+        )
+
+    assert total == 1260000.0
+    extension_lines = [
+        line for line in breakdown
+        if line.get("source") == "overstay_extension"
+    ]
+    assert [line["amount"] for line in extension_lines] == [
+        420000.0,
+        420000.0,
+    ]
+
+
 def test_group_booking_stores_nightly_price_snapshot(client, seed_hotels, login_as):
     hotel, _, user, _, booking_room, _ = seed_hotels
     login_as(client, user)

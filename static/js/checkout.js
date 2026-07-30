@@ -4,6 +4,25 @@ var currentCheckoutRoom = null; // Lưu số phòng hiện tại
 var currentBookingId = null;    // Lưu booking_id quan trọng
 var currentBookingRoomId = null; // Lưu booking_room_id cho thao tác checkout
 var checkoutIncludeTax = false; // Trạng thái bật/tắt VAT 8%
+var currentCheckoutQuote = null;
+
+function showCheckoutStatus(message, level = 'info') {
+    const status = document.getElementById('checkout-status');
+    if (!status) return;
+    status.textContent = message || '';
+    status.className = `alert alert-${level} py-2`;
+    status.classList.toggle('d-none', !message);
+}
+
+function setCheckoutConfirmBusy(isBusy) {
+    const button = document.getElementById('checkout-confirm-button');
+    if (!button) return;
+    button.disabled = isBusy;
+    button.setAttribute('aria-busy', isBusy ? 'true' : 'false');
+    button.innerHTML = isBusy
+        ? '<i class="fas fa-spinner fa-spin me-2"></i>Đang xử lý...'
+        : '<i class="fas fa-check-circle me-2"></i>XÁC NHẬN THANH TOÁN';
+}
 
 function bindCheckoutTaxToggle() {
     const taxToggle = document.getElementById('co-tax-toggle');
@@ -35,6 +54,8 @@ function checkOut(roomNumber, bookingId = null) {
         ? bookingId
         : null;
     currentBookingRoomId = null;
+    currentCheckoutQuote = null;
+    showCheckoutStatus('Đang tải báo giá mới nhất...', 'info');
     // Chuẩn bị payload gửi lên server
     const payload = {
         number: roomNumber,
@@ -53,10 +74,11 @@ function checkOut(roomNumber, bookingId = null) {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
+            currentCheckoutQuote = data.quote || null;
+            showCheckoutStatus('', 'info');
             // Cập nhật lại booking_id từ server trả về
             currentBookingId = data.booking_id;
             currentBookingRoomId = data.booking_room_id || null;
-            console.log(data)
 
             // --- A. ĐIỀN THÔNG TIN CƠ BẢN ---
             document.getElementById('co-room-number').innerText = data.room_number;
@@ -157,11 +179,13 @@ function checkOut(roomNumber, bookingId = null) {
             }
 
         } else {
+            showCheckoutStatus(data.msg || 'Không thể tải báo giá.', 'danger');
             alert("Lỗi: " + data.msg);
         }
     })
     .catch(err => {
         console.error(err);
+        showCheckoutStatus('Không thể kết nối máy chủ để tải báo giá.', 'danger');
         alert("Lỗi kết nối server!");
     });
 }
@@ -264,19 +288,20 @@ function changeServiceQty(serviceId, changeValue, currentQty) {
  * 4. HÀM XÁC NHẬN THANH TOÁN
  */
 function confirmCheckout() {
-    const amountInput = document.getElementById('co-amount-raw');
-    const amount = amountInput ? amountInput.value : 0;
-    
-    const btnConfirm = document.querySelector('#checkoutModal .btn-success');
-    if(btnConfirm) {
-        btnConfirm.disabled = true;
-        btnConfirm.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
+    if (!currentCheckoutQuote) {
+        showCheckoutStatus('Báo giá chưa sẵn sàng. Vui lòng tải lại.', 'warning');
+        return;
     }
+    const amount = currentCheckoutQuote.balance;
+    setCheckoutConfirmBusy(true);
+    showCheckoutStatus('Đang xác nhận thanh toán...', 'info');
 
     const payload = { 
         number: currentCheckoutRoom,
         amount: amount,
-        include_tax: checkoutIncludeTax
+        include_tax: checkoutIncludeTax,
+        quote_fingerprint: currentCheckoutQuote.fingerprint,
+        quote_checkout_at: currentCheckoutQuote.checkout_at
     };
     if (currentBookingRoomId) {
         payload.booking_room_id = currentBookingRoomId;
@@ -293,6 +318,7 @@ function confirmCheckout() {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
+            showCheckoutStatus('Thanh toán thành công.', 'success');
             alert(data.msg);
             const modalEl = document.getElementById('checkoutModal');
             const modal = bootstrap.Modal.getInstance(modalEl);
@@ -300,19 +326,25 @@ function confirmCheckout() {
             
             location.reload(); 
         } else {
-            alert(data.msg);
-            if(btnConfirm) {
-                btnConfirm.disabled = false;
-                btnConfirm.innerHTML = '<i class="fas fa-check-circle me-2"></i> XÁC NHẬN THANH TOÁN';
+            if (data.error_code === 'quote_stale') {
+                currentCheckoutQuote = data.quote || null;
+                showCheckoutStatus(
+                    'Báo giá đã thay đổi. Hệ thống đang tải lại để bạn kiểm tra.',
+                    'warning'
+                );
+                setCheckoutConfirmBusy(false);
+                checkOut(currentCheckoutRoom, currentBookingId);
+                return;
             }
+            showCheckoutStatus(data.msg || 'Không thể xác nhận thanh toán.', 'danger');
+            alert(data.msg);
+            setCheckoutConfirmBusy(false);
         }
     })
     .catch(err => {
         alert("Lỗi server: " + err);
-        if(btnConfirm) {
-            btnConfirm.disabled = false;
-            btnConfirm.innerHTML = '<i class="fas fa-check-circle me-2"></i> XÁC NHẬN THANH TOÁN';
-        }
+        showCheckoutStatus('Lỗi kết nối khi xác nhận thanh toán.', 'danger');
+        setCheckoutConfirmBusy(false);
     });
 }
 

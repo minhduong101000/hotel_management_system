@@ -6,6 +6,7 @@ let timelineData = null;
 let timelineViewMode = '3days';
 let timelineAnchorDate = new Date();
 let selectedDepositRatio = null;
+let currentBookingQuote = null;
 let bookingDetailServicesCatalog = [];
 let bookingDetailServicesLines = [];
 let bookingDetailCanEditServices = false;
@@ -238,6 +239,7 @@ function submitFullBooking(status) {
         check_in: rentalType === 'daily' ? document.getElementById('bk-daily-in').value : document.getElementById('bk-hourly-in').value,
         check_out: rentalType === 'daily' ? document.getElementById('bk-daily-out').value : document.getElementById('bk-hourly-out').value,
         deposit: document.getElementById('bk-deposit').value,
+        quote_fingerprint: currentBookingQuote?.fingerprint || null,
         note: document.getElementById('bk-note').value
     };
 
@@ -1349,9 +1351,12 @@ async function calculateQuickDeposit(percent = 0.5) {
         const data = await response.json();
         
         if (data.success) {
-            const totalAmount = data.total_amount;
-
-            const suggestedDeposit = totalAmount * percent;
+            currentBookingQuote = data.quote || null;
+            const totalAmount = Number(data.quote?.total || data.total_amount);
+            const optionKey = percent === 1 ? 'maximum_100' : 'suggested_50';
+            const suggestedDeposit = Number(
+                data.quote?.deposit_options?.[optionKey] ?? totalAmount * percent
+            );
             const percentLabel = percent === 1 ? "100%" : "50%";
             selectedDepositRatio = percent;
 
@@ -1466,6 +1471,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const hintText = document.getElementById('deposit-hint');
             
             selectedDepositRatio = null;
+            currentBookingQuote = null;
 
             // Luôn hiện nút cọc nhanh để bắt buộc chọn 50% hoặc 100%.
             if (quickDepositButtons) {
@@ -1487,6 +1493,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (depositInput) {
         depositInput.addEventListener('input', function() {
             selectedDepositRatio = null;
+            currentBookingQuote = null;
         });
     }
 

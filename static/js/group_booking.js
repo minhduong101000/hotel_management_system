@@ -5,6 +5,7 @@
  */
 
 let selectedGroupDepositRatio = null;
+let currentGroupBookingQuote = null;
 
 // ==========================================
 // 1. KHI MỞ MODAL: Tự động set ngày mặc định
@@ -19,6 +20,7 @@ document.getElementById('groupBookingModal').addEventListener('show.bs.modal', f
     let hint = document.getElementById('group-deposit-hint');
     if (hint) hint.innerText = '';
     selectedGroupDepositRatio = null;
+    currentGroupBookingQuote = null;
     
     // Lấy ngày hiện tại (Local Time)
     const now = new Date();
@@ -177,6 +179,7 @@ function handleRoomSelectionChange() {
     
     if (selectedCheckboxes.length > 0) {
         selectedGroupDepositRatio = null;
+        currentGroupBookingQuote = null;
         if (depositInput) depositInput.value = 0;
         if (hint) hint.innerHTML = '<span class="text-warning">Vui lòng chọn cọc 50% hoặc 100%.</span>';
     } else {
@@ -188,7 +191,7 @@ function handleRoomSelectionChange() {
 }
 
 // Hàm tính cọc nhanh 50% hoặc 100% (Đã tính kèm Số đêm lưu trú)
-function calculateGroupQuickDeposit(ratio) {
+async function calculateGroupQuickDeposit(ratio) {
     let selectedCheckboxes = document.querySelectorAll('.room-checkbox:checked');
     
     if (selectedCheckboxes.length === 0) {
@@ -202,38 +205,42 @@ function calculateGroupQuickDeposit(ratio) {
     
     if (!dateInVal || !dateOutVal) return; // Tránh lỗi chưa chọn ngày
     
-    const dateIn = new Date(dateInVal);
-    const dateOut = new Date(dateOutVal);
-    
-    // Tính khoảng cách giữa 2 ngày và đổi ra số ngày
-    const diffTime = Math.abs(dateOut - dateIn);
-    let nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    if (nights <= 0) nights = 1; // Đảm bảo tối thiểu 1 đêm
-
-    // --- BƯỚC 2: TÍNH TỔNG TIỀN PHÒNG CỦA 1 ĐÊM ---
-    let totalSelectedPricePerNight = 0;
-    selectedCheckboxes.forEach(checkbox => {
-        let price = parseFloat(checkbox.getAttribute('data-price') || 0);
-        totalSelectedPricePerNight += price;
-    });
-
-    // --- BƯỚC 3: NHÂN VỚI SỐ ĐÊM ĐỂ RA TỔNG TIỀN & TÍNH CỌC ---
-    let totalAmount = totalSelectedPricePerNight * nights;
-    let totalDeposit = totalAmount * ratio;
-    selectedGroupDepositRatio = ratio;
-
-    // Điền số tiền cọc vào Form
-    let depositInput = document.getElementById('group_total_deposit');
-    if (depositInput) depositInput.value = totalDeposit;
-
-    // Hiện dòng ghi chú chi tiết cho Lễ tân
-    let ratioText = ratio === 1 ? "100%" : "50%";
     let hint = document.getElementById('group-deposit-hint');
-    if (hint) {
-        hint.innerHTML = `
-            <span class="text-success fw-bold">Đã tính cọc (${ratioText}): ${totalDeposit.toLocaleString('vi-VN')} đ</span> <br> 
-            <small class="text-muted">(Tổng tiền ${selectedCheckboxes.length} phòng x ${nights} đêm: ${totalAmount.toLocaleString('vi-VN')} đ)</small>
-        `;
+    if (hint) hint.textContent = 'Đang lấy báo giá từ hệ thống...';
+
+    try {
+        const response = await fetch(api('/api/bookings/calculate-price'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                room_ids: Array.from(selectedCheckboxes).map(item => item.value),
+                check_in: `${dateInVal}T14:00`,
+                check_out: `${dateOutVal}T12:00`,
+                rental_type: 'daily'
+            })
+        });
+        const data = await response.json();
+        if (!data.success || !data.quote) {
+            throw new Error(data.msg || 'Không thể tính báo giá.');
+        }
+
+        currentGroupBookingQuote = data.quote;
+        const optionKey = ratio === 1 ? 'maximum_100' : 'suggested_50';
+        const totalDeposit = Number(data.quote.deposit_options[optionKey]);
+        const totalAmount = Number(data.quote.total);
+        selectedGroupDepositRatio = ratio;
+
+        const depositInput = document.getElementById('group_total_deposit');
+        if (depositInput) depositInput.value = totalDeposit;
+        const ratioText = ratio === 1 ? '100%' : '50%';
+        if (hint) {
+            hint.textContent = `Đã chọn cọc ${ratioText}: ${totalDeposit.toLocaleString('vi-VN')} đ (Tổng báo giá: ${totalAmount.toLocaleString('vi-VN')} đ)`;
+        }
+    } catch (error) {
+        currentGroupBookingQuote = null;
+        selectedGroupDepositRatio = null;
+        currentGroupBookingQuote = null;
+        if (hint) hint.textContent = `Không thể tính cọc: ${error.message}`;
     }
 }
 
@@ -311,6 +318,7 @@ function submitGroupBooking() {
         check_in: checkInPayload,
         check_out: checkOutPayload,
         deposit: deposit,
+        quote_fingerprint: currentGroupBookingQuote?.fingerprint || null,
         note: note
     };
 

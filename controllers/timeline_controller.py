@@ -18,7 +18,12 @@ from datetime import datetime, timedelta
 import random
 import string
 from services.pricing_service import get_effective_room_prices, calculate_raw_hourly_fee, get_nightly_price_breakdown
-from services import audit_service, business_operation_service, payment_service
+from services import (
+    audit_service,
+    booking_quote_service,
+    business_operation_service,
+    payment_service,
+)
 from decorators import booking_reschedule_required
 
 timeline_bp = Blueprint('timeline', __name__)
@@ -147,16 +152,13 @@ def _has_active_booking_conflict(room_id, check_in_dt, check_out_dt):
 
 def _estimate_booking_amount(room, rental_type, check_in_dt, check_out_dt):
     """Ước tính tiền phòng tại thời điểm tạo booking để kiểm tra tỷ lệ cọc."""
-    prices = get_effective_room_prices(room, check_in_dt)
-
-    if rental_type == 'hourly':
-        hourly_total, _, _ = calculate_raw_hourly_fee(check_in_dt, check_out_dt, prices)
-        return min(hourly_total, prices['p_night'])
-
-    nights = (check_out_dt.date() - check_in_dt.date()).days
-    if nights < 1:
-        nights = 1
-    return nights * prices['p_night']
+    quote = booking_quote_service.build_new_booking_quote(
+        [room],
+        check_in=check_in_dt,
+        check_out=check_out_dt,
+        rental_type=rental_type,
+    )
+    return float(quote['total'])
 
 
 def _is_valid_deposit_by_ratio(deposit_amount, estimated_amount):

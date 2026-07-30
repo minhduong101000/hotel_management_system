@@ -21,6 +21,45 @@ def get_nightly_price_breakdown(room, check_in: datetime, check_out: datetime):
         for night_date in get_billable_night_dates(check_in, check_out)
     ]
 
+
+def extend_nightly_price_snapshot(
+    price_breakdown_snapshot,
+    check_in: datetime,
+    check_out: datetime,
+):
+    """Extend a committed nightly snapshot using its last nightly amount."""
+    if not price_breakdown_snapshot:
+        return []
+
+    snapshot_by_date = {
+        str(line.get('business_date'))[:10]: {
+            'business_date': str(line.get('business_date'))[:10],
+            'amount': float(line.get('amount', 0)),
+            'source': line.get('source') or 'snapshot',
+        }
+        for line in price_breakdown_snapshot
+    }
+    ordered_snapshot = sorted(
+        snapshot_by_date.values(),
+        key=lambda line: line['business_date'],
+    )
+    last_snapshot = ordered_snapshot[-1]
+    last_snapshot_date = last_snapshot['business_date']
+    last_snapshot_amount = last_snapshot['amount']
+
+    result = []
+    for business_date in get_billable_night_dates(check_in, check_out):
+        date_key = business_date.isoformat()
+        if date_key in snapshot_by_date:
+            result.append(snapshot_by_date[date_key].copy())
+        elif date_key > last_snapshot_date:
+            result.append({
+                'business_date': date_key,
+                'amount': last_snapshot_amount,
+                'source': 'overstay_extension',
+            })
+    return result
+
 # =======================================================
 # 1. HÀM LẤY GIÁ (CÓ CHECK RULE LỄ TẾT)
 # =======================================================
@@ -259,7 +298,11 @@ def calculate_complex_hotel_bill(check_in, check_out, room, rental_type='hourly'
 
         # LOGIC MỚI: Tính số đêm chính xác dựa trên khoảng ngày
         if price_breakdown_snapshot:
-            nightly_breakdown = price_breakdown_snapshot
+            nightly_breakdown = extend_nightly_price_snapshot(
+                price_breakdown_snapshot,
+                datetime.combine(bill_start_date, time(14, 0)),
+                datetime.combine(bill_end_date, time(12, 0)),
+            )
         elif rental_type == 'hourly' and hourly_price_snapshot:
             nightly_breakdown = [
                 {'business_date': night_date, 'amount': prices['p_night']}
@@ -281,10 +324,18 @@ def calculate_complex_hotel_bill(check_in, check_out, room, rental_type='hourly'
             "amount": base_fee
         })
         for line in nightly_breakdown:
+            line_source = line.get('source')
             breakdown.append({
                 "label": f"Giá đêm {line['business_date'].strftime('%d/%m') if hasattr(line['business_date'], 'strftime') else line['business_date']}",
-                "detail": "Giá theo rule hiệu lực của đêm này",
+                "detail": (
+                    "Nối dài theo giá snapshot đêm cuối"
+                    if line_source == 'overstay_extension'
+                    else "Giá đã chốt cho đêm này"
+                    if line_source == 'snapshot'
+                    else "Giá theo rule hiệu lực của đêm này"
+                ),
                 "amount": line['amount'],
+                "source": line_source or "effective_price",
             })
 
         # ====================================================

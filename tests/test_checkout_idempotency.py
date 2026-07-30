@@ -15,11 +15,18 @@ def test_repeated_checkout_replays_result_without_duplicate_payment(
     db.session.commit()
     login_as(client, user)
 
+    preview = client.post(
+        f"/{hotel.slug}/bookings/api/rooms/preview_checkout",
+        json={"number": booking_room.room.room_number},
+    )
+    quote = preview.json["quote"]
     payload = {
         "number": booking_room.room.room_number,
         "booking_room_id": booking_room.id,
         "booking_id": booking_room.booking_id,
         "amount": 100000,
+        "quote_fingerprint": quote["fingerprint"],
+        "quote_checkout_at": quote["checkout_at"],
     }
     first_response = client.post(f"/{hotel.slug}/bookings/api/rooms/checkout", json=payload)
     second_response = client.post(f"/{hotel.slug}/bookings/api/rooms/checkout", json=payload)

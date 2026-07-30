@@ -18,6 +18,11 @@ def test_checkout_creates_tenant_scoped_audit_event(client, seed_hotels, login_a
     db.session.commit()
     login_as(client, user)
 
+    preview = client.post(
+        f"/{hotel.slug}/bookings/api/rooms/preview_checkout",
+        json={"number": booking_room.room.room_number},
+    )
+    quote = preview.json["quote"]
     response = client.post(
         f"/{hotel.slug}/bookings/api/rooms/checkout",
         json={
@@ -25,6 +30,8 @@ def test_checkout_creates_tenant_scoped_audit_event(client, seed_hotels, login_a
             "booking_room_id": booking_room.id,
             "booking_id": booking_room.booking_id,
             "amount": 100000,
+            "quote_fingerprint": quote["fingerprint"],
+            "quote_checkout_at": quote["checkout_at"],
         },
     )
 

@@ -18,7 +18,7 @@ from models.booking_room import BookingRoom
 # 2. IMPORT SERVICE (Logic tính giá)
 # ====================================================
 from services.pricing_service import get_effective_room_prices_bulk
-from services import audit_service
+from services import audit_service, booking_quote_service
 
 room_bp = Blueprint('room', __name__)
 
@@ -345,16 +345,20 @@ def api_calculate_price():
     try:
         data = request.json
         room_id = data.get('room_id')
+        room_ids = data.get('room_ids') or ([room_id] if room_id else [])
         check_in_str = data.get('check_in')
         check_out_str = data.get('check_out')
         rental_type = data.get('rental_type') # 'daily' hoặc 'hourly'
 
-        if not all([room_id, check_in_str, check_out_str]):
+        if not all([room_ids, check_in_str, check_out_str]):
             return jsonify({'success': False, 'msg': 'Thiếu thông tin tính giá!'})
 
         # 1. Lấy thông tin phòng từ DB
-        room = tenant_query(Room).filter_by(id=room_id).first()
-        if not room:
+        normalized_room_ids = [int(value) for value in room_ids]
+        rooms = tenant_query(Room).filter(
+            Room.id.in_(normalized_room_ids)
+        ).order_by(Room.id.asc()).all()
+        if len(rooms) != len(set(normalized_room_ids)):
             return jsonify({'success': False, 'msg': 'Không tìm thấy phòng!'})
 
         # 2. Parse ngày giờ từ frontend (Input type="datetime-local" có dạng YYYY-MM-DDTHH:MM)
@@ -364,33 +368,20 @@ def api_calculate_price():
         if check_in >= check_out:
             return jsonify({'success': False, 'msg': 'Giờ trả phòng phải sau giờ nhận phòng!'})
 
-        # 3. Gọi Service lấy giá theo hệ thống (Dùng ngày check-in làm mốc lấy giá)
-        effective_prices = get_effective_room_prices(room, check_in)
-        
-        total_amount = 0
-        
-        # 4. Tính toán tổng tiền
-        if rental_type == 'daily':
-            # Thuê theo ngày: Tính số đêm
-            delta = check_out.date() - check_in.date()
-            nights = delta.days if delta.days > 0 else 1
-            # Lấy giá đêm từ dictionary trả về của hàm get_effective_room_prices
-            p_night = effective_prices.get('p_night', 0)
-            total_amount = p_night * nights
-            
-        elif rental_type == 'hourly':
-            # Thuê theo giờ: Tính số giờ (Làm tròn lên hoặc giữ nguyên tùy logic của bạn)
-            delta_hours = (check_out - check_in).total_seconds() / 3600.0
-            hours = max(1, round(delta_hours, 1)) # Tính tối thiểu 1 giờ
-            
-            # GIẢ SỬ dict effective_prices có key 'p_hour'. 
-            # Nếu chưa có, bạn có thể tự thêm trong hàm get_effective_room_prices hoặc tự chia ở đây
-            p_hour = effective_prices.get('p_hour', effective_prices.get('p_night', 0) / 24) 
-            total_amount = p_hour * hours
+        if rental_type not in ('daily', 'hourly'):
+            return jsonify({'success': False, 'msg': 'Loại thuê không hợp lệ!'})
+
+        quote = booking_quote_service.build_new_booking_quote(
+            rooms,
+            check_in=check_in,
+            check_out=check_out,
+            rental_type=rental_type,
+        )
 
         return jsonify({
             'success': True,
-            'total_amount': int(total_amount), # Làm tròn số tiền nguyên
+            'total_amount': int(booking_quote_service.money(quote['total'])),
+            'quote': quote,
             'msg': 'Tính giá thành công'
         })
 

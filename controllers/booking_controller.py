@@ -21,6 +21,7 @@ from models.business_operation import BusinessOperation
 # Import Shared Logic
 from services.pricing_service import calculate_complex_hotel_bill, get_effective_room_prices, get_nightly_price_breakdown
 from services import (
+    booking_quote_service,
     business_operation_service,
     inventory_service,
     payment_service,
@@ -354,55 +355,37 @@ def preview_checkout_room():
         return jsonify({'success': False, 'msg': 'Không tìm thấy phòng đang check-in để thanh toán.'})
 
     check_in_time = booking_room.check_in_actual or booking_room.check_in_expected or datetime.now()
-    check_out_time = datetime.now()
-
-    room_fee, breakdown = calculate_complex_hotel_bill(
-        check_in_time,
-        check_out_time,
-        room,
-        rental_type=booking_room.rental_type,
-        expected_check_in=booking_room.check_in_expected,
-        expected_check_out=booking_room.check_out_expected,
-        price_breakdown_snapshot=booking_room.price_breakdown_snapshot,
-        hourly_price_snapshot=booking_room.hourly_price_snapshot,
+    check_out_time = datetime.now().replace(microsecond=0)
+    quote = booking_quote_service.build_checkout_quote(
+        booking_room,
+        checkout_at=check_out_time,
+        include_tax=include_tax,
     )
 
-    room_services = tenant_query(BookingService).filter_by(
-        booking_id=booking_room.booking_id,
-        room_id=room.id
-    ).all()
-
-    services_data = []
-    service_fee = 0.0
-    for item in room_services:
-        price = float(item.price_at_booking or (item.service.price if item.service else 0))
-        qty = int(item.quantity or 0)
-        total = price * qty
-        service_fee += total
-        services_data.append({
-            'service_id': item.service_id,
-            'name': item.service.name if item.service else 'Dich vu',
-            'quantity': qty,
-            'price': price,
-            'total': total
-        })
-
-    total_before_tax = float(room_fee) + float(service_fee)
-    tax_rate = 0.08
-    tax_amount = round(total_before_tax * tax_rate, 2) if include_tax else 0.0
-    total_bill = total_before_tax + tax_amount
-
-    prepaid_amount = 0.0
-    apply_deposit_now = False
-    if booking_room.booking:
-        apply_deposit_now = _is_last_active_room_for_booking(
-            booking_id=booking_room.booking.id,
-            current_booking_room_id=booking_room.id
-        )
-        if apply_deposit_now:
-            prepaid_amount = float(booking_room.booking.prepaid_amount or 0)
-
-    final_amount = total_bill - prepaid_amount
+    room_fee = float(quote['room_subtotal'])
+    service_fee = float(quote['service_subtotal'])
+    tax_amount = float(quote['tax'])
+    total_bill = float(quote['total'])
+    prepaid_amount = float(quote['deposit'])
+    final_amount = float(quote['balance'])
+    apply_deposit_now = quote['apply_deposit']
+    breakdown = [
+        {
+            **line,
+            'amount': float(line['amount']),
+        }
+        for line in quote['room_lines']
+    ]
+    services_data = [
+        {
+            'service_id': line['service_id'],
+            'name': line['name'],
+            'quantity': line['quantity'],
+            'price': float(line['unit_price']),
+            'total': float(line['amount']),
+        }
+        for line in quote['service_lines']
+    ]
 
     def _format_vnd(amount):
         return f"{int(round(amount)):,.0f}".replace(',', '.')
@@ -435,7 +418,7 @@ def preview_checkout_room():
         'formatted_room_fee': _format_vnd(room_fee),
         'formatted_service_fee': _format_vnd(service_fee),
         'include_tax': include_tax,
-        'tax_rate': int(tax_rate * 100),
+        'tax_rate': int(float(quote['tax_rate']) * 100),
         'tax_amount': tax_amount,
         'formatted_tax_amount': _format_vnd(tax_amount),
         'formatted_total_bill': _format_vnd(total_bill),
@@ -443,7 +426,8 @@ def preview_checkout_room():
         'prepaid_amount': prepaid_amount,
         'formatted_prepaid_amount': _format_vnd(prepaid_amount),
         'final_amount': final_amount,
-        'formatted_final_amount': f"{_format_vnd(final_amount)} đ"
+        'formatted_final_amount': f"{_format_vnd(final_amount)} đ",
+        'quote': quote,
     })
 
 # =======================================================
@@ -539,6 +523,40 @@ def checkout_room():
     )
 
     if booking_room:
+        fresh_quote = booking_quote_service.build_checkout_quote(
+            booking_room,
+            checkout_at=datetime.now().replace(microsecond=0),
+            include_tax=include_tax,
+        )
+        quote_fingerprint = str(data.get('quote_fingerprint') or '')
+        quote_checkout_at_raw = data.get('quote_checkout_at')
+        try:
+            quote_checkout_at = datetime.fromisoformat(
+                str(quote_checkout_at_raw)
+            ).replace(tzinfo=None, microsecond=0)
+            checkout_quote = booking_quote_service.build_checkout_quote(
+                booking_room,
+                checkout_at=quote_checkout_at,
+                include_tax=include_tax,
+            )
+        except (TypeError, ValueError):
+            checkout_quote = None
+
+        if (
+            checkout_quote is None
+            or not quote_fingerprint
+            or checkout_quote['fingerprint'] != quote_fingerprint
+            or booking_quote_service.is_expired(checkout_quote)
+        ):
+            return jsonify({
+                'success': False,
+                'error_code': 'quote_stale',
+                'msg': 'Báo giá đã thay đổi hoặc hết hạn. Vui lòng kiểm tra báo giá mới.',
+                'quote': fresh_quote,
+            }), 409
+
+        now = quote_checkout_at
+        payment_received = float(checkout_quote['balance'])
         operation_key = f'checkout:{booking_room.id}'
         existing_operation = tenant_query(BusinessOperation).filter_by(
             operation_key=operation_key
@@ -904,14 +922,13 @@ def create_group_booking():
         rooms_query = tenant_query(Room).filter(Room.id.in_(room_ids)).order_by(Room.id.asc()).with_for_update().all()
         room_dict = {r.id: r for r in rooms_query}
 
-        nights = (check_out.date() - check_in.date()).days
-        if nights < 1:
-            nights = 1
-
-        estimated_total = 0.0
-        for room_obj in rooms_query:
-            prices = get_effective_room_prices(room_obj, check_in)
-            estimated_total += float(prices['p_night']) * nights
+        price_quote = booking_quote_service.build_new_booking_quote(
+            rooms_query,
+            check_in=check_in,
+            check_out=check_out,
+            rental_type='daily',
+        )
+        estimated_total = float(price_quote['total'])
 
         if estimated_total <= 0:
             return jsonify({'success': False, 'msg': 'Không thể tính tổng tiền dự kiến để kiểm tra tiền cọc.'})
@@ -1007,13 +1024,18 @@ def create_group_booking():
             success_count += 1
 
         if success_count > 0:
-            estimated_total_success = 0.0
-            for br in created_rooms:
-                room_obj = room_dict.get(br.room_id)
-                if not room_obj:
-                    continue
-                prices = get_effective_room_prices(room_obj, check_in)
-                estimated_total_success += float(prices['p_night']) * nights
+            successful_rooms = [
+                room_dict[br.room_id]
+                for br in created_rooms
+                if br.room_id in room_dict
+            ]
+            successful_quote = booking_quote_service.build_new_booking_quote(
+                successful_rooms,
+                check_in=check_in,
+                check_out=check_out,
+                rental_type='daily',
+            )
+            estimated_total_success = float(successful_quote['total'])
 
             expected_50_success = round(estimated_total_success * 0.5, 2)
             expected_100_success = round(estimated_total_success, 2)
