@@ -12,7 +12,7 @@ def _money(value):
     return Decimal(str(value or 0))
 
 
-def _derive_booking_status(booking_rooms):
+def derive_booking_status(booking_rooms):
     statuses = {room.status for room in booking_rooms}
     if not statuses:
         return "pending"
@@ -30,7 +30,7 @@ def _derive_booking_status(booking_rooms):
 def aggregate_booking_state(booking, *, changed_at=None):
     """Tính lại trạng thái và tổng tiền booking từ toàn bộ phòng con."""
     booking_rooms = list(booking.rooms)
-    booking.status = _derive_booking_status(booking_rooms)
+    booking.status = derive_booking_status(booking_rooms)
     booking.total_amount = sum(
         (_money(room.final_amount) for room in booking_rooms),
         Decimal("0"),
