@@ -313,7 +313,7 @@ def test_create_booking_records_audit_event(client, seed_hotels, login_as):
     assert event.after_data["status"] == "booked"
 
 
-def test_update_timeline_records_audit_event(client, seed_hotels, login_as):
+def test_reschedule_records_audit_event(client, seed_hotels, login_as):
     hotel, _, user, _, booking_room, _ = seed_hotels
     booking_room.check_in_expected = datetime(2030, 1, 1, 14, 0)
     booking_room.check_out_expected = datetime(2030, 1, 2, 12, 0)
@@ -321,21 +321,24 @@ def test_update_timeline_records_audit_event(client, seed_hotels, login_as):
     login_as(client, user)
 
     response = client.post(
-        f"/{hotel.slug}/timeline/api/bookings/update_timeline",
+        f"/{hotel.slug}/timeline/api/bookings/reschedule",
         json={
-            "id": booking_room.id,
-            "start": "2030-01-01T15:00:00",
-            "end": "2030-01-02T13:00:00",
+            "booking_room_id": booking_room.id,
+            "room_id": booking_room.room_id,
+            "check_in": "2030-01-01T15:00:00",
+            "check_out": "2030-01-02T13:00:00",
+            "reason": "Khách thay đổi lịch",
+            "price_mode": "keep",
         },
     )
 
     assert response.status_code == 200
     assert response.json["success"] is True
     event = AuditEvent.query.one()
-    assert event.action == "update_booking_timeline"
+    assert event.action == "reschedule_booking_keep_price"
     assert event.entity_id == booking_room.id
-    assert event.before_data["check_in_expected"] == "2030-01-01T14:00:00"
-    assert event.after_data["check_in_expected"] == "2030-01-01T15:00:00"
+    assert event.before_data["check_in"] == "2030-01-01T14:00:00"
+    assert event.after_data["check_in"] == "2030-01-01T15:00:00"
 
 
 def test_clean_room_records_audit_event(client, seed_hotels, login_as):

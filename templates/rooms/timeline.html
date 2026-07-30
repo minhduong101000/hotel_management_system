@@ -151,9 +151,11 @@
                         <i class="fas fa-sign-in-alt"></i> Nhận phòng
                     </button>
 
+                    {% if current_user.role == 'admin' or current_user.is_super_admin %}
                     <button type="button" id="btn-reschedule-booking" class="btn btn-sm btn-outline-primary fw-bold" onclick="openRescheduleModal()">
                         <i class="fas fa-calendar-alt me-1"></i>Dời lịch
                     </button>
+                    {% endif %}
 
                     <button type="button" id="btn-checkout-timeline" class="btn btn-sm btn-success fw-bold" style="display: none;" onclick="openCheckoutFromTimeline()">
                         <i class="fas fa-money-bill-wave"></i> Thanh toán lẻ

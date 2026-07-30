@@ -1,5 +1,5 @@
 from functools import wraps
-from flask import abort, flash, redirect, url_for
+from flask import abort, flash, jsonify, redirect, url_for
 from flask_login import current_user
 
 def admin_required(f):
@@ -21,4 +21,24 @@ def master_admin_required(f):
         if not current_user.is_super_admin:
             abort(403)
         return f(*args, **kwargs)
+    return decorated_function
+
+
+def booking_reschedule_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        can_reschedule = (
+            current_user.is_authenticated
+            and (current_user.role == "admin" or current_user.is_super_admin)
+        )
+        if not can_reschedule:
+            return jsonify(
+                {
+                    "success": False,
+                    "error_code": "forbidden",
+                    "msg": "Bạn không có quyền dời lịch booking.",
+                }
+            ), 403
+        return f(*args, **kwargs)
+
     return decorated_function

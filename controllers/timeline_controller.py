@@ -19,6 +19,7 @@ import random
 import string
 from services.pricing_service import get_effective_room_prices, calculate_raw_hourly_fee, get_nightly_price_breakdown
 from services import payment_service, audit_service
+from decorators import booking_reschedule_required
 
 timeline_bp = Blueprint('timeline', __name__)
 
@@ -289,7 +290,10 @@ def get_timeline():
             'content': content,
             'className': css_class,
             'title': tooltip,
-            'editable': (not is_finalized),
+            'editable': (
+                not is_finalized
+                and (current_user.role == 'admin' or current_user.is_super_admin)
+            ),
             'is_group': is_group,
             'status': br.status,
             'booking_status': b.status,
@@ -411,6 +415,7 @@ def get_booking_detail(id):
 
 @timeline_bp.route('/api/bookings/reschedule/availability', methods=['POST'])
 @login_required
+@booking_reschedule_required
 def check_reschedule_availability():
     data = request.get_json(silent=True) or {}
     try:
@@ -674,7 +679,19 @@ def update_booking_timeline():
         br = tenant_query(BookingRoom).filter_by(id=br_id).first()
         if not br: return jsonify({'success': False, 'msg': 'Không tìm thấy booking'})
         if br.status in ['checked_out', 'cancelled'] or (br.booking and br.booking.status in ['completed', 'cancelled']):
-            return jsonify({'success': False, 'msg': 'Booking đã hoàn tất/hủy, không thể chỉnh sửa timeline.'})
+            return jsonify({'success': False, 'msg': 'Booking đã hoàn tất/hủy, không thể chỉnh sửa timeline.'}), 409
+        if br.status == 'booked':
+            return jsonify({
+                'success': False,
+                'error_code': 'reschedule_required',
+                'msg': 'Booking đã đặt phải được thay đổi qua chức năng Dời lịch.',
+            }), 409
+        if br.status == 'checked_in':
+            return jsonify({
+                'success': False,
+                'error_code': 'checked_in_timeline_locked',
+                'msg': 'Không thể đổi phòng hoặc giờ nhận thực tế của khách đang ở qua Timeline.',
+            }), 409
 
         booking = br.booking
         before_data = {
@@ -781,6 +798,7 @@ def update_booking_timeline():
 # ========================================================
 @timeline_bp.route('/api/bookings/reschedule', methods=['POST'])
 @login_required
+@booking_reschedule_required
 def reschedule_booking():
     data = request.get_json(silent=True) or {}
     reason = str(data.get('reason') or '').strip()

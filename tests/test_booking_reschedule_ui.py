@@ -22,3 +22,25 @@ def test_reschedule_endpoint_is_mapped_to_timeline_blueprint():
 
     assert "'/api/bookings/reschedule'" in source
     assert "data.status === 'booked'" in timeline_source
+
+
+def test_staff_timeline_hides_reschedule_action_and_disables_dragging(
+    client, seed_hotels, login_as
+):
+    from extensions import db
+    from models import User
+
+    hotel, _, _, _, _, _ = seed_hotels
+    staff = User(username="timeline_staff", role="staff", hotel_id=hotel.id)
+    staff.set_password("correct-password")
+    db.session.add(staff)
+    db.session.commit()
+    login_as(client, staff)
+
+    page = client.get(f"/{hotel.slug}/rooms/timeline-view")
+    timeline = client.get(f"/{hotel.slug}/timeline/api/bookings/timeline")
+
+    assert page.status_code == 200
+    assert 'id="btn-reschedule-booking"' not in page.get_data(as_text=True)
+    assert timeline.status_code == 200
+    assert all(item["editable"] is False for item in timeline.get_json()["items"])
