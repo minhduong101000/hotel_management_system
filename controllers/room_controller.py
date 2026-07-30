@@ -1,10 +1,10 @@
-from services.tenant_service import tenant_query, tenant_get_or_404
+from services.tenant_service import current_hotel_id, tenant_get_or_404, tenant_query
 from flask import Blueprint, render_template, jsonify, request
 from flask_login import login_required, current_user
 from extensions import db
 from sqlalchemy.orm import joinedload
 from datetime import datetime, timedelta
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, func, or_
 
 # ====================================================
 # 1. IMPORT MODELS (Đúng cấu trúc tách file)
@@ -17,7 +17,7 @@ from models.booking_room import BookingRoom
 # ====================================================
 # 2. IMPORT SERVICE (Logic tính giá)
 # ====================================================
-from services.pricing_service import get_effective_room_prices
+from services.pricing_service import get_effective_room_prices_bulk
 from services import audit_service
 
 room_bp = Blueprint('room', __name__)
@@ -51,11 +51,31 @@ def get_rooms():
 
         # 2. Lấy danh sách phòng ĐANG CÓ KHÁCH (Status = 'checked_in')
         # --- TỐI ƯU QUERY: Load luôn Booking VÀ Customer để tránh N+1 ---
-        active_booking_rooms = tenant_query(BookingRoom).options(
+        group_counts_subquery = db.session.query(
+            BookingRoom.booking_id.label('booking_id'),
+            func.count(BookingRoom.id).label('room_count'),
+        ).filter(
+            BookingRoom.hotel_id == current_hotel_id(),
+        ).group_by(
+            BookingRoom.booking_id,
+        ).subquery()
+
+        active_booking_rows = tenant_query(BookingRoom).outerjoin(
+            group_counts_subquery,
+            group_counts_subquery.c.booking_id == BookingRoom.booking_id,
+        ).add_columns(
+            group_counts_subquery.c.room_count,
+        ).options(
             joinedload(BookingRoom.booking).joinedload(Booking.customer) 
         ).filter(
             BookingRoom.status == 'checked_in' 
         ).all()
+
+        active_booking_rooms = [row[0] for row in active_booking_rows]
+        group_room_counts = {
+            row[0].booking_id: int(row[1] or 1)
+            for row in active_booking_rows
+        }
         
         active_map = {br.room_id: br for br in active_booking_rooms}
 
@@ -99,6 +119,8 @@ def get_rooms():
                 if br.room_id not in upcoming_map:
                     upcoming_map[br.room_id] = br
 
+        room_prices = get_effective_room_prices_bulk(rooms, now)
+
         # 4. Tổng hợp dữ liệu
         rooms_list = []
         count_occupied = 0
@@ -106,7 +128,7 @@ def get_rooms():
         
         for r in rooms:
             # Gọi service tính giá (giữ nguyên logic cũ)
-            current_prices = get_effective_room_prices(r, now)
+            current_prices = room_prices[r.id]
 
             room_data = {
                 'id': r.id,
@@ -148,7 +170,7 @@ def get_rooms():
                 room_data['booking_id'] = br.booking_id
                 
                 # Kiểm tra đoàn: booking có nhiều hơn 1 phòng
-                room_count = tenant_query(BookingRoom).filter_by(booking_id=br.booking_id).count()
+                room_count = group_room_counts.get(br.booking_id, 1)
                 room_data['is_group'] = room_count > 1
                 
                 # LẤY INFO KHÁCH HÀNG

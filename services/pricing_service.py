@@ -24,25 +24,10 @@ def get_nightly_price_breakdown(room, check_in: datetime, check_out: datetime):
 # =======================================================
 # 1. HÀM LẤY GIÁ (CÓ CHECK RULE LỄ TẾT)
 # =======================================================
-def get_effective_room_prices(room, check_date=None):
-    """
-    Lấy giá phòng thực tế tại thời điểm check_date.
-    Logic: 
-      - Giá giờ: LUÔN LẤY GỐC TỪ ROOM (PriceRule không can thiệp).
-      - Giá ngày: Ưu tiên PriceRule (Lễ/Tết) > Giá niêm yết (Room).
-    """
-    if check_date is None:
-        check_date = datetime.now()
-
-    # --- A. Lấy giá gốc từ Room Settings ---
-    # Sử dụng getattr để an toàn nếu model Room chưa cập nhật kịp attribute
+def _base_room_prices(room):
     base_price_night = float(getattr(room, 'price_per_night', 0))
-    
-    # Giá giờ: Block đầu (VD: 2h đầu) và Block tiếp theo (mỗi giờ thêm)
-    # Nếu DB không có cột này, tạm tính theo công thức mặc định
     base_price_initial = float(getattr(room, 'price_initial_block', 0)) or (base_price_night / 4)
     base_price_next = float(getattr(room, 'price_next_hour', 0)) or (base_price_night / 10)
-    # Mặc định block đầu là 2 giờ nếu dữ liệu phòng thiếu/sai.
     raw_initial_hours = getattr(room, 'initial_hours', 2)
     try:
         initial_hours_val = int(raw_initial_hours)
@@ -51,63 +36,86 @@ def get_effective_room_prices(room, check_date=None):
     if initial_hours_val < 1:
         initial_hours_val = 2
 
-    prices = {
-        'p_initial': base_price_initial, # Giá block đầu
-        'p_next': base_price_next,       # Giá các giờ sau
-        'p_night': base_price_night,     # Giá ngày (đêm)
+    return {
+        'p_initial': base_price_initial,
+        'p_next': base_price_next,
+        'p_night': base_price_night,
         'initial_hours': initial_hours_val,
         'is_special': False,
         'rule_name': 'Giá niêm yết'
     }
 
-    # --- B. Tìm Rule áp dụng (Lễ, Tết, Mùa vụ) ---
-    check_date_obj = check_date.date()
-    
-    # Tìm các rule đang active và thỏa mãn ngày
-    try:
-        candidate_rules = PriceRule.query.filter(
-            and_(
-                PriceRule.hotel_id == room.hotel_id,
-                PriceRule.room_type == room.room_type,
-                PriceRule.is_active == True,
-                # Kiểm tra ngày nằm trong khoảng hiệu lực (Start -> End)
-                or_(PriceRule.start_date.is_(None), PriceRule.start_date <= check_date_obj),
-                or_(PriceRule.end_date.is_(None), PriceRule.end_date >= check_date_obj)
-            )
-        ).order_by(PriceRule.priority.desc()).all()
-    except RuntimeError:
-        # Cho phép chạy test/script ngoài Flask app context: bỏ qua rule đặc biệt.
-        candidate_rules = []
 
-    # --- C. Lọc rule theo Thứ trong tuần (Weekdays) ---
-    selected_rule = None
-    current_weekday = str(check_date.weekday()) # 0=Mon, 6=Sun
-
-    for rule in candidate_rules:
-        # 1. Nếu rule không quy định thứ (NULL hoặc rỗng) -> Áp dụng cả tuần
-        if not rule.days_of_week:
-            selected_rule = rule
-            break
-            
-        # 2. Nếu rule có quy định thứ -> Check xem hôm nay có nằm trong đó không
-        # Ví dụ days_of_week lưu "5,6" (Thứ 7, CN)
-        if rule.days_of_week and current_weekday in rule.days_of_week.split(','):
-            selected_rule = rule
-            break
-
-    # --- D. Áp dụng giá từ Rule (CHỈ ÁP DỤNG GIÁ NGÀY) ---
+def _apply_effective_rule(room, check_date, candidate_rules):
+    prices = _base_room_prices(room)
+    current_weekday = str(check_date.weekday())
+    selected_rule = next(
+        (
+            rule
+            for rule in candidate_rules
+            if not rule.days_of_week
+            or current_weekday in rule.days_of_week.split(',')
+        ),
+        None,
+    )
     if selected_rule:
-        # Chỉ cập nhật giá ngày từ Rule
         if selected_rule.price_daily > 0:
             prices['p_night'] = float(selected_rule.price_daily)
-            
-        # --- QUAN TRỌNG: KHÔNG lấy giá giờ từ Rule nữa (vì bảng PriceRule không có cột này) ---
-        # Giá giờ giữ nguyên theo config của Room (đã lấy ở bước A)
-
         prices['is_special'] = True
         prices['rule_name'] = selected_rule.name
-
     return prices
+
+
+def _effective_rule_query(hotel_id, room_types, check_date):
+    return PriceRule.query.filter(
+        PriceRule.hotel_id == hotel_id,
+        PriceRule.room_type.in_(room_types),
+        PriceRule.is_active.is_(True),
+        or_(PriceRule.start_date.is_(None), PriceRule.start_date <= check_date.date()),
+        or_(PriceRule.end_date.is_(None), PriceRule.end_date >= check_date.date()),
+    ).order_by(PriceRule.priority.desc())
+
+
+def get_effective_room_prices(room, check_date=None):
+    """Return effective prices for one room."""
+    check_date = check_date or datetime.now()
+    try:
+        candidate_rules = _effective_rule_query(
+            room.hotel_id,
+            [room.room_type],
+            check_date,
+        ).all()
+    except RuntimeError:
+        candidate_rules = []
+    return _apply_effective_rule(room, check_date, candidate_rules)
+
+
+def get_effective_room_prices_bulk(rooms, check_date=None):
+    """Load applicable rules once and calculate prices for all supplied rooms."""
+    rooms = list(rooms)
+    if not rooms:
+        return {}
+
+    check_date = check_date or datetime.now()
+    hotel_id = rooms[0].hotel_id
+    room_types = sorted({room.room_type for room in rooms})
+    candidate_rules = _effective_rule_query(
+        hotel_id,
+        room_types,
+        check_date,
+    ).all()
+    rules_by_type = {}
+    for rule in candidate_rules:
+        rules_by_type.setdefault(rule.room_type, []).append(rule)
+
+    return {
+        room.id: _apply_effective_rule(
+            room,
+            check_date,
+            rules_by_type.get(room.room_type, []),
+        )
+        for room in rooms
+    }
 
 # =======================================================
 # 2. HELPER: TÍNH % PHỤ THU (SỚM/MUỘN)
