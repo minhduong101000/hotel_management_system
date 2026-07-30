@@ -1,6 +1,7 @@
-from flask import Flask, redirect, url_for, g, abort
-from extensions import db, login_manager, mail 
+from flask import Flask, abort, g, jsonify, redirect, render_template, request, url_for
+from extensions import csrf, db, login_manager, mail
 from flask_migrate import Migrate
+from flask_wtf.csrf import CSRFError
 from models import User
 from models.hotel import Hotel
 from commands import register_commands
@@ -33,6 +34,7 @@ def create_app(test_config=None, environment=None):
     db.init_app(app)
     login_manager.init_app(app)
     mail.init_app(app)
+    csrf.init_app(app)
     Migrate(app, db)
     register_commands(app)
 
@@ -121,6 +123,20 @@ def create_app(test_config=None, environment=None):
             response.headers["X-Content-Type-Options"] = "nosniff"
             response.headers["Referrer-Policy"] = "same-origin"
         return response
+
+    @app.errorhandler(CSRFError)
+    def handle_csrf_error(error):
+        message = "Phiên thao tác không hợp lệ hoặc đã hết hạn."
+        if request.is_json or "/api/" in request.path:
+            return (
+                jsonify(
+                    success=False,
+                    error_code="csrf_failed",
+                    msg=message,
+                ),
+                400,
+            )
+        return render_template("errors/csrf.html", message=message), 400
 
     return app
 

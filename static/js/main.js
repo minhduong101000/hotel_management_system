@@ -76,6 +76,37 @@ function api(path) {
     return '/' + slug + path; // Fallback generic
 }
 
+const nativeFetch = window.fetch.bind(window);
+const csrfProtectedMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+function csrfFetch(input, options = {}) {
+    const requestMethod = String(
+        options.method || (input instanceof Request ? input.method : 'GET')
+    ).toUpperCase();
+    const requestUrl = new URL(
+        typeof input === 'string' || input instanceof URL ? input : input.url,
+        window.location.href
+    );
+
+    if (
+        csrfProtectedMethods.has(requestMethod) &&
+        requestUrl.origin === window.location.origin
+    ) {
+        const token = document.querySelector('meta[name="csrf-token"]')?.content;
+        const headers = new Headers(
+            options.headers || (input instanceof Request ? input.headers : undefined)
+        );
+        if (token) {
+            headers.set('X-CSRFToken', token);
+        }
+        options = { ...options, headers };
+    }
+
+    return nativeFetch(input, options);
+}
+
+window.fetch = csrfFetch;
+
 document.addEventListener('DOMContentLoaded', () => {
     function tick() {
         const now = new Date();

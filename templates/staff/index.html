@@ -25,6 +25,7 @@
                 <div class="card-header bg-white"><h2 class="h6 fw-bold mb-0"><i class="fa-solid fa-user-plus text-primary me-2"></i>Tạo tài khoản</h2></div>
                 <div class="card-body">
                     <form method="POST" action="{{ url_for('staff.index') }}" class="vstack gap-3">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <div><label class="form-label" for="staff-username">Tên đăng nhập</label><input id="staff-username" type="text" name="username" required class="form-control" autocomplete="username"></div>
                         <div><label class="form-label" for="staff-password">Mật khẩu</label><input id="staff-password" type="password" name="password" required class="form-control" autocomplete="new-password"></div>
                         <div><label class="form-label" for="staff-role">Vai trò</label><select id="staff-role" name="role" class="form-select"><option value="staff">Nhân viên</option><option value="admin">Quản lý</option></select></div>
@@ -45,8 +46,8 @@
                             <tr>
                                 <td class="fw-semibold">{{ user.username }}{% if user.id == current_user.id %}<span class="text-muted small ms-1">(bạn)</span>{% endif %}</td>
                                 <td><span class="status-badge {{ 'status-badge--danger' if user.role == 'admin' else 'status-badge--info' }}">{{ 'Quản lý' if user.role == 'admin' else 'Nhân viên' }}</span></td>
-                                <td><form action="{{ url_for('staff.reset_password', user_id=user.id) }}" method="POST" class="d-flex gap-2"><input aria-label="Mật khẩu mới cho {{ user.username }}" type="password" name="new_password" required class="form-control form-control-sm" placeholder="Mật khẩu mới"><button type="submit" class="btn btn-sm btn-outline-primary" title="Lưu mật khẩu"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i></button></form></td>
-                                <td class="text-end">{% if user.id != current_user.id %}<form class="d-inline" action="{{ url_for('staff.delete_user', user_id=user.id) }}" method="POST" onsubmit="return confirm('Xóa tài khoản {{ user.username }}?');"><button type="submit" class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-trash-can me-1"></i>Xóa</button></form>{% else %}<span class="text-muted small">Đang sử dụng</span>{% endif %}</td>
+                                <td><form action="{{ url_for('staff.reset_password', user_id=user.id) }}" method="POST" class="d-flex gap-2"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input aria-label="Mật khẩu mới cho {{ user.username }}" type="password" name="new_password" required class="form-control form-control-sm" placeholder="Mật khẩu mới"><button type="submit" class="btn btn-sm btn-outline-primary" title="Lưu mật khẩu"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i></button></form></td>
+                                <td class="text-end">{% if user.id != current_user.id %}<form class="d-inline" action="{{ url_for('staff.delete_user', user_id=user.id) }}" method="POST" onsubmit="return confirm('Xóa tài khoản {{ user.username }}?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-trash-can me-1"></i>Xóa</button></form>{% else %}<span class="text-muted small">Đang sử dụng</span>{% endif %}</td>
                             </tr>
                             {% else %}
                             <tr><td colspan="4" class="text-center text-muted py-4">Chưa có tài khoản nào.</td></tr>

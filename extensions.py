@@ -1,6 +1,7 @@
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_mail import Mail
+from flask_wtf.csrf import CSRFProtect
 from flask import g
 from sqlalchemy import event
 from sqlalchemy.orm import Query, Session
@@ -8,6 +9,7 @@ from sqlalchemy.orm import Query, Session
 db = SQLAlchemy()
 login_manager = LoginManager()
 mail = Mail()
+csrf = CSRFProtect()
 
 
 
