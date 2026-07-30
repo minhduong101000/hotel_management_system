@@ -1,12 +1,12 @@
-# Spec: Củng cố tính toàn vẹn nghiệp vụ khách sạn
+# Spec: Củng cố tính toàn vẹn nghiệp vụ, bảo mật và production
 
 **Ngày:** 30-07-2026
 
 **Trạng thái:** Chờ review
 
-**Phạm vi:** Báo cáo tài chính, checkout lẻ/đoàn, tính giá và tiền cọc, trạng thái booking, dời/hủy lịch, dịch vụ và tồn kho theo lô.
+**Phạm vi:** Bảo mật web, cấu hình runtime, migration/schema đa tenant, báo cáo tài chính, checkout lẻ/đoàn, tính giá và tiền cọc, trạng thái booking, dời/hủy lịch, dịch vụ, tồn kho theo lô, accessibility và hiệu năng dashboard.
 
-**Mức ưu tiên:** P0 cho tính đúng tiền và cô lập tenant; P1 cho giá, kho, phân quyền và tính nhất quán trạng thái.
+**Mức ưu tiên:** P0 cho Stored XSS, tính đúng tiền và cô lập tenant; P1 cho CSRF, migration/schema production, cấu hình fail-closed, giá, kho và phân quyền; P2 cho accessibility và hiệu năng truy vấn.
 
 ## 1. Quan hệ với các spec hiện có
 
@@ -25,6 +25,9 @@ Các yêu cầu trong tài liệu này được ưu tiên khi có khác biệt �
 - Phân quyền dời lịch và hành vi kéo-thả Timeline.
 - Tính bất biến của hóa đơn/dịch vụ sau checkout.
 - Đồng bộ số lượng tổng với lô kho và hoàn đúng lô.
+- Output encoding, CSRF và cấu hình production.
+- Alembic, schema đa tenant và test trên database production.
+- Accessibility của form/modal/action và query budget của dashboard phòng.
 
 Spec không thay đổi quyết định hiện có rằng Staff được checkout thông thường, phòng đã check-in không được cancel trực tiếp, và dời lịch booking chưa check-in là thao tác của Admin.
 
@@ -43,6 +46,27 @@ Review trực tiếp code và các ca tái hiện độc lập cho thấy các n
 | Dịch vụ | Có thể sửa dòng dịch vụ sau checkout; thay danh sách làm mất liên kết lô | Hóa đơn đã chốt bị đổi, sai FEFO và lịch sử kho |
 | Phân quyền | Staff gọi được API dời lịch; kéo Timeline có thể sửa giờ thực tế | Vượt quyền và thay đổi giá trị hóa đơn |
 | Trạng thái | Booking cha, BookingRoom, Room và Payment có thể lệch nhau | Báo cáo/filter/luồng thao tác nhận sai trạng thái |
+| Stored XSS | Dữ liệu khách hàng được ghép vào `innerHTML` và inline event handler | Payload lưu trong DB chạy trong phiên Staff/Admin |
+| CSRF | Mutation form/API không yêu cầu CSRF token | Website khác có thể kích hoạt thao tác bằng phiên đăng nhập |
+| Alembic | Có hai head độc lập `a6b0c4d8e1f3` và `c8d2e3f4a5b6` | Không thể chạy upgrade production theo quy trình chuẩn |
+| Schema tenant | `rooms.room_number` unique toàn hệ thống trong migration nhưng model không có constraint | Database migration và `db.create_all()` cho hành vi khác nhau |
+| Runtime production | Có secret/DB credential/mật khẩu seed mặc định và `debug=True` | Triển khai nhầm cấu hình yếu, tạo tài khoản dự đoán được |
+| Accessibility | Label/input, modal close và icon-only action thiếu liên kết/tên truy cập | Người dùng keyboard/screen reader không thao tác tin cậy |
+| Dashboard | Giá và room count phát sinh query theo từng phòng | Thời gian đáp ứng tăng tuyến tính theo số phòng |
+| Test environment | Test chính dùng SQLite `create_all()`, bỏ qua Alembic/MySQL | Test xanh nhưng không phát hiện constraint, migration và row lock production |
+
+### 2.1. Traceability của nhóm phát hiện kỹ thuật
+
+| Phát hiện | Code/môi trường đã kiểm tra | Phần remediation |
+|---|---|---|
+| Stored XSS khách hàng | `controllers/customer_controller.py`, `static/js/customer.js` | 6.5, 17.1, 20.1 |
+| Hai Alembic head | `migrations/versions/a6b0c4d8e1f3_add_booking_reschedules.py`, `migrations/versions/c8d2e3f4a5b6_add_expense_voiding.py` | 18.1, 20.2 |
+| Unique số phòng sai tenant | `migrations/versions/569522b7e4f1_init.py`, `migrations/versions/a3471c834318_add_multi_tenant_support.py`, `models/room.py` | 18.2, 20.2 |
+| Thiếu CSRF | `static/js/customer.js`, các form/mutation controller và `requirements.txt` | 17.2, 20.1 |
+| Production không fail-closed | `config.py`, entrypoint trực tiếp trong `app.py` | 17.3, 20.2 |
+| Accessibility | `templates/auth/login.html`, `templates/rooms/_booking_modal.html`, action trong `static/js/customer.js` | 15.5, 20.3 |
+| N+1 dashboard | `services/pricing_service.py`, `controllers/room_controller.py` | 19, 20.3 |
+| Test lệch production | `tests/conftest.py` dùng SQLite `create_all()` | 18.4, 20.2 |
 
 ## 3. Mục tiêu
 
@@ -53,6 +77,10 @@ Review trực tiếp code và các ca tái hiện độc lập cho thấy các n
 5. Tồn tổng, tồn theo lô, phân bổ dịch vụ và movement luôn đối soát được.
 6. Mọi mutation trạng thái đi qua một state transition service có validation và audit.
 7. UI giúp người vận hành nhận biết số cần thu/hoàn, trạng thái xử lý và cách phục hồi khi có xung đột.
+8. Dữ liệu lưu từ người dùng luôn được render như text; mọi mutation cùng-origin được bảo vệ CSRF.
+9. Production từ chối khởi động nếu thiếu secret/database config hoặc còn credential mặc định.
+10. Alembic chỉ có một head và schema migration khớp constraint trong model.
+11. Luồng chính dùng được bằng keyboard/screen reader và dashboard có số query không tăng theo số phòng.
 
 ## 4. Ngoài phạm vi
 
@@ -62,6 +90,8 @@ Review trực tiếp code và các ca tái hiện độc lập cho thấy các n
 - Đổi phòng cho khách đang check-in; luồng này cần một spec riêng về chuyển dịch vụ, cọc và lịch sử phòng.
 - Tự động sửa số liệu tài chính lịch sử mà không có báo cáo đối soát và phê duyệt.
 - Thiết kế lại toàn bộ giao diện hoặc thay framework frontend.
+- Triển khai SSO, WAF hoặc hệ thống quản lý secret bên thứ ba.
+- Tối ưu toàn bộ endpoint ngoài dashboard phòng và các truy vấn trực tiếp liên quan phát hiện N+1.
 
 ## 5. Quyết định nghiệp vụ đề xuất
 
@@ -153,6 +183,15 @@ cancel:booking:{booking_id}
 - Lock Booking/BookingRoom/Room theo thứ tự ID ổn định trước khi kiểm tra trạng thái và tính tiền.
 - Retry operation đã `completed` trả `409` cùng `operation_key` và snapshot kết quả; không ghi Payment, audit hoặc tổng tiền lần nữa.
 - Operation đang `processing` trả `409` với thông báo thao tác đang được xử lý.
+
+### 6.5. Dữ liệu không tin cậy và request mutation
+
+- Mọi dữ liệu từ request, database, email import hoặc QR đều được coi là không tin cậy khi render.
+- Dữ liệu text phải đi qua cơ chế output encoding theo context; validation độ dài/định dạng không thay thế output encoding.
+- Không ghép dữ liệu không tin cậy vào `innerHTML`, HTML attribute, inline JavaScript hoặc inline event handler.
+- Mọi request `POST`, `PUT`, `PATCH`, `DELETE` dùng session cookie phải có CSRF token hợp lệ.
+- `GET` và `HEAD` không được làm thay đổi dữ liệu.
+- CSRF không được coi là biện pháp chống XSS; hai lớp bảo vệ phải được triển khai và test độc lập.
 
 ## 7. Thiết kế dữ liệu
 
@@ -428,7 +467,22 @@ Thiết kế giữ Bootstrap/JavaScript hiện tại và design system của d�
 - Bộ lọc hiển thị rõ khoảng ngày đang áp dụng và timezone khách sạn.
 - Bảng chi tiết hoặc dữ liệu số phải truy cập được bằng bàn phím; tooltip không chứa thông tin duy nhất chỉ xuất hiện khi hover.
 
-### 15.5. Kiểm tra UI bắt buộc
+### 15.5. Accessibility nền tảng
+
+Áp dụng tối thiểu cho trang đăng nhập, danh sách/form khách hàng, modal đặt phòng, checkout và dời lịch:
+
+- Mỗi input có label nhìn thấy được và liên kết bằng `for`/`id`; placeholder không phải label duy nhất.
+- Nút chỉ có icon phải có accessible name cụ thể, ví dụ `Sửa khách Nguyễn Văn A`, `Xóa khách Nguyễn Văn A`, `Đóng modal đặt phòng`.
+- Nút đóng modal có `aria-label`; tiêu đề modal được nối bằng `aria-labelledby`.
+- Thứ tự Tab theo thứ tự thị giác; mọi action dùng được bằng keyboard và có focus indicator nhìn thấy rõ.
+- Khi mở modal, focus vào tiêu đề hoặc trường đầu tiên hợp lệ; khi đóng, focus trở về control đã mở modal.
+- Không có keyboard trap ngoài cơ chế giữ focus hợp lệ của modal; phím Escape đóng được modal khi thao tác không bắt buộc phải hoàn tất.
+- Lỗi form hiển thị cạnh trường, dùng `aria-describedby` và vùng `role="alert"`/`aria-live`; sau submit lỗi, focus chuyển tới trường lỗi đầu tiên.
+- Trạng thái không chỉ truyền đạt bằng màu; luôn có text/icon bổ sung.
+- Vùng bấm của action chính và icon button đạt tối thiểu 44×44 px khi hiển thị ở viewport cảm ứng.
+- Button async bị disable trong khi xử lý và có text trạng thái, không chỉ spinner.
+
+### 15.6. Kiểm tra UI bắt buộc
 
 Sau implementation, dùng `bb-browser` ở desktop phù hợp để kiểm tra:
 
@@ -436,6 +490,8 @@ Sau implementation, dùng `bb-browser` ở desktop phù hợp để kiểm tra:
 - Checkout đoàn còn phòng booked, checkout thành công và retry.
 - Staff/Admin nhìn thấy đúng action dời lịch.
 - Báo cáo tenant A không hiển thị dữ liệu tenant B, Expense void không vào tổng.
+- Payload XSS lưu trong name/phone/email/address hiển thị như text và không thực thi.
+- Trang đăng nhập, modal đặt phòng và action khách hàng có accessible name, focus order và keyboard operation đúng.
 - Không có lỗi console trong các luồng trên.
 
 ## 16. API contract dự kiến
@@ -498,17 +554,149 @@ Không nhận `amount` như dữ liệu quyết định.
 | 409 | `rooms_not_checked_in` | Checkout đoàn còn phòng booked |
 | 409 | `service_bill_finalized` | Sửa dịch vụ sau finalize |
 
-## 17. Migration, backfill và reconciliation
+## 17. Bảo mật web và cấu hình production
 
-### 17.1. Migration
+### 17.1. Loại bỏ Stored XSS
 
-- Thêm liên kết Payment–BusinessOperation và component key.
-- Thêm `result_snapshot` cho BusinessOperation.
-- Bổ sung index/ràng buộc unique cần thiết.
-- Bảo đảm foreign key lịch sử kho dùng `RESTRICT`.
-- Mỗi revision Alembic mới phải nối từ một head thống nhất; không tạo thêm branch migration.
+Phạm vi đầu tiên là dữ liệu khách hàng `name`, `phone`, `cccd`, `email`, `address`; quy tắc tương tự áp dụng cho mọi dữ liệu người dùng khác khi render.
 
-### 17.2. Công cụ kiểm tra dữ liệu
+Backend:
+
+- Chuẩn hóa kiểu, trim và giới hạn độ dài theo model/API contract; lưu giá trị như plain text.
+- Không “lọc chuỗi nguy hiểm” bằng blacklist tag/event; blacklist không phải biện pháp chống XSS.
+- JSON trả dữ liệu text bình thường. Output encoding phải diễn ra tại đúng render context.
+- Template Jinja giữ autoescape; không dùng `|safe` cho dữ liệu người dùng nếu chưa có allowlist sanitizer được duyệt.
+
+Frontend:
+
+- Tạo row/cell/button bằng DOM API; gán dữ liệu bằng `textContent`, `.value`, `.title` hoặc property an toàn.
+- Không đưa dữ liệu khách hàng vào `innerHTML`, template HTML string, inline `onclick`, `javascript:` URL hoặc chuỗi code.
+- ID được parse thành số và gắn qua `dataset`; action dùng `addEventListener`.
+- Static HTML cố định như empty state được phép dùng template, nhưng không được trộn dữ liệu không tin cậy.
+- Không dùng client-side sanitizer như lớp bảo vệ duy nhất. Nếu tương lai có rich text hợp lệ, phải dùng allowlist sanitizer đã được duyệt và có test riêng.
+
+Defense in depth:
+
+- Loại bỏ inline script/event handler ở các luồng thay đổi trước khi bật CSP chặt.
+- Triển khai `Content-Security-Policy-Report-Only` để thu thập vi phạm; chỉ chuyển sang enforce sau khi inventory inline script/style đã được xử lý.
+- Mục tiêu CSP script cuối cùng không cần `'unsafe-inline'`.
+
+### 17.2. CSRF protection
+
+- Thêm giải pháp CSRF toàn cục cho Flask, ưu tiên `Flask-WTF/CSRFProtect` để dùng chung cho form và JSON API.
+- Base template phát token cho JavaScript qua meta tag hoặc bootstrap data không chứa secret khác.
+- Fetch wrapper dùng chung tự thêm header `X-CSRFToken` cho `POST`, `PUT`, `PATCH`, `DELETE`.
+- Form HTML gửi hidden CSRF field; login và các form trước đăng nhập cũng được bảo vệ.
+- API CSRF failure trả JSON `400 code=csrf_failed`; request HTML render trang lỗi phù hợp.
+- Không exemption endpoint mutation nội bộ. Exemption tương lai chỉ dành cho webhook có cơ chế xác thực chữ ký riêng và phải được document.
+- Token thiếu, sai, hết hạn hoặc thuộc session khác đều không được mutation.
+- Cấu hình cookie production: `HttpOnly`, `Secure`, `SameSite=Lax` hoặc chặt hơn nếu luồng đăng nhập cho phép.
+
+### 17.3. Cấu hình fail-closed và startup
+
+Tách cấu hình rõ ràng:
+
+- `DevelopmentConfig`: được dùng default local không nhạy cảm nhưng phải hiển thị rõ là development.
+- `TestingConfig`: database/test secret truyền tường minh từ fixture.
+- `ProductionConfig`: bắt buộc `SECRET_KEY`, `DATABASE_URL` và mọi credential thực sự cần cho tính năng bật.
+
+Production phải từ chối khởi động nếu:
+
+- Thiếu biến bắt buộc.
+- `SECRET_KEY` trùng giá trị mẫu/độ dài không đạt quy ước.
+- Database URL chứa credential mặc định đã biết như `root:123456`.
+- `DEBUG` hoặc testing mode đang bật.
+
+Startup production:
+
+- Không gọi `db.create_all()`, `ensure_schema_updates()` hoặc backfill ad-hoc.
+- Không tự tạo `admin/admin123`, `staff1/staff123` hoặc tài khoản mặc định khác.
+- Không tự chạy migration khi web worker khởi động.
+- Seed development chuyển thành CLI command tường minh; password phải truyền qua option/env hoặc được sinh ngẫu nhiên, không có giá trị mặc định đã biết.
+- Backfill/reconciliation là CLI command riêng có dry-run.
+- `app.run(debug=True)` chỉ tồn tại trong entrypoint development và không là đường chạy production.
+- Log không in secret, password, database credential hoặc CSRF token.
+
+Security headers production tối thiểu:
+
+- `Content-Security-Policy` theo rollout nêu trên.
+- `X-Content-Type-Options: nosniff`.
+- `Referrer-Policy` phù hợp dữ liệu nội bộ.
+- `frame-ancestors 'self'` hoặc `'none'` trong CSP nếu không có yêu cầu embed.
+
+## 18. Schema, Alembic và kiểm thử production
+
+### 18.1. Hợp nhất Alembic head
+
+Hiện có hai head:
+
+```text
+a6b0c4d8e1f3
+c8d2e3f4a5b6
+```
+
+Tạo một merge revision:
+
+- `down_revision = ('a6b0c4d8e1f3', 'c8d2e3f4a5b6')`.
+- Merge revision chỉ hợp nhất graph, không tự ý thay schema.
+- Mọi migration remediation tiếp theo phải `down_revision` từ merge revision này.
+- `flask db heads` sau thay đổi trả đúng một head.
+- Kiểm thử upgrade từ database trống, database ở từng head cũ và database production snapshot đã ẩn dữ liệu nhạy cảm.
+
+### 18.2. Constraint phòng theo tenant
+
+Quy tắc:
+
+```text
+UNIQUE (hotel_id, room_number)
+```
+
+Model và migration phải cùng khai báo một tên constraint ổn định, ví dụ `_hotel_room_number_uc`.
+
+Migration remediation:
+
+1. Preflight tìm duplicate `(hotel_id, room_number)` và dừng với báo cáo rõ nếu có; không tự đổi số phòng.
+2. Xác định đúng tên global unique/index hiện có bằng schema inspector theo dialect.
+3. Drop unique toàn hệ thống trên `room_number`.
+4. Tạo unique `(hotel_id, room_number)`.
+5. Downgrade chỉ thực hiện nếu dữ liệu hiện tại vẫn thỏa unique toàn hệ thống; nếu không, dừng an toàn và yêu cầu xử lý dữ liệu.
+
+Tiêu chí:
+
+- Hai khách sạn được phép cùng có phòng `101`.
+- Một khách sạn không tạo được hai phòng `101`.
+- Hành vi giống nhau giữa schema tạo bằng Alembic và metadata model.
+
+### 18.3. Migration nghiệp vụ của spec
+
+Sau merge/schema tenant mới triển khai:
+
+- Liên kết Payment–BusinessOperation và component key.
+- `result_snapshot` cho BusinessOperation.
+- Index/ràng buộc unique cần thiết.
+- Foreign key lịch sử kho dùng `RESTRICT`.
+- Không tạo thêm branch migration; CI từ chối khi có nhiều hơn một head.
+
+### 18.4. Ma trận test database
+
+Giữ SQLite `create_all()` cho unit test nhanh, nhưng không dùng nó làm bằng chứng production.
+
+CI có ba tầng:
+
+1. **Unit/functional nhanh:** SQLite in-memory, test service/controller không phụ thuộc dialect.
+2. **Migration/schema:** tạo database trống bằng Alembic, upgrade tới head, kiểm tra constraint/index/column bằng inspector và smoke downgrade/upgrade.
+3. **MySQL integration:** chạy trên cùng major version production để kiểm tra foreign key, Decimal, unique tenant, transaction, `with_for_update()` và request cạnh tranh.
+
+Các test migration tối thiểu:
+
+- `flask db heads` có một head.
+- Upgrade từ base đến head thành công.
+- Upgrade từ từng head cũ qua merge thành công.
+- Schema sau upgrade khớp các constraint quan trọng trong model.
+- App chạy CRUD/checkout smoke trên database đã migrate, không gọi `db.create_all()`.
+- Hai transaction cạnh tranh booking/checkout chỉ có một kết quả hợp lệ.
+
+### 18.5. Công cụ reconciliation
 
 Tạo command read-only/dry-run để báo cáo:
 
@@ -518,21 +706,78 @@ Tạo command read-only/dry-run để báo cáo:
 - Phòng `occupied` không có đúng một BookingRoom checked-in.
 - InventoryItem.quantity khác tổng batch.
 - Payment/Expense/BookingRoom thiếu hoặc sai tenant liên kết.
+- Room duplicate trong cùng tenant hoặc constraint thực tế không đúng.
 
 Không tự sửa dữ liệu tài chính. Chế độ apply phải là command riêng, xuất log trước/sau và chỉ chạy sau khi Admin phê duyệt báo cáo dry-run.
 
-## 18. TDD và tiêu chí nghiệm thu
+## 19. Hiệu năng dashboard phòng
+
+### 19.1. Query bulk
+
+- Không gọi `get_effective_room_prices()` theo cách phát sinh một query PriceRule cho mỗi Room.
+- Tạo helper bulk lấy candidate PriceRule một lần theo `hotel_id`, tập `room_type` và ngày hiệu lực; chọn priority trong memory bằng cùng rule engine.
+- Kết quả bulk phải giống helper đơn cho mọi loại phòng/rule và không cache chéo tenant.
+- Room count theo booking được lấy bằng một aggregate query `GROUP BY booking_id` cho toàn bộ booking active, không `.count()` trong vòng lặp phòng.
+
+### 19.2. Query budget
+
+Mục tiêu endpoint sơ đồ phòng:
+
+```text
+1 query Rooms
+1 query active BookingRoom + joined Booking/Customer
+1 query upcoming BookingRoom + joined Booking/Customer
+1 query candidate PriceRule
+1 query BookingRoom count theo booking
+```
+
+Tổng mục tiêu tối đa 5 SQL statements cho dữ liệu hiện tại, không tăng khi số phòng tăng từ 4 lên 40. Nếu implementation cần thêm một query cố định có lý do, query budget mới phải được ghi trong test và review trước.
+
+- Dùng SQLAlchemy event trong test để đếm statement.
+- So sánh payload và giá trước/sau tối ưu để tránh đổi nghiệp vụ.
+- Chỉ thêm index sau khi có query plan/đo đạc chứng minh; không thêm index phỏng đoán.
+
+## 20. TDD và tiêu chí nghiệm thu
 
 Mỗi hạng mục triển khai theo test đỏ → code tối thiểu → refactor → test xanh → commit riêng.
 
-### 18.1. Báo cáo
+### 20.1. XSS và CSRF
+
+- Lưu payload trong từng trường customer, tải danh sách và xác nhận payload hiển thị như text.
+- Browser test dùng cờ sentinel xác nhận `onerror`, `<script>`, quote breakout và inline handler không thực thi.
+- Customer row không chứa inline event handler sinh từ dữ liệu.
+- Request mutation thiếu/sai CSRF token bị từ chối và database không đổi.
+- Request có token hợp lệ tiếp tục hoạt động cho form HTML và JSON fetch.
+- Có test xác nhận CSRF token của session A không dùng được cho session B.
+- CSP report-only không có vi phạm từ các luồng đã chuyển khỏi inline handler trước khi bật enforce.
+
+### 20.2. Production config, migration và schema
+
+- Production thiếu `SECRET_KEY` hoặc `DATABASE_URL` phải fail startup với thông báo không lộ secret.
+- Production từ chối secret/DB credential mặc định và debug mode.
+- Startup không tạo bảng, user hoặc chạy backfill.
+- CLI seed development yêu cầu password an toàn hoặc sinh password ngẫu nhiên.
+- Alembic chỉ có một head và upgrade các điểm xuất phát đã nêu đều thành công.
+- Database migrate cho phép A/101 và B/101 nhưng từ chối hai A/101.
+- Constraint được inspector thấy giống tên/cột đã khai báo trong model.
+
+### 20.3. Accessibility và hiệu năng
+
+- Login label liên kết đúng input.
+- Modal đặt phòng có accessible name, close button có tên và focus trở về trigger.
+- Nút sửa/xóa khách hàng có accessible name chứa hành động và đối tượng.
+- Toàn bộ action liên quan dùng được bằng keyboard, có focus indicator và error announcement.
+- `bb-browser` kiểm tra accessibility tree, Tab order, Escape và console.
+- Endpoint phòng dùng tối đa query budget với 4 và 40 phòng; payload giá/trạng thái giữ nguyên.
+
+### 20.4. Báo cáo
 
 - Tenant A chỉ nhận room revenue, Payment, Expense, top room và chart của A.
 - Expense void không vào tổng chi phí, lợi nhuận, chart hoặc sổ quỹ.
 - Kỳ custom hai ngày có đúng hai ngày ở mẫu số occupancy.
 - Test dùng ít nhất hai hotel và các ID không trùng theo quan hệ giả định đơn giản.
 
-### 18.2. Checkout lẻ
+### 20.5. Checkout lẻ
 
 - Checkout `booked` bị từ chối.
 - Checkout với client gửi `amount=0`, âm hoặc số tùy ý không ảnh hưởng số server quyết định.
@@ -542,7 +787,7 @@ Mỗi hạng mục triển khai theo test đỏ → code tối thiểu → refac
 - Quote thay đổi trả 409 và không mutation.
 - Booking nhiều phòng chỉ hoàn tất khi tất cả phòng kết thúc.
 
-### 18.3. Checkout đoàn
+### 20.6. Checkout đoàn
 
 - Còn một phòng booked thì toàn operation bị từ chối.
 - Không có phòng checked-in thì không đổi tổng/status.
@@ -550,7 +795,7 @@ Mỗi hạng mục triển khai theo test đỏ → code tối thiểu → refac
 - Booking đã checkout một phần vẫn có `total_amount` bằng tổng toàn bộ phòng.
 - Hai request cạnh tranh chỉ một request được hoàn tất.
 
-### 18.4. Giá và cọc
+### 20.7. Giá và cọc
 
 - Thuê giờ API quote bằng đúng engine block giờ.
 - Booking nhiều đêm/rule có tiền cọc 50%/100% từ tổng snapshot thật.
@@ -558,7 +803,7 @@ Mỗi hạng mục triển khai theo test đỏ → code tối thiểu → refac
 - Khách ở thêm một/hai đêm được cộng đúng line `overstay_extension`.
 - Phụ thu checkout muộn không tính trùng với đêm phát sinh.
 
-### 18.5. Kho và dịch vụ
+### 20.8. Kho và dịch vụ
 
 - Tạo vật tư mới số lượng 4 tạo item total 4, batch 4 và một movement +4.
 - Tăng dịch vụ trừ đúng batch FEFO.
@@ -568,7 +813,7 @@ Mỗi hạng mục triển khai theo test đỏ → code tối thiểu → refac
 - Invariant tổng item/batch đúng sau mọi success và rollback.
 - Có test tích hợp database production cho foreign key và transaction, không chỉ SQLite `create_all`.
 
-### 18.6. Phân quyền và trạng thái
+### 20.9. Phân quyền và trạng thái
 
 - Staff không gọi được availability/confirm reschedule.
 - Admin dời booking booked thành công; checked-in bị chặn.
@@ -576,33 +821,43 @@ Mỗi hạng mục triển khai theo test đỏ → code tối thiểu → refac
 - Một phòng checked_out và các phòng còn lại cancelled làm Booking `completed`.
 - Operation key cancel Booking không va BookingRoom cùng ID.
 
-## 19. Thứ tự triển khai
+## 21. Thứ tự triển khai
 
-1. **P0.1 – Tenant và báo cáo:** thêm test tenant/void, sửa query, occupancy và sổ quỹ.
-2. **P0.2 – Nền tảng operation/payment:** migration, component key, helper tiền và state transition.
-3. **P0.3 – Checkout lẻ:** server-authoritative quote, tất toán, refund và idempotency.
-4. **P0.4 – Checkout đoàn:** state guard, lock, idempotency và tổng booking.
-5. **P1.1 – Pricing/cọc/overstay:** hợp nhất PriceQuote và snapshot phát sinh.
-6. **P1.2 – Kho/dịch vụ:** sửa receipt vật tư mới, delta allocation và khóa hóa đơn.
-7. **P1.3 – Dời lịch/trạng thái:** capability, vô hiệu mutation Timeline trực tiếp và helper aggregate state.
-8. **P1.4 – Reconciliation:** command dry-run, báo cáo dữ liệu lịch sử và quy trình apply có phê duyệt.
-9. **UI/UX theo từng hạng mục:** chỉ thực hiện sau backend/test tương ứng; mỗi luồng kiểm tra bằng `bb-browser`.
+1. **P0.0 – Stored XSS:** test payload, render bằng DOM API, bỏ inline handler ở customer và kiểm tra browser.
+2. **P1.0 – Alembic merge:** hợp nhất hai head và dựng test migration trước mọi schema change mới.
+3. **P1.1 – Room tenant constraint:** đồng bộ model/migration, preflight và test MySQL.
+4. **P1.2 – Production fail-closed:** config classes, bỏ startup seed/schema/debug.
+5. **P1.3 – CSRF foundation:** bảo vệ form/API, fetch wrapper và cập nhật test.
+6. **P0.1 – Tenant và báo cáo:** test tenant/void, sửa query, occupancy và sổ quỹ.
+7. **P0.2 – Nền tảng operation/payment:** migration, component key, helper tiền và state transition.
+8. **P0.3 – Checkout lẻ:** server-authoritative quote, tất toán, refund và idempotency.
+9. **P0.4 – Checkout đoàn:** state guard, lock, idempotency và tổng booking.
+10. **P1.4 – Pricing/cọc/overstay:** hợp nhất PriceQuote và snapshot phát sinh.
+11. **P1.5 – Kho/dịch vụ:** sửa receipt vật tư mới, delta allocation và khóa hóa đơn.
+12. **P1.6 – Dời lịch/trạng thái:** capability, vô hiệu mutation Timeline trực tiếp và helper aggregate state.
+13. **P1.7 – Reconciliation:** command dry-run, báo cáo dữ liệu lịch sử và quy trình apply có phê duyệt.
+14. **P2.1 – Accessibility:** label, modal, icon action, keyboard/focus và kiểm tra `bb-browser`.
+15. **P2.2 – Dashboard query budget:** bulk PriceRule, aggregate room count và performance test.
 
-Mỗi bước là một hạng mục độc lập, phải có test xanh và commit riêng; không trộn thay đổi dở dang hoặc file không liên quan.
+UI/UX của từng hạng mục chỉ thực hiện sau backend/test tương ứng. Mỗi bước là một hạng mục độc lập, phải có test xanh và commit riêng; không trộn thay đổi dở dang hoặc file không liên quan.
 
-## 20. Điều kiện hoàn tất
+## 22. Điều kiện hoàn tất
 
 Hạng mục chỉ được coi là hoàn tất khi:
 
 - Test mới của hạng mục và full regression đều xanh.
-- Migration upgrade/downgrade được kiểm tra trên database phù hợp.
+- Stored XSS payload không thực thi trong `bb-browser`; CSRF chặn request không token.
+- Production config fail-closed và startup không tạo schema/tài khoản mặc định.
+- `flask db heads` trả một head; upgrade/downgrade được kiểm tra trên database phù hợp.
+- Constraint Room tenant giống nhau giữa model, Alembic và MySQL thực tế.
 - Không còn query aggregate tài chính thiếu tenant scope.
 - Các invariant tiền, trạng thái và kho được test trực tiếp.
-- UI liên quan đã kiểm tra desktop bằng `bb-browser`, gồm console và luồng lỗi.
+- Query dashboard đạt budget cố định và payload không đổi.
+- UI liên quan đã kiểm tra desktop bằng `bb-browser`, gồm accessibility tree, keyboard, console và luồng lỗi.
 - Có ghi rõ phần production/concurrency nào chưa thể kiểm chứng.
 - Commit chỉ chứa hạng mục đã hoàn tất và dùng commit message tiếng Anh.
 
-## 21. Điểm cần phê duyệt khi review spec
+## 23. Điểm cần phê duyệt khi review spec
 
 1. Chấp thuận mặc định **không hỗ trợ công nợ**: checkout chỉ thành công khi balance về 0.
 2. Chấp thuận đêm ở quá dùng **đơn giá snapshot đêm cuối**, không dùng rule hiện hành.
