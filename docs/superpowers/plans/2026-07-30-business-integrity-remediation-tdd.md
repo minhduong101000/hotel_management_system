@@ -25,7 +25,7 @@ Không triển khai công nợ, cổng thanh toán, hóa đơn điện tử, chu
 
 ### 2.1. Cổng G0 — quyết định nghiệp vụ
 
-Trước hạng mục 8 trở đi, cần người phụ trách nghiệp vụ phê duyệt năm quyết định:
+Trước mọi hạng mục ghi phụ thuộc G0, bắt đầu từ hạng mục 6, cần người phụ trách nghiệp vụ phê duyệt năm quyết định:
 
 1. Checkout chỉ thành công khi số dư phải thu về `0`; không hỗ trợ công nợ trong luồng hiện tại.
 2. Đêm ở quá dùng đơn giá snapshot của đêm cuối gần nhất.
