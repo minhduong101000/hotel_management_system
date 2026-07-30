@@ -2,6 +2,73 @@ document.addEventListener('DOMContentLoaded', () => {
     loadCustomers(); // Tải danh sách khi vào trang
 });
 
+function createCustomerCell(text, className = '') {
+    const cell = document.createElement('td');
+    if (className) {
+        cell.className = className;
+    }
+    cell.textContent = text || '-';
+    return cell;
+}
+
+function createCustomerActionButton({ className, iconClass, label, onClick }) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = className;
+    button.setAttribute('aria-label', label);
+    button.title = label;
+    button.addEventListener('click', onClick);
+
+    const icon = document.createElement('i');
+    icon.className = iconClass;
+    icon.setAttribute('aria-hidden', 'true');
+    button.appendChild(icon);
+
+    return button;
+}
+
+function createCustomerRow(c) {
+    const tr = document.createElement('tr');
+    tr.appendChild(createCustomerCell(c.name, 'ps-4 fw-bold text-primary'));
+
+    const phoneCell = document.createElement('td');
+    const phoneBadge = document.createElement('span');
+    phoneBadge.className = 'badge bg-light text-dark border';
+    phoneBadge.textContent = c.phone || '-';
+    phoneCell.appendChild(phoneBadge);
+    tr.appendChild(phoneCell);
+
+    tr.appendChild(createCustomerCell(c.cccd));
+    tr.appendChild(createCustomerCell(c.email));
+
+    const addressCell = createCustomerCell(c.address, 'text-truncate');
+    addressCell.style.maxWidth = '200px';
+    addressCell.title = c.address || '';
+    tr.appendChild(addressCell);
+
+    const actionCell = document.createElement('td');
+    actionCell.className = 'text-end pe-4';
+
+    const editButton = createCustomerActionButton({
+        className: 'btn btn-sm btn-outline-warning me-1',
+        iconClass: 'fas fa-pen',
+        label: `Sửa khách hàng ${c.name || ''}`.trim(),
+        onClick: () => openModal(c.id, c.name, c.phone, c.cccd, c.email, c.address)
+    });
+
+    const deleteButton = createCustomerActionButton({
+        className: 'btn btn-sm btn-outline-danger',
+        iconClass: 'fas fa-trash',
+        label: `Xóa khách hàng ${c.name || ''}`.trim(),
+        onClick: () => deleteCustomer(c.id)
+    });
+
+    actionCell.append(editButton, deleteButton);
+    tr.appendChild(actionCell);
+
+    return tr;
+}
+
 // 1. TẢI DANH SÁCH (CÓ HỖ TRỢ TÌM KIẾM)
 function loadCustomers() {
     const keyword = document.getElementById('search-input').value;
@@ -12,32 +79,21 @@ function loadCustomers() {
         .then(res => res.json())
         .then(data => {
             const tbody = document.getElementById('customer-table-body');
-            tbody.innerHTML = '';
+            tbody.replaceChildren();
 
             if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">Không tìm thấy khách hàng nào</td></tr>';
+                const emptyRow = document.createElement('tr');
+                const emptyCell = document.createElement('td');
+                emptyCell.colSpan = 6;
+                emptyCell.className = 'text-center py-4 text-muted';
+                emptyCell.textContent = 'Không tìm thấy khách hàng nào';
+                emptyRow.appendChild(emptyCell);
+                tbody.appendChild(emptyRow);
                 return;
             }
 
             data.forEach(c => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td class="ps-4 fw-bold text-primary">${c.name}</td>
-                    <td><span class="badge bg-light text-dark border">${c.phone}</span></td>
-                    <td>${c.cccd || '-'}</td>
-                    <td>${c.email || '-'}</td>
-                    <td class="text-truncate" style="max-width: 200px;" title="${c.address}">${c.address || '-'}</td>
-                    <td class="text-end pe-4">
-                        <button class="btn btn-sm btn-outline-warning me-1" 
-                                onclick="openModal(${c.id}, '${c.name}', '${c.phone}', '${c.cccd}', '${c.email}', '${c.address}')">
-                            <i class="fas fa-pen"></i>
-                        </button>
-                        <button class="btn btn-sm btn-outline-danger" onclick="deleteCustomer(${c.id})">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </td>
-                `;
-                tbody.appendChild(tr);
+                tbody.appendChild(createCustomerRow(c));
             });
         });
 }
