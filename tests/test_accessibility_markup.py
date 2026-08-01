@@ -28,6 +28,38 @@ def test_login_fields_have_linked_labels_and_announced_errors():
     assert 'role="alert"' in source
 
 
+def test_login_exposes_password_toggle_and_submit_status():
+    source = _source("templates/auth/login.html")
+    styles = _source("static/css/style.css")
+
+    assert 'id="login-password-toggle"' in source
+    assert 'type="button"' in source
+    assert 'aria-controls="password"' in source
+    assert 'aria-pressed="false"' in source
+    assert 'aria-label="Hiện mật khẩu"' in source
+    assert 'id="login-submit"' in source
+    assert 'aria-busy="false"' in source
+    assert 'aria-describedby="login-form-status"' in source
+    assert 'id="login-form-status"' in source
+    assert 'role="status"' in source
+    assert 'aria-live="polite"' in source
+    assert re.search(
+        r"\.login-password-toggle\s*\{[^}]*min-width:\s*44px[^}]*min-height:\s*44px",
+        styles,
+        re.DOTALL,
+    )
+    assert re.search(
+        r"\.btn-login\s*\{[^}]*min-height:\s*48px",
+        styles,
+        re.DOTALL,
+    )
+    assert re.search(
+        r"\.input-wrapper\s+input:focus-visible\s*\{[^}]*outline:\s*3px\s+solid\s+var\(--color-info\)",
+        styles,
+        re.DOTALL,
+    )
+
+
 def test_booking_modal_has_dialog_name_linked_labels_and_error_region():
     source = _source("templates/rooms/_booking_modal.html")
 

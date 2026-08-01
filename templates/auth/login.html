@@ -3,67 +3,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Đăng nhập - HotelPOS</title>
-    
+    <title>Đăng nhập - Hotel POS</title>
+
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 
 <body class="login-page">
-
-    <div class="login-card">
-        <div class="login-header">
-            <div style="font-size: 40px; color: #2980b9; margin-bottom: 10px;">
-                <i class="fa-solid fa-hotel"></i>
-            </div>
-            <h2>HOTEL POS</h2>
-            <p>Hệ thống quản lý khách sạn chuyên nghiệp</p>
-        </div>
-
-        {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            {% for category, message in messages %}
-              <div class="alert alert-{{ 'danger' if category == 'error' else category }}" role="alert">
-                <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
-                {{ message }}
-              </div>
-            {% endfor %}
-          {% endif %}
-        {% endwith %}
-
-        <form method="POST">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <div class="input-group">
-                <label for="username">Tên đăng nhập</label>
-                <div class="input-wrapper">
-                    <i class="fa-solid fa-user" aria-hidden="true"></i>
-                    <input type="text" id="username" name="username" required placeholder="Nhập username..." autocomplete="username">
+    <main class="login-shell" aria-labelledby="login-title">
+        <section class="login-card">
+            <header class="login-header">
+                <div class="login-brand-mark" aria-hidden="true">
+                    <i class="fa-solid fa-hotel"></i>
                 </div>
-            </div>
+                <p class="login-eyebrow">Vận hành khách sạn</p>
+                <h1 id="login-title">Hotel POS</h1>
+                <p class="login-intro">Đăng nhập để tiếp tục quản lý hoạt động hằng ngày.</p>
+            </header>
 
-            <div class="input-group">
-                <label for="password">Mật khẩu</label>
-                <div class="input-wrapper">
-                    <i class="fa-solid fa-lock" aria-hidden="true"></i>
-                    <input type="password" id="password" name="password" required placeholder="Nhập mật khẩu..." autocomplete="current-password">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="login-alerts" aria-label="Thông báo đăng nhập">
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ 'danger' if category == 'error' else category }}" role="alert">
+                                <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
+                                <span>{{ message }}</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <form class="login-form" id="login-form" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div class="login-field">
+                    <label for="username">Tên đăng nhập</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-user input-leading-icon" aria-hidden="true"></i>
+                        <input type="text" id="username" name="username" required placeholder="Nhập tên đăng nhập" autocomplete="username">
+                    </div>
                 </div>
-            </div>
 
-            <div class="checkbox-group">
-                <input type="checkbox" name="remember" id="remember">
-                <label for="remember">Ghi nhớ đăng nhập</label>
-            </div>
+                <div class="login-field">
+                    <label for="password">Mật khẩu</label>
+                    <div class="input-wrapper input-wrapper--password">
+                        <i class="fa-solid fa-lock input-leading-icon" aria-hidden="true"></i>
+                        <input type="password" id="password" name="password" required placeholder="Nhập mật khẩu" autocomplete="current-password">
+                        <button
+                            type="button"
+                            class="login-password-toggle"
+                            id="login-password-toggle"
+                            aria-label="Hiện mật khẩu"
+                            aria-controls="password"
+                            aria-pressed="false"
+                        >
+                            <i class="fa-solid fa-eye" data-password-icon aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
 
-            <button type="submit" class="btn-login">
-                ĐĂNG NHẬP <i class="fa-solid fa-arrow-right-to-bracket" style="margin-left: 5px;"></i>
-            </button>
-        </form>
-        
-        <div style="margin-top: 20px; font-size: 12px; color: #aaa;">
-            &copy; 2026 Hotel Management System
-        </div>
-    </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" name="remember" id="remember">
+                    <label for="remember">Ghi nhớ đăng nhập</label>
+                </div>
 
+                <button
+                    type="submit"
+                    class="btn-login login-submit"
+                    id="login-submit"
+                    aria-busy="false"
+                    aria-describedby="login-form-status"
+                >
+                    <span data-login-submit-label>Đăng nhập</span>
+                    <i class="fa-solid fa-arrow-right-to-bracket" data-login-submit-icon aria-hidden="true"></i>
+                </button>
+                <p class="login-form-status" id="login-form-status" role="status" aria-live="polite"></p>
+            </form>
+
+            <footer class="login-footer">
+                &copy; 2026 Hotel Management System
+            </footer>
+        </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='js/login.js') }}" defer></script>
 </body>
 </html>
