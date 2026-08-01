@@ -5,6 +5,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 BASE_TEMPLATE = ROOT / "templates" / "layouts" / "base.html"
 STYLE_SHEET = ROOT / "static" / "css" / "style.css"
+MAIN_SCRIPT = ROOT / "static" / "js" / "main.js"
 
 
 def test_authenticated_room_map_uses_application_shell(client, seed_hotels, login_as):
@@ -131,3 +132,38 @@ def test_visual_refresh_defines_shared_data_kpi_and_numeric_components():
         assert selector in source
 
     assert "font-variant-numeric: tabular-nums" in source
+
+
+def test_navigation_shell_exposes_brand_account_and_logout_context():
+    source = BASE_TEMPLATE.read_text(encoding="utf-8")
+
+    assert re.search(r'class="sidebar-brand__hotel"[^>]*title=', source)
+    for heading in ("LỄ TÂN", "DỊCH VỤ & KHO", "QUẢN TRỊ VIÊN"):
+        assert heading in source
+    assert 'id="account-menu-button"' in source
+    assert 'data-bs-toggle="dropdown"' in source
+    assert 'aria-label="Mở menu tài khoản' in source
+    assert "url_for('auth.logout')" in source
+    assert 'id="sidebar-backdrop"' in source
+    assert 'hidden' in source
+
+
+def test_mobile_navigation_drawer_closes_with_backdrop_and_escape():
+    source = MAIN_SCRIPT.read_text(encoding="utf-8")
+    styles = STYLE_SHEET.read_text(encoding="utf-8")
+
+    assert "sidebar-backdrop" in source
+    assert "function closeSidebar" in source
+    assert "event.key === 'Escape'" in source
+    assert "event.key === 'Tab'" in source
+    assert "getSidebarFocusableElements" in source
+    assert "backdrop.addEventListener('click'" in source
+    assert "toggle.focus()" in source
+    assert "body.classList" in source
+    assert re.search(
+        r"\.sidebar-toggle\s*\{[^}]*width:\s*44px[^}]*height:\s*44px",
+        styles,
+        re.DOTALL,
+    )
+    assert ".sidebar-backdrop" in styles
+    assert "body.sidebar-open" in styles

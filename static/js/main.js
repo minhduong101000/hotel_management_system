@@ -117,11 +117,87 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const toggle = document.getElementById('sidebar-toggle');
     const sidebar = document.getElementById('app-sidebar');
-    if (toggle && sidebar) {
+    const backdrop = document.getElementById('sidebar-backdrop');
+    const mobileSidebar = window.matchMedia('(max-width: 991.98px)');
+
+    if (toggle && sidebar && backdrop) {
+        function getSidebarFocusableElements() {
+            return Array.from(sidebar.querySelectorAll('a[href], button:not([disabled])'))
+                .filter(element => !element.hasAttribute('hidden'));
+        }
+
+        function openSidebar() {
+            sidebar.inert = false;
+            sidebar.classList.add('is-open');
+            backdrop.hidden = false;
+            document.body.classList.add('sidebar-open');
+            toggle.setAttribute('aria-expanded', 'true');
+            toggle.setAttribute('aria-label', 'Đóng menu điều hướng');
+
+            const initialFocus = sidebar.querySelector('[aria-current="page"]')
+                || sidebar.querySelector('a[href]');
+            initialFocus?.focus();
+        }
+
+        function closeSidebar(restoreFocus = true) {
+            sidebar.classList.remove('is-open');
+            backdrop.hidden = true;
+            document.body.classList.remove('sidebar-open');
+            toggle.setAttribute('aria-expanded', 'false');
+            toggle.setAttribute('aria-label', 'Mở menu điều hướng');
+            sidebar.inert = mobileSidebar.matches;
+            if (restoreFocus) toggle.focus();
+        }
+
+        function syncSidebarMode() {
+            if (mobileSidebar.matches) {
+                if (!sidebar.classList.contains('is-open')) sidebar.inert = true;
+                return;
+            }
+            closeSidebar(false);
+            sidebar.inert = false;
+        }
+
         toggle.addEventListener('click', () => {
-            const isOpen = sidebar.classList.toggle('is-open');
-            toggle.setAttribute('aria-expanded', String(isOpen));
-            toggle.setAttribute('aria-label', isOpen ? 'Đóng menu điều hướng' : 'Mở menu điều hướng');
+            if (sidebar.classList.contains('is-open')) {
+                closeSidebar();
+            } else {
+                openSidebar();
+            }
         });
+
+        backdrop.addEventListener('click', () => closeSidebar());
+        document.addEventListener('keydown', (event) => {
+            if (!sidebar.classList.contains('is-open')) return;
+
+            if (event.key === 'Escape') {
+                closeSidebar();
+                return;
+            }
+
+            if (event.key === 'Tab') {
+                const focusableElements = getSidebarFocusableElements();
+                const firstElement = focusableElements[0];
+                const lastElement = focusableElements[focusableElements.length - 1];
+                if (!firstElement || !lastElement) return;
+
+                if (event.shiftKey && document.activeElement === firstElement) {
+                    event.preventDefault();
+                    lastElement.focus();
+                } else if (!event.shiftKey && document.activeElement === lastElement) {
+                    event.preventDefault();
+                    firstElement.focus();
+                }
+            }
+        });
+
+        sidebar.querySelectorAll('a[href]').forEach(link => {
+            link.addEventListener('click', () => {
+                if (mobileSidebar.matches) closeSidebar(false);
+            });
+        });
+
+        mobileSidebar.addEventListener('change', syncSidebarMode);
+        syncSidebarMode();
     }
 });

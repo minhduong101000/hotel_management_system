@@ -12,10 +12,10 @@
 <body>
     <a class="skip-link" href="#app-content">Bỏ qua điều hướng, đến nội dung chính</a>
     
-    <aside class="app-sidebar" id="app-sidebar">
+    <aside class="app-sidebar" id="app-sidebar" aria-label="Điều hướng chính">
         <div class="sidebar-brand">
             <i class="fas fa-hotel sidebar-brand__icon" aria-hidden="true"></i>
-            <span class="sidebar-brand__hotel">{{ g.current_hotel.name if g.current_hotel else 'HOTEL' }}</span>
+            <span class="sidebar-brand__hotel" title="{{ g.current_hotel.name if g.current_hotel else 'HOTEL' }}">{{ g.current_hotel.name if g.current_hotel else 'HOTEL' }}</span>
             <span class="sidebar-brand__product">POS</span>
         </div>
         {% if current_user.is_super_admin and g.current_hotel %}<div class="sidebar-support-banner"><span>Đang hỗ trợ</span><strong>{{ g.current_hotel.name }}</strong><a href="{{ url_for('master.dashboard') }}">Quay về Master Console</a></div>{% endif %}
@@ -25,37 +25,37 @@
             
             <li class="menu-item">
                 <a href="{{ url_for('room.map_view') }}" class="{{ 'active' if 'room.map' in request.endpoint else '' }}" aria-current="{{ 'page' if 'room.map' in request.endpoint else 'false' }}">
-                    <i class="fas fa-th-large"></i><span>Sơ đồ phòng</span>
+                    <i class="fas fa-th-large" aria-hidden="true"></i><span>Sơ đồ phòng</span>
                 </a>
             </li>
 
             <li class="menu-item">
                 <a href="{{ url_for('room.timeline_view') }}" class="{{ 'active' if 'room.timeline' in request.endpoint else '' }}" aria-current="{{ 'page' if 'room.timeline' in request.endpoint else 'false' }}">
-                    <i class="fas fa-stream"></i><span>Timeline</span>
+                    <i class="fas fa-stream" aria-hidden="true"></i><span>Timeline</span>
                 </a>
             </li>
 
             <li class="menu-item">
                 <a href="{{ url_for('customer.index') }}" class="{{ 'active' if 'customer' in request.endpoint else '' }}" aria-current="{{ 'page' if 'customer' in request.endpoint else 'false' }}">
-                    <i class="fas fa-users"></i><span>Khách hàng</span>
+                    <i class="fas fa-users" aria-hidden="true"></i><span>Khách hàng</span>
                 </a>
             </li>
             
             <li class="menu-item">
                 <a href="{{ url_for('billing.index') }}" class="{{ 'active' if 'billing' in request.endpoint else '' }}" aria-current="{{ 'page' if 'billing' in request.endpoint else 'false' }}">
-                    <i class="fas fa-file-invoice"></i><span>Hóa đơn cũ</span>
+                    <i class="fas fa-file-invoice" aria-hidden="true"></i><span>Hóa đơn cũ</span>
                 </a>
             </li>
             
             {% if current_user.role == 'admin' %}
             <li class="menu-item">
                 <a href="{{ url_for('cashier.cashier') }}" class="{{ 'active' if 'cashier' in request.endpoint else '' }}" aria-current="{{ 'page' if 'cashier' in request.endpoint else 'false' }}">
-                    <i class="fas fa-cash-register text-success"></i><span class="text-success fw-bold">Sổ Quỹ</span>
+                    <i class="fas fa-cash-register text-success" aria-hidden="true"></i><span class="text-success fw-bold">Sổ Quỹ</span>
                 </a>
             </li>
                 <li class="menu-item">
                     <a href="{{ url_for('audit.index') }}" class="{{ 'active' if 'audit' in request.endpoint else '' }}" aria-current="{{ 'page' if 'audit' in request.endpoint else 'false' }}">
-                        <i class="fas fa-clipboard-list"></i><span>Nhật ký hoạt động</span>
+                        <i class="fas fa-clipboard-list" aria-hidden="true"></i><span>Nhật ký hoạt động</span>
                     </a>
                 </li>
             {% endif %}
@@ -64,21 +64,21 @@
 
             <li class="menu-item">
                 <a href="{{ url_for('price.index') }}" class="{{ 'active' if 'price.' in request.endpoint else '' }}" aria-current="{{ 'page' if 'price.' in request.endpoint else 'false' }}">
-                    <i class="fas fa-tags"></i><span>Quản lý Giá phòng</span>
+                    <i class="fas fa-tags" aria-hidden="true"></i><span>Quản lý Giá phòng</span>
                 </a>
             </li>
             
             {% if current_user.role == 'admin' %}
             <li class="menu-item">
                 <a href="{{ url_for('service.index') }}" class="{{ 'active' if 'service' in request.endpoint else '' }}" aria-current="{{ 'page' if 'service' in request.endpoint else 'false' }}">
-                    <i class="fas fa-concierge-bell"></i><span>Dịch vụ / Minibar</span>
+                    <i class="fas fa-concierge-bell" aria-hidden="true"></i><span>Dịch vụ / Minibar</span>
                 </a>
             </li>
             {% endif %}      
 
             <li class="menu-item">
                 <a href="{{ url_for('warehouse.index') }}" class="{{ 'active' if 'warehouse' in request.endpoint else '' }}" aria-current="{{ 'page' if 'warehouse' in request.endpoint else 'false' }}">
-                    <i class="fas fa-boxes"></i><span>Kho hàng</span>
+                    <i class="fas fa-boxes" aria-hidden="true"></i><span>Kho hàng</span>
                 </a>
             </li>
             
@@ -86,30 +86,32 @@
                 <li class="menu-header">QUẢN TRỊ VIÊN</li>
                 <li class="menu-item">
                     <a href="{{ url_for('report.revenue') }}" class="{{ 'active' if 'report' in request.endpoint else '' }}" aria-current="{{ 'page' if 'report' in request.endpoint else 'false' }}">
-                        <i class="fas fa-chart-line"></i><span>Doanh thu</span>
+                        <i class="fas fa-chart-line" aria-hidden="true"></i><span>Doanh thu</span>
                     </a>
                 </li>
 
                 <li class="menu-item">
                     <a href="{{ url_for('expense.index') }}" class="{{ 'active' if 'expense' in request.endpoint else '' }}" aria-current="{{ 'page' if 'expense' in request.endpoint else 'false' }}">
-                        <i class="fas fa-money-bill-wave"></i><span>Chi phí</span>
+                        <i class="fas fa-money-bill-wave" aria-hidden="true"></i><span>Chi phí</span>
                     </a>
                 </li>
                 
                 <li class="menu-item">
                     <a href="{{ url_for('staff.index') }}" class="{{ 'active' if 'staff' in request.endpoint else '' }}" aria-current="{{ 'page' if 'staff' in request.endpoint else 'false' }}">
-                        <i class="fas fa-cogs"></i><span>Cấu hình & Nhân sự</span>
+                        <i class="fas fa-cogs" aria-hidden="true"></i><span>Cấu hình & Nhân sự</span>
                     </a>
                 </li>
             {% endif %}
             
-            <li class="menu-item mt-4">
-                <a href="{{ url_for('auth.logout') }}" class="text-danger">
-                    <i class="fas fa-power-off"></i><span>Đăng xuất ({{ current_user.username }})</span>
-                </a>
-            </li>
         </ul>
+
+        <div class="sidebar-footer">
+            <a href="{{ url_for('auth.logout') }}" class="sidebar-logout">
+                <i class="fas fa-power-off" aria-hidden="true"></i><span>Đăng xuất</span>
+            </a>
+        </div>
     </aside>
+    <button type="button" class="sidebar-backdrop" id="sidebar-backdrop" aria-label="Đóng menu điều hướng" hidden></button>
 
     <main class="app-content" id="app-content">
         <header class="app-topbar">
@@ -117,7 +119,35 @@
                 <button type="button" class="sidebar-toggle" id="sidebar-toggle" aria-controls="app-sidebar" aria-expanded="false" aria-label="Mở menu điều hướng"><i class="fas fa-bars" aria-hidden="true"></i></button>
                 <div><span class="app-topbar__eyebrow">Vận hành nội bộ</span><strong>{{ g.current_hotel.name if g.current_hotel else 'Hotel POS' }}</strong></div>
             </div>
-            <div class="app-topbar__user"><i class="fas fa-user-circle" aria-hidden="true"></i><span>{{ current_user.username }}</span></div>
+            <div class="dropdown app-topbar__account">
+                <button
+                    type="button"
+                    class="app-topbar__user"
+                    id="account-menu-button"
+                    data-bs-toggle="dropdown"
+                    aria-expanded="false"
+                    aria-label="Mở menu tài khoản {{ current_user.username }}"
+                >
+                    <i class="fas fa-user-circle" aria-hidden="true"></i>
+                    <span>{{ current_user.username }}</span>
+                    <i class="fas fa-chevron-down app-topbar__account-chevron" aria-hidden="true"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end app-account-menu" aria-labelledby="account-menu-button">
+                    <li>
+                        <div class="app-account-menu__summary">
+                            <span>Tài khoản đang dùng</span>
+                            <strong>{{ current_user.username }}</strong>
+                        </div>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <a class="dropdown-item app-account-menu__logout" href="{{ url_for('auth.logout') }}">
+                            <i class="fas fa-power-off" aria-hidden="true"></i>
+                            <span>Đăng xuất</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
         </header>
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
