@@ -138,6 +138,15 @@ def test_shared_focus_and_touch_targets_remain_visible_and_large_enough():
     assert ".modal .btn-close" in source
 
 
+def test_shared_buttons_keep_touch_targets_busy_feedback_and_reduced_motion():
+    source = _source("static/css/style.css")
+
+    assert ".btn-icon" in source
+    assert '.app-content .btn[aria-busy="true"]' in source
+    assert "touch-action: manipulation" in source
+    assert "@media (prefers-reduced-motion: reduce)" in source
+
+
 def test_async_workflows_guard_double_submission_with_text_feedback():
     customer = _source("static/js/customer.js")
     checkout = _source("static/js/checkout.js")
