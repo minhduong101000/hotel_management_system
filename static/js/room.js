@@ -4,6 +4,7 @@
 
 // Biến toàn cục
 let allRooms = [];
+let hasLoadedRooms = false;
 let currentCheckInRoomNumber = null; // Dùng cho Modal tạo Booking mới
 let selectedDepositRatio = null;
 let currentBookingQuote = null;
@@ -27,6 +28,14 @@ document.addEventListener('DOMContentLoaded', () => {
 // 1. TẢI DỮ LIỆU TỪ SERVER
 // ==========================================
 function loadRoomsData() {
+    if (!hasLoadedRooms) {
+        renderRoomMapState(
+            'loading',
+            'Đang tải dữ liệu phòng',
+            'Vui lòng chờ trong giây lát.'
+        );
+    }
+
     fetch(api('/api/rooms') + '?t=' + new Date().getTime())
         .then(res => {
             if (!res.ok) throw new Error(`Server Error: ${res.status}`);
@@ -34,14 +43,22 @@ function loadRoomsData() {
         })
         .then(data => {
             if (data.error) {
-                console.error("Lỗi Backend:", data.error);
-                return;
+                throw new Error(data.error);
             }
-            allRooms = data.rooms;
+            allRooms = Array.isArray(data.rooms) ? data.rooms : [];
+            hasLoadedRooms = true;
             updateStats(data.stats);
             renderGrid();
         })
-        .catch(err => console.error("Lỗi kết nối:", err));
+        .catch(err => {
+            console.error("Lỗi kết nối:", err);
+            renderRoomMapState(
+                'error',
+                'Không thể tải sơ đồ phòng',
+                'Kiểm tra kết nối rồi thử tải lại.',
+                true
+            );
+        });
 }
 
 function updateStats(stats) {
@@ -61,8 +78,8 @@ function updateStats(stats) {
 function renderGrid() {
     const grid = document.getElementById('room-grid');
     const filter = document.getElementById('filter-status').value;
-    
-    grid.innerHTML = ''; 
+
+    grid.replaceChildren();
 
     // Lọc dữ liệu theo dropdown
     const filteredRooms = allRooms.filter(room => {
@@ -74,7 +91,15 @@ function renderGrid() {
     });
 
     if (filteredRooms.length === 0) {
-        grid.innerHTML = '<div class="col-12 text-center text-muted mt-5"><i>Không tìm thấy phòng nào</i></div>';
+        const hasActiveFilter = filter !== 'all';
+        renderRoomMapState(
+            'empty',
+            hasActiveFilter ? 'Không có phòng phù hợp' : 'Chưa có phòng nào',
+            hasActiveFilter
+                ? 'Thử chọn trạng thái khác hoặc làm mới dữ liệu.'
+                : 'Danh sách phòng sẽ xuất hiện tại đây khi có dữ liệu.',
+            true
+        );
         return;
     }
 
@@ -85,6 +110,58 @@ function renderGrid() {
         grid.appendChild(col);
     });
     return;
+}
+
+function renderRoomMapState(kind, title, description, showRetry = false) {
+    const grid = document.getElementById('room-grid');
+    if (!grid) return;
+
+    const column = document.createElement('div');
+    column.className = 'col-12 room-map-state-column';
+
+    const state = document.createElement('div');
+    state.className = `data-state data-state--${kind}`;
+    state.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+    state.setAttribute('aria-live', kind === 'error' ? 'assertive' : 'polite');
+
+    const iconWrap = document.createElement('div');
+    iconWrap.className = 'data-state__icon';
+    const icon = document.createElement('i');
+    icon.className = kind === 'loading'
+        ? 'fas fa-circle-notch fa-spin'
+        : (kind === 'error' ? 'fas fa-cloud-arrow-down' : 'fas fa-bed');
+    icon.setAttribute('aria-hidden', 'true');
+    iconWrap.appendChild(icon);
+
+    const heading = document.createElement('h2');
+    heading.className = 'data-state__title';
+    heading.textContent = title;
+
+    const message = document.createElement('p');
+    message.className = 'data-state__description';
+    message.textContent = description;
+
+    state.append(iconWrap, heading, message);
+
+    if (showRetry) {
+        const actions = document.createElement('div');
+        actions.className = 'data-state__actions';
+        const retryButton = document.createElement('button');
+        retryButton.type = 'button';
+        retryButton.className = 'btn btn-outline-primary';
+        const retryIcon = document.createElement('i');
+        retryIcon.className = 'fas fa-rotate-right';
+        retryIcon.setAttribute('aria-hidden', 'true');
+        const retryLabel = document.createElement('span');
+        retryLabel.textContent = 'Làm mới';
+        retryButton.append(retryIcon, retryLabel);
+        retryButton.addEventListener('click', loadRoomsData);
+        actions.appendChild(retryButton);
+        state.appendChild(actions);
+    }
+
+    column.appendChild(state);
+    grid.replaceChildren(column);
 }
 
 function showNoticeConfirm(e, bookingRoomId, guestName, expectedTime, isWaiting, guestPhone = '', deposit = 0) {
@@ -397,6 +474,7 @@ function renderRoomCard(room) {
     const nearestNotice = getNearestNotice(room.notices);
     if (nearestNotice && room.status !== 'occupied') { modifier = 'booked'; icon = 'fa-calendar-check'; title = 'SẮP NHẬN PHÒNG'; }
     const card = document.createElement('article'); card.className = `room-card room-card--${modifier}`;
+    card.dataset.state = modifier;
     if (room.status === 'occupied') {
         card.classList.add('room-card--orderable');
         card.tabIndex = 0;
@@ -414,7 +492,8 @@ function renderRoomCard(room) {
     const number = document.createElement('strong'); number.className = 'room-card__number'; number.textContent = room.number;
     const type = document.createElement('small'); type.className = 'room-card__type'; type.textContent = room.type;
     const left = document.createElement('div'); left.append(number, type);
-    const statusIcon = document.createElement('i'); statusIcon.className = `fas ${icon}`; statusIcon.setAttribute('aria-hidden', 'true'); header.append(left, statusIcon);
+    const statusIconWrap = document.createElement('span'); statusIconWrap.className = 'room-card__status-icon';
+    const statusIcon = document.createElement('i'); statusIcon.className = `fas ${icon}`; statusIcon.setAttribute('aria-hidden', 'true'); statusIconWrap.appendChild(statusIcon); header.append(left, statusIconWrap);
     const body = document.createElement('div'); body.className = 'room-card__body';
     const state = document.createElement('strong'); state.className = 'room-card__eyebrow'; state.textContent = title; body.appendChild(state);
     const detail = document.createElement('small'); detail.className = 'room-card__detail';
@@ -427,7 +506,7 @@ function renderRoomCard(room) {
     else if (room.clean_status === 'dirty') { action.textContent = 'Dọn xong'; action.addEventListener('click', () => cleanRoom(room.number)); }
     else if (room.status === 'maintenance') { action.textContent = 'Đang bảo trì'; action.disabled = true; }
     else { action.textContent = 'Đặt / Check-in'; action.addEventListener('click', () => openBookingModal(room.number)); }
-    const badge = document.createElement('span'); badge.className = 'status-badge'; badge.textContent = formatRoomStatus(modifier);
+    const badge = document.createElement('span'); badge.className = `status-badge status-badge--${modifier}`; badge.textContent = formatRoomStatus(modifier);
     footer.append(action, badge); card.append(header, body, footer); return card;
 }
 

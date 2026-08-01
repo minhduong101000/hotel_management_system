@@ -7,7 +7,7 @@
             <span class="room-map-toolbar__icon"><i class="fas fa-th" aria-hidden="true"></i></span>
             <div><h1>Sơ đồ phòng</h1><p>Trạng thái vận hành hiện tại</p></div>
         </div>
-        <div class="room-map-toolbar__controls">
+        <div class="room-map-toolbar__controls button-group">
             <label class="visually-hidden" for="filter-status">Lọc theo trạng thái phòng</label>
             <select id="filter-status" class="form-select" onchange="renderGrid()">
                 <option value="all">Tất cả trạng thái</option>
@@ -28,11 +28,14 @@
     </div>
 </header>
 
-<div class="container-fluid">
+<div class="container-fluid room-map-grid-shell">
     <div class="row g-3" id="room-grid">
-        <div class="col-12 text-center mt-5">
-            <div class="spinner-border text-primary" role="status"></div>
-            <p class="mt-2 text-muted">Đang tải dữ liệu phòng...</p>
+        <div class="col-12 room-map-state-column">
+            <div class="data-state data-state--loading" role="status" aria-live="polite">
+                <div class="data-state__icon"><i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i></div>
+                <h2 class="data-state__title">Đang tải dữ liệu phòng</h2>
+                <p class="data-state__description">Vui lòng chờ trong giây lát.</p>
+            </div>
         </div>
     </div>
 </div>

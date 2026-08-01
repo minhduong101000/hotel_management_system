@@ -24,3 +24,15 @@ def test_customer_search_uses_a_spaced_search_bar(client, seed_hotels, login_as)
 
     assert response.status_code == 200
     assert b'customer-search-bar' in response.data
+
+
+def test_room_map_initial_loading_state_uses_shared_data_state(client, seed_hotels, login_as):
+    hotel, _, admin, _, _, _ = seed_hotels
+    login_as(client, admin)
+
+    response = client.get(f'/{hotel.slug}/rooms/dashboard/room-map')
+
+    assert response.status_code == 200
+    assert b'data-state data-state--loading' in response.data
+    assert b'data-state__title' in response.data
+    assert 'Đang tải dữ liệu phòng'.encode() in response.data

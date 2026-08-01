@@ -47,6 +47,51 @@ def test_room_map_toolbar_and_sidebar_brand_use_compact_grouped_markup():
     assert 'sidebar-support-banner' in base_layout
 
 
+def test_room_map_uses_shared_toolbar_group_and_structured_data_states():
+    template = Path('templates/rooms/map.html').read_text(encoding='utf-8')
+    script = Path('static/js/room.js').read_text(encoding='utf-8')
+
+    assert 'room-map-toolbar__controls button-group' in template
+    assert 'id="filter-status"' in template
+    assert 'id="stat-occupied"' in template
+    assert 'id="stat-dirty"' in template
+    assert 'id="stat-available"' in template
+    assert 'data-state data-state--loading' in template
+    assert 'renderRoomMapState' in script
+    assert 'let hasLoadedRooms = false' in script
+    assert 'if (!hasLoadedRooms)' in script
+    assert 'hasLoadedRooms = true' in script
+    for class_name in (
+        'data-state__icon',
+        'data-state__title',
+        'data-state__description',
+        'data-state__actions',
+    ):
+        assert class_name in script
+    assert "retryButton.addEventListener('click', loadRoomsData)" in script
+    assert "'<div class=\"col-12 text-center text-muted mt-5\"><i>" not in script
+
+
+def test_room_cards_use_tinted_surface_status_rail_and_named_badge():
+    script = Path('static/js/room.js').read_text(encoding='utf-8')
+    styles = Path('static/css/style.css').read_text(encoding='utf-8')
+
+    assert 'room-card__status-icon' in script
+    assert 'status-badge--${modifier}' in script
+    assert '.room-card::before' in styles
+    for modifier in (
+        'available',
+        'booked',
+        'occupied',
+        'hourly',
+        'overdue',
+        'dirty',
+        'maintenance',
+    ):
+        assert f'.room-card--{modifier}' in styles
+        assert f'.room-card .status-badge--{modifier}' in styles
+
+
 def test_occupied_room_card_opens_order_modal_without_interfering_checkout():
     script = Path('static/js/room.js').read_text(encoding='utf-8')
 
