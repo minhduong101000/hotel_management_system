@@ -3,14 +3,16 @@
 {% block content %}
 <div class="container-fluid p-4">
     <div class="page-header mb-3 rounded-3">
-        <div><h1 class="page-header__title"><i class="fas fa-users me-2"></i>Khách hàng</h1><small class="text-muted">Tra cứu và quản lý hồ sơ khách lưu trú</small></div>
-        <button type="button" class="btn btn-primary shadow-sm" id="add-customer-button" onclick="openModal()">
-            <i class="fas fa-user-plus" aria-hidden="true"></i> Thêm khách mới
-        </button>
+        <div><h1 class="page-header__title"><i class="fas fa-users me-2" aria-hidden="true"></i>Khách hàng</h1><small class="text-muted">Tra cứu và quản lý hồ sơ khách lưu trú</small></div>
+        <div class="page-header__actions button-group">
+            <button type="button" class="btn btn-primary shadow-sm" id="add-customer-button" onclick="openModal()">
+                <i class="fas fa-user-plus" aria-hidden="true"></i><span>Thêm khách mới</span>
+            </button>
+        </div>
     </div>
 
-    <div class="card shadow-sm mb-4 filter-bar p-2">
-        <div class="card-body py-3">
+    <div class="card shadow-sm mb-4 filter-bar data-filter-bar">
+        <div class="card-body">
             <div class="customer-search-bar">
                 <div class="input-group customer-search-bar__input">
                     <span class="input-group-text bg-white"><i class="fas fa-search text-muted" aria-hidden="true"></i></span>
@@ -18,14 +20,14 @@
                     <input type="text" id="search-input" class="form-control border-start-0"
                            placeholder="Tìm theo Tên, SĐT hoặc CCCD..." onkeyup="handleSearch(event)">
                 </div>
-                <button class="btn btn-outline-primary customer-search-bar__button" onclick="loadCustomers()">Tìm kiếm</button>
+                <button type="button" class="customer-search-bar__button btn btn-outline-primary" onclick="loadCustomers()"><i class="fas fa-magnifying-glass" aria-hidden="true"></i><span>Tìm kiếm</span></button>
             </div>
         </div>
     </div>
 
-    <div class="card shadow-sm">
+    <div class="card shadow-sm data-table-card">
         <div class="card-body p-0">
-            <div class="table-responsive">
+            <div class="table-responsive data-table-shell">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="bg-light text-secondary">
                         <tr>
@@ -37,8 +39,17 @@
                             <th class="text-end pe-4">Hành động</th>
                         </tr>
                     </thead>
-                    <tbody id="customer-table-body">
-                        </tbody>
+                    <tbody id="customer-table-body" aria-live="polite">
+                        <tr class="data-table-state-row">
+                            <td colspan="6">
+                                <div class="data-state data-state--loading" role="status">
+                                    <div class="data-state__icon"><i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i></div>
+                                    <h2 class="data-state__title">Đang tải danh sách khách hàng</h2>
+                                    <p class="data-state__description">Vui lòng chờ trong giây lát.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
                 </table>
             </div>
         </div>

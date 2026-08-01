@@ -6,6 +6,7 @@ from models import Customer
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 CUSTOMER_SCRIPT = PROJECT_ROOT / "static" / "js" / "customer.js"
+BILLING_TEMPLATE = PROJECT_ROOT / "templates" / "billing" / "index.html"
 
 
 def test_customer_api_keeps_untrusted_values_as_json_data(
@@ -41,6 +42,8 @@ def test_customer_rows_render_untrusted_values_without_html_sinks():
     assert "document.createElement" in source
     assert ".textContent" in source
     assert "addEventListener" in source
+    assert "renderCustomerTableState" in source
+    assert "btn btn-icon" in source
 
 
 def test_customer_icon_actions_have_contextual_accessible_names():
@@ -61,3 +64,24 @@ def test_customer_form_focuses_invalid_field_and_prevents_double_submit():
     assert "aria-invalid" in source
     assert ".focus()" in source
     assert "customer-save-button" in source
+
+
+def test_billing_rows_and_receipt_lines_render_untrusted_values_without_html_sinks():
+    source = BILLING_TEMPLATE.read_text(encoding="utf-8")
+
+    assert "tr.innerHTML" not in source
+    assert "innerHTML +=" not in source
+    assert 'onclick="viewDetail(' not in source
+    assert "renderBillingTableState" in source
+    assert "document.createElement" in source
+    assert ".textContent" in source
+    assert "addEventListener" in source
+
+
+def test_billing_money_and_quantity_cells_use_tabular_right_alignment():
+    source = BILLING_TEMPLATE.read_text(encoding="utf-8")
+
+    assert 'billing-money-column text-end numeric-tabular' in source
+    assert 'billing-quantity-column text-right numeric-tabular' in source
+    assert "'text-end numeric-tabular'" in source
+    assert "'text-right numeric-tabular'" in source

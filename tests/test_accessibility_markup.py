@@ -105,6 +105,18 @@ def test_customer_modal_has_linked_labels_error_region_and_busy_button():
         _assert_label_for(source, control_id)
 
 
+def test_billing_filters_and_dynamic_detail_actions_have_accessible_names():
+    source = _source("templates/billing/index.html")
+
+    _assert_label_for(source, "billing-start-date")
+    _assert_label_for(source, "billing-end-date")
+    assert 'aria-label="Đóng chi tiết hóa đơn"' in source
+    assert "button.setAttribute('aria-label', detailLabel)" in source
+    assert 'button.title = detailLabel' in source
+    assert 'data-table-state-row' in source
+    assert 'role="status"' in source
+
+
 def test_checkout_modals_have_names_close_labels_and_announced_status():
     checkout = _source("templates/rooms/_checkout_modal.html")
     group_checkout = _source("templates/rooms/_group_checkout_modal.html")

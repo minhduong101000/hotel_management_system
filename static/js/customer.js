@@ -32,6 +32,58 @@ function createCustomerActionButton({ className, iconClass, label, onClick }) {
     return button;
 }
 
+function renderCustomerTableState(kind, title, description, showRetry = false) {
+    const tbody = document.getElementById('customer-table-body');
+    if (!tbody) return;
+
+    const row = document.createElement('tr');
+    row.className = 'data-table-state-row';
+    const cell = document.createElement('td');
+    cell.colSpan = 6;
+
+    const state = document.createElement('div');
+    state.className = `data-state data-state--${kind}`;
+    state.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+
+    const iconWrap = document.createElement('div');
+    iconWrap.className = 'data-state__icon';
+    const icon = document.createElement('i');
+    icon.className = kind === 'loading'
+        ? 'fas fa-circle-notch fa-spin'
+        : (kind === 'error' ? 'fas fa-cloud-arrow-down' : 'fas fa-user-group');
+    icon.setAttribute('aria-hidden', 'true');
+    iconWrap.appendChild(icon);
+
+    const heading = document.createElement('h2');
+    heading.className = 'data-state__title';
+    heading.textContent = title;
+    const message = document.createElement('p');
+    message.className = 'data-state__description';
+    message.textContent = description;
+    state.append(iconWrap, heading, message);
+
+    if (showRetry) {
+        const actions = document.createElement('div');
+        actions.className = 'data-state__actions';
+        const retry = document.createElement('button');
+        retry.type = 'button';
+        retry.className = 'btn btn-outline-primary';
+        retry.addEventListener('click', loadCustomers);
+        const retryIcon = document.createElement('i');
+        retryIcon.className = 'fas fa-rotate-right';
+        retryIcon.setAttribute('aria-hidden', 'true');
+        const retryLabel = document.createElement('span');
+        retryLabel.textContent = 'Thử lại';
+        retry.append(retryIcon, retryLabel);
+        actions.appendChild(retry);
+        state.appendChild(actions);
+    }
+
+    cell.appendChild(state);
+    row.appendChild(cell);
+    tbody.replaceChildren(row);
+}
+
 function createCustomerRow(c) {
     const tr = document.createElement('tr');
     tr.appendChild(createCustomerCell(c.name, 'ps-4 fw-bold text-primary'));
@@ -53,22 +105,25 @@ function createCustomerRow(c) {
 
     const actionCell = document.createElement('td');
     actionCell.className = 'text-end pe-4';
+    const actionGroup = document.createElement('div');
+    actionGroup.className = 'table-row-actions button-group';
 
     const editButton = createCustomerActionButton({
-        className: 'btn btn-sm btn-outline-warning me-1',
+        className: 'btn btn-icon btn-outline-warning',
         iconClass: 'fas fa-pen',
         label: `Sửa khách hàng ${c.name || ''}`.trim(),
         onClick: () => openModal(c.id, c.name, c.phone, c.cccd, c.email, c.address)
     });
 
     const deleteButton = createCustomerActionButton({
-        className: 'btn btn-sm btn-outline-danger',
+        className: 'btn btn-icon btn-outline-danger',
         iconClass: 'fas fa-trash',
         label: `Xóa khách hàng ${c.name || ''}`.trim(),
         onClick: () => deleteCustomer(c.id)
     });
 
-    actionCell.append(editButton, deleteButton);
+    actionGroup.append(editButton, deleteButton);
+    actionCell.appendChild(actionGroup);
     tr.appendChild(actionCell);
 
     return tr;
@@ -76,30 +131,48 @@ function createCustomerRow(c) {
 
 // 1. TẢI DANH SÁCH (CÓ HỖ TRỢ TÌM KIẾM)
 function loadCustomers() {
-    const keyword = document.getElementById('search-input').value;
+    const keyword = document.getElementById('search-input').value.trim();
     // Gắn từ khóa vào URL API: /api/customers?q=abc
     const url = api(keyword ? `/api/customers?q=${encodeURIComponent(keyword)}` : '/api/customers');
+    renderCustomerTableState(
+        'loading',
+        'Đang tải danh sách khách hàng',
+        'Vui lòng chờ trong giây lát.'
+    );
 
     fetch(url)
-        .then(res => res.json())
+        .then(res => {
+            if (!res.ok) throw new Error(`Không thể tải khách hàng (${res.status})`);
+            return res.json();
+        })
         .then(data => {
+            if (!Array.isArray(data)) throw new Error('Dữ liệu khách hàng không hợp lệ');
             const tbody = document.getElementById('customer-table-body');
             tbody.replaceChildren();
 
             if (data.length === 0) {
-                const emptyRow = document.createElement('tr');
-                const emptyCell = document.createElement('td');
-                emptyCell.colSpan = 6;
-                emptyCell.className = 'text-center py-4 text-muted';
-                emptyCell.textContent = 'Không tìm thấy khách hàng nào';
-                emptyRow.appendChild(emptyCell);
-                tbody.appendChild(emptyRow);
+                renderCustomerTableState(
+                    'empty',
+                    keyword ? 'Không có khách hàng phù hợp' : 'Chưa có khách hàng',
+                    keyword
+                        ? 'Thử từ khóa khác hoặc kiểm tra lại thông tin tìm kiếm.'
+                        : 'Khách hàng mới sẽ xuất hiện tại đây sau khi được thêm.'
+                );
                 return;
             }
 
             data.forEach(c => {
                 tbody.appendChild(createCustomerRow(c));
             });
+        })
+        .catch(err => {
+            console.error('Lỗi tải khách hàng:', err);
+            renderCustomerTableState(
+                'error',
+                'Không thể tải danh sách khách hàng',
+                'Kiểm tra kết nối rồi thử tải lại.',
+                true
+            );
         });
 }
 

@@ -4,52 +4,69 @@
 {% block page_title %}Lịch sử Hóa đơn{% endblock %}
 
 {% block content %}
-<div class="page-header mb-3 rounded-3"><div><h1 class="page-header__title"><i class="fas fa-file-invoice-dollar me-2"></i>Lịch sử hóa đơn</h1><small class="text-muted">Tra cứu, xem chi tiết và in chứng từ thanh toán</small></div></div>
-<div class="row mb-4">
-    <div class="col-12 col-md-8">
-        <div class="input-group shadow-sm">
-            <span class="input-group-text bg-white border-end-0 text-muted small">Từ</span>
-            <input type="date" id="billing-start-date" class="form-control border-start-0 border-end-0" onchange="loadBillingList()">
-            <span class="input-group-text bg-white border-start-0 border-end-0 text-muted small">Đến</span>
-            <input type="date" id="billing-end-date" class="form-control border-start-0" onchange="loadBillingList()">
-            <button class="btn btn-primary px-4 fw-bold" onclick="loadBillingList()"><i class="fas fa-filter me-2"></i>Lọc Khoảng Ngày</button>
-            <button class="btn btn-outline-secondary" onclick="resetFilter()">Xóa Lọc</button>
+<div class="container-fluid p-4 frontdesk-data-page">
+    <div class="page-header mb-3 rounded-3">
+        <div><h1 class="page-header__title"><i class="fas fa-file-invoice-dollar me-2" aria-hidden="true"></i>Lịch sử hóa đơn</h1><small class="text-muted">Tra cứu, xem chi tiết và in chứng từ thanh toán</small></div>
+    </div>
+
+    <div class="card filter-bar data-filter-bar mb-3">
+        <div class="card-body billing-filter-layout">
+            <div class="billing-filter-field">
+                <label class="form-label" for="billing-start-date">Từ ngày</label>
+                <input type="date" id="billing-start-date" class="form-control" onchange="loadBillingList()">
+            </div>
+            <div class="billing-filter-field">
+                <label class="form-label" for="billing-end-date">Đến ngày</label>
+                <input type="date" id="billing-end-date" class="form-control" onchange="loadBillingList()">
+            </div>
+            <div class="billing-filter-actions button-group">
+                <button type="button" class="btn btn-outline-primary" onclick="loadBillingList()"><i class="fas fa-filter" aria-hidden="true"></i><span>Lọc khoảng ngày</span></button>
+                <button type="button" class="btn btn-outline-secondary" onclick="resetFilter()"><i class="fas fa-rotate-left" aria-hidden="true"></i><span>Xóa lọc</span></button>
+            </div>
         </div>
     </div>
-</div>
 
-<!-- Invoice List Table -->
-<div class="card shadow-sm border-0 mb-4">
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th class="ps-4">Mã HĐ</th>
-                        <th>Phòng</th>
-                        <th>Khách Hàng</th>
-                        <th>Ngày Thanh Toán</th>
-                        <th class="text-end">Tiền Cọc</th>
-                        <th class="text-end">Tổng Hóa Đơn</th>
-                        <th class="text-center">Trạng thái</th>
-                        <th class="text-center pe-4">Thao tác</th>
-                    </tr>
-                </thead>
-                <tbody id="billing-table-body">
-                    <tr><td colspan="7" class="text-center py-5 text-muted">Đang tải danh sách...</td></tr>
-                </tbody>
-            </table>
+    <!-- Invoice List Table -->
+    <div class="card shadow-sm data-table-card mb-4">
+        <div class="card-body p-0">
+            <div class="table-responsive data-table-shell">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4">Mã HĐ</th>
+                            <th>Phòng</th>
+                            <th>Khách hàng</th>
+                            <th>Ngày thanh toán</th>
+                            <th class="billing-money-column text-end numeric-tabular">Tiền cọc</th>
+                            <th class="billing-money-column text-end numeric-tabular">Tổng hóa đơn</th>
+                            <th class="text-center">Trạng thái</th>
+                            <th class="text-end pe-4">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody id="billing-table-body" aria-live="polite">
+                        <tr class="data-table-state-row">
+                            <td colspan="8">
+                                <div class="data-state data-state--loading" role="status">
+                                    <div class="data-state__icon"><i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i></div>
+                                    <h2 class="data-state__title">Đang tải lịch sử hóa đơn</h2>
+                                    <p class="data-state__description">Vui lòng chờ trong giây lát.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
 
 <!-- MODAL CHI TIẾT HÓA ĐƠN -->
-<div class="modal fade" id="invoiceModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="invoiceModal" tabindex="-1" aria-labelledby="invoiceModalTitle" aria-hidden="true">
     <div class="modal-dialog modal-lg workflow-modal workflow-modal--fullscreen">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-dark text-white py-3">
-                <h5 class="modal-title fw-bold"><i class="fas fa-file-invoice-dollar me-2"></i> CHI TIẾT HÓA ĐƠN <span id="md-invoice-code"></span></h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title fw-bold" id="invoiceModalTitle"><i class="fas fa-file-invoice-dollar me-2" aria-hidden="true"></i>CHI TIẾT HÓA ĐƠN <span id="md-invoice-code"></span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng chi tiết hóa đơn"></button>
             </div>
             <div class="modal-body p-3" id="invoice-print-area">
                 <div class="receipt-paper" id="receipt-paper">
@@ -97,8 +114,8 @@
                         <thead>
                             <tr>
                                 <th>Dich vu</th>
-                                <th class="text-center">SL</th>
-                                <th class="text-right">Tien</th>
+                                <th class="billing-quantity-column text-right numeric-tabular">SL</th>
+                                <th class="text-right numeric-tabular">Tien</th>
                             </tr>
                         </thead>
                         <tbody id="md-services-body"></tbody>
@@ -150,21 +167,95 @@
 <script>
 document.addEventListener('DOMContentLoaded', loadBillingList);
 
+function createBillingCell(text, className = '') {
+    const cell = document.createElement('td');
+    if (className) cell.className = className;
+    cell.textContent = text ?? '-';
+    return cell;
+}
+
+function renderBillingTableState(kind, title, description, showRetry = false) {
+    const tbody = document.getElementById('billing-table-body');
+    if (!tbody) return;
+
+    const row = document.createElement('tr');
+    row.className = 'data-table-state-row';
+    const cell = document.createElement('td');
+    cell.colSpan = 8;
+    const state = document.createElement('div');
+    state.className = `data-state data-state--${kind}`;
+    state.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+
+    const iconWrap = document.createElement('div');
+    iconWrap.className = 'data-state__icon';
+    const icon = document.createElement('i');
+    icon.className = kind === 'loading'
+        ? 'fas fa-circle-notch fa-spin'
+        : (kind === 'error' ? 'fas fa-cloud-arrow-down' : 'fas fa-file-invoice');
+    icon.setAttribute('aria-hidden', 'true');
+    iconWrap.appendChild(icon);
+
+    const heading = document.createElement('h2');
+    heading.className = 'data-state__title';
+    heading.textContent = title;
+    const message = document.createElement('p');
+    message.className = 'data-state__description';
+    message.textContent = description;
+    state.append(iconWrap, heading, message);
+
+    if (showRetry) {
+        const actions = document.createElement('div');
+        actions.className = 'data-state__actions';
+        const retry = document.createElement('button');
+        retry.type = 'button';
+        retry.className = 'btn btn-outline-primary';
+        retry.addEventListener('click', loadBillingList);
+        const retryIcon = document.createElement('i');
+        retryIcon.className = 'fas fa-rotate-right';
+        retryIcon.setAttribute('aria-hidden', 'true');
+        const retryLabel = document.createElement('span');
+        retryLabel.textContent = 'Thử lại';
+        retry.append(retryIcon, retryLabel);
+        actions.appendChild(retry);
+        state.appendChild(actions);
+    }
+
+    cell.appendChild(state);
+    row.appendChild(cell);
+    tbody.replaceChildren(row);
+}
+
 function loadBillingList() {
     const start = document.getElementById('billing-start-date').value;
     const end = document.getElementById('billing-end-date').value;
-    const tbody = document.getElementById('billing-table-body');
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-5 text-muted"><div class="spinner-border spinner-border-sm text-primary me-2"></div> Đang tải dữ liệu...</td></tr>';
+    renderBillingTableState(
+        'loading',
+        'Đang tải lịch sử hóa đơn',
+        'Vui lòng chờ trong giây lát.'
+    );
 
     let url = api(`/api/billing/list?start=${start}&end=${end}`);
 
     fetch(url)
-        .then(res => res.json())
+        .then(res => {
+            if (!res.ok) throw new Error(`Không thể tải hóa đơn (${res.status})`);
+            return res.json();
+        })
         .then(data => {
-            if (!data.success) { alert(data.msg); return; }
+            if (!data.success || !Array.isArray(data.data)) {
+                throw new Error(data.msg || 'Dữ liệu hóa đơn không hợp lệ');
+            }
             renderTable(data.data);
         })
-        .catch(err => { console.error(err); alert("Lỗi kết nối máy chủ"); });
+        .catch(err => {
+            console.error('Lỗi tải hóa đơn:', err);
+            renderBillingTableState(
+                'error',
+                'Không thể tải lịch sử hóa đơn',
+                'Kiểm tra kết nối rồi thử tải lại.',
+                true
+            );
+        });
 }
 
 function resetFilter() {
@@ -179,38 +270,64 @@ function fmtMoney(num) {
 
 function renderTable(bookings) {
     const tbody = document.getElementById('billing-table-body');
-    tbody.innerHTML = '';
+    tbody.replaceChildren();
     
     if (bookings.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-5 text-muted">Không tìm thấy hóa đơn nào phù hợp.</td></tr>';
+        const hasFilter = Boolean(
+            document.getElementById('billing-start-date').value
+            || document.getElementById('billing-end-date').value
+        );
+        renderBillingTableState(
+            'empty',
+            hasFilter ? 'Không có hóa đơn phù hợp' : 'Chưa có hóa đơn',
+            hasFilter
+                ? 'Thử thay đổi khoảng ngày hoặc xóa bộ lọc hiện tại.'
+                : 'Hóa đơn hoàn tất sẽ xuất hiện tại đây.'
+        );
         return;
     }
 
     bookings.forEach(b => {
-        let statusBadge = '';
-        if (b.status === 'checked_out' || b.status === 'completed') {
-            statusBadge = '<span class="badge bg-success-subtle text-success border border-success-subtle">Hoàn tất</span>';
-        } else if (b.status === 'cancelled') {
-            statusBadge = '<span class="badge bg-danger-subtle text-danger border border-danger-subtle">Đã hủy</span>';
-        } else {
-            statusBadge = '<span class="badge bg-primary-subtle text-primary border border-primary-subtle">Đang ở (Có phòng trả)</span>';
-        }
-
         const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td class="ps-4 fw-bold text-primary">#${b.code}</td>
-            <td class="fw-semibold">P.${b.room_number}</td>
-            <td>${b.customer_name}</td>
-            <td class="text-muted"><small>${b.date}</small></td>
-            <td class="text-end text-info">${fmtMoney(b.prepaid_amount)}</td>
-            <td class="text-end fw-bold">${fmtMoney(b.total_amount)}</td>
-            <td class="text-center">${statusBadge}</td>
-            <td class="text-center pe-4">
-                <button class="btn btn-sm btn-outline-primary shadow-sm px-3" onclick="viewDetail(${b.id})">
-                    <i class="fas fa-eye me-1"></i> Chi tiết
-                </button>
-            </td>
-        `;
+        tr.appendChild(createBillingCell(`#${b.code || '-'}`, 'ps-4 fw-bold text-primary'));
+        tr.appendChild(createBillingCell(`P.${b.room_number || '-'}`, 'fw-semibold'));
+        tr.appendChild(createBillingCell(b.customer_name));
+        tr.appendChild(createBillingCell(b.date, 'text-muted'));
+        tr.appendChild(createBillingCell(fmtMoney(b.prepaid_amount), 'text-end numeric-tabular text-info'));
+        tr.appendChild(createBillingCell(fmtMoney(b.total_amount), 'text-end numeric-tabular fw-bold'));
+
+        const statusCell = document.createElement('td');
+        statusCell.className = 'text-center';
+        const statusBadge = document.createElement('span');
+        statusBadge.className = 'status-badge';
+        if (b.status === 'checked_out' || b.status === 'completed') {
+            statusBadge.classList.add('status-badge--success');
+            statusBadge.textContent = 'Hoàn tất';
+        } else if (b.status === 'cancelled') {
+            statusBadge.classList.add('status-badge--danger');
+            statusBadge.textContent = 'Đã hủy';
+        } else {
+            statusBadge.classList.add('status-badge--info');
+            statusBadge.textContent = 'Đang ở (có phòng trả)';
+        }
+        statusCell.appendChild(statusBadge);
+        tr.appendChild(statusCell);
+
+        const actionCell = document.createElement('td');
+        actionCell.className = 'text-end pe-4';
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'btn btn-icon btn-outline-primary';
+        const detailLabel = `Xem chi tiết hóa đơn ${b.code || ''}`.trim();
+        button.setAttribute('aria-label', detailLabel);
+        button.title = detailLabel;
+        button.addEventListener('click', () => viewDetail(b.id));
+        const detailIcon = document.createElement('i');
+        detailIcon.className = 'fas fa-eye';
+        detailIcon.setAttribute('aria-hidden', 'true');
+        button.appendChild(detailIcon);
+        actionCell.appendChild(button);
+        tr.appendChild(actionCell);
         tbody.appendChild(tr);
     });
 }
@@ -233,38 +350,43 @@ function fillModal(info) {
     
     // Render Rooms
     const rBody = document.getElementById('md-rooms-body');
-    rBody.innerHTML = '';
+    rBody.replaceChildren();
     info.rooms.forEach(r => {
         const isDaily = String(r.rental_type || '').toLowerCase().includes('ngày') || String(r.rental_type || '').toLowerCase().includes('daily');
         const checkInText = isDaily ? String(r.check_in || '').split(' ')[0] : (r.check_in || '');
         const checkOutText = isDaily ? String(r.check_out || '').split(' ')[0] : (r.check_out || '');
 
-        rBody.innerHTML += `
-            <tr>
-                <td>
-                    <div class="fw-bold">P.${r.room_number}</div>
-                    <div class="item-note">${checkInText} - ${checkOutText}</div>
-                </td>
-                <td>${r.rental_type}</td>
-                <td class="text-end fw-bold">${fmtMoney(r.amount)}</td>
-            </tr>
-        `;
+        const row = document.createElement('tr');
+        const roomCell = document.createElement('td');
+        const roomNumber = document.createElement('div');
+        roomNumber.className = 'fw-bold';
+        roomNumber.textContent = `P.${r.room_number || '-'}`;
+        const stayPeriod = document.createElement('div');
+        stayPeriod.className = 'item-note';
+        stayPeriod.textContent = `${checkInText} - ${checkOutText}`;
+        roomCell.append(roomNumber, stayPeriod);
+        row.appendChild(roomCell);
+        row.appendChild(createBillingCell(r.rental_type));
+        row.appendChild(createBillingCell(fmtMoney(r.amount), 'text-end numeric-tabular'));
+        rBody.appendChild(row);
     });
 
     // Render Services
     const sBody = document.getElementById('md-services-body');
-    sBody.innerHTML = '';
+    sBody.replaceChildren();
     if (info.services.length === 0) {
-        sBody.innerHTML = '<tr><td colspan="3" class="text-center py-2 text-muted">Khong dung dich vu</td></tr>';
+        const emptyRow = document.createElement('tr');
+        const emptyCell = createBillingCell('Không dùng dịch vụ', 'text-center py-2 text-muted');
+        emptyCell.colSpan = 3;
+        emptyRow.appendChild(emptyCell);
+        sBody.appendChild(emptyRow);
     } else {
         info.services.forEach(s => {
-            sBody.innerHTML += `
-                <tr>
-                    <td>${s.name}</td>
-                    <td class="text-center">${s.quantity}</td>
-                    <td class="text-end fw-bold">${fmtMoney(s.total)}</td>
-                </tr>
-            `;
+            const row = document.createElement('tr');
+            row.appendChild(createBillingCell(s.name));
+            row.appendChild(createBillingCell(s.quantity, 'text-right numeric-tabular'));
+            row.appendChild(createBillingCell(fmtMoney(s.total), 'text-end numeric-tabular'));
+            sBody.appendChild(row);
         });
     }
 

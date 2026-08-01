@@ -1631,9 +1631,70 @@ body.login-page {
 .customer-search-bar__input { flex: 1 1 360px; }
 .customer-search-bar__button { flex: 0 0 auto; min-height: 44px; }
 
+.data-filter-bar {
+    display: block;
+    padding: 0;
+    overflow: hidden;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-surface);
+    box-shadow: var(--shadow-surface);
+}
+
+.data-filter-bar .card-body { padding: var(--space-4); }
+
+.billing-filter-layout {
+    display: grid;
+    grid-template-columns: minmax(180px, 240px) minmax(180px, 240px) 1fr;
+    align-items: end;
+    gap: var(--space-3);
+}
+
+.billing-filter-field { min-width: 0; }
+.billing-filter-field .form-label {
+    margin-bottom: var(--space-1);
+    color: var(--color-muted-text);
+    font-size: 12px;
+    font-weight: 700;
+}
+.billing-filter-field .form-control { min-height: 44px; }
+.billing-filter-actions { justify-content: flex-end; }
+
+.data-table-card {
+    overflow: hidden;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-surface);
+    box-shadow: var(--shadow-surface);
+}
+
+.data-table-shell { min-height: 240px; }
+.data-table-state-row > td { padding: 0 !important; background: var(--color-surface); }
+.data-table-state-row:hover > td { background: var(--color-surface) !important; }
+.data-table-state-row .data-state { min-height: 240px; }
+.data-table-state-row .data-state--loading .data-state__icon { color: var(--color-info); background: var(--color-surface-blue); }
+.data-table-state-row .data-state--error .data-state__icon { color: var(--color-danger); background: #fef2f2; }
+.data-table-state-row .data-state--empty .data-state__icon { color: var(--color-action); background: var(--color-surface-teal); }
+
+.table-row-actions {
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+}
+
+.billing-money-column { min-width: 132px; }
+.billing-quantity-column { min-width: 42px; }
+
+@media (max-width: 991.98px) {
+    .billing-filter-layout { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .billing-filter-actions { grid-column: 1 / -1; justify-content: flex-start; }
+}
+
 @media (max-width: 575.98px) {
     .customer-search-bar { align-items: stretch; flex-direction: column; }
     .customer-search-bar__button { width: 100%; }
+    .billing-filter-layout { grid-template-columns: minmax(0, 1fr); }
+    .billing-filter-actions { grid-column: auto; }
+    .billing-filter-actions .btn { flex: 1 1 auto; }
 }
 
 /* Shared modal shell for short operational actions. */
@@ -1684,6 +1745,7 @@ body.login-page {
     line-height: 1.25;
 }
 
+.status-badge--success { color: #065f46; background: #ecfdf5; border: 1px solid #a7f3d0; }
 .status-badge--info { color: #1d4ed8; background: #eff6ff; border: 1px solid #bfdbfe; }
 .status-badge--danger { color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; }
 
