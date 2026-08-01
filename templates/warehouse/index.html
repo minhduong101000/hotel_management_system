@@ -1,139 +1,124 @@
 {% extends "layouts/base.html" %}
 
 {% block content %}
-<div class="container-fluid py-3">
+<div class="container-fluid p-4">
     <div class="page-header mb-3 rounded-3 flex-wrap">
-        <div><h1 class="page-header__title"><i class="fas fa-boxes me-2"></i>Kho hàng</h1><small class="text-muted">Tồn kho, hạn dùng và biến động theo lô</small></div>
-        <div class="d-flex gap-2">
-            <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('expense.index') }}">
-                <i class="fas fa-money-bill-wave me-1"></i> Sang trang Chi phí
-            </a>
-            <button class="btn btn-primary btn-sm" onclick="openAddModal()">
-                <i class="fas fa-plus me-1"></i> Thêm vật tư
-            </button>
+        <div><h1 class="page-header__title"><i class="fas fa-boxes me-2" aria-hidden="true"></i>Kho hàng</h1><small class="text-muted">Tồn kho, hạn dùng và biến động theo lô</small></div>
+        <div class="page-header__actions button-group">
+            <a class="btn btn-outline-secondary" href="{{ url_for('expense.index') }}"><i class="fas fa-money-bill-wave" aria-hidden="true"></i><span>Sang trang Chi phí</span></a>
+            <button type="button" class="btn btn-primary" onclick="openAddModal()"><i class="fas fa-plus" aria-hidden="true"></i><span>Thêm vật tư</span></button>
         </div>
     </div>
-    <div class="row g-2 mb-3" aria-label="Cảnh báo hạn dùng">
-        <div class="col-md-3"><div class="card border-warning"><div class="card-body py-2"><small>Sắp hết hạn (30 ngày)</small><strong id="warehouse-expiring-count" class="d-block text-warning">0</strong></div></div></div>
-        <div class="col-md-3"><div class="card border-danger"><div class="card-body py-2"><small>Đã quá hạn</small><strong id="warehouse-expired-count" class="d-block text-danger">0</strong></div></div></div>
+
+    <div class="row g-3 mb-3 warehouse-kpi-grid" aria-label="Cảnh báo hạn dùng">
+        <div class="col-md-6 col-xl-4">
+            <article class="kpi-card kpi-card--warning">
+                <div><p class="kpi-card__label">Sắp hết hạn</p><strong id="warehouse-expiring-count" class="kpi-card__value numeric-tabular">0</strong><small class="kpi-card__meta">Trong 30 ngày tới</small></div>
+                <span class="kpi-card__icon" aria-hidden="true"><i class="fas fa-hourglass-half"></i></span>
+            </article>
+        </div>
+        <div class="col-md-6 col-xl-4">
+            <article class="kpi-card kpi-card--danger">
+                <div><p class="kpi-card__label">Đã quá hạn</p><strong id="warehouse-expired-count" class="kpi-card__value numeric-tabular">0</strong><small class="kpi-card__meta">Cần xử lý sớm</small></div>
+                <span class="kpi-card__icon" aria-hidden="true"><i class="fas fa-triangle-exclamation"></i></span>
+            </article>
+        </div>
     </div>
+
     <div id="warehouse-feedback" class="alert d-none" role="status" aria-live="polite"></div>
 
-    <div class="card border-0 shadow-sm">
+    <div class="card data-table-card">
         <div class="card-body p-0">
-            <table class="table table-hover mb-0 align-middle">
-                <thead class="table-light">
-                    <tr>
-                        <th>Mã</th>
-                        <th>Tên vật tư</th>
-                        <th>ĐVT</th>
-                        <th class="text-center">Tồn kho</th>
-                        <th class="text-center">Ngưỡng</th>
-                        <th>Dịch vụ liên kết</th>
-                        <th class="text-center">Trạng thái</th>
-                        <th class="text-end">Thao tác</th>
-                    </tr>
-                </thead>
-                <tbody id="warehouse-tbody">
-                    <tr><td colspan="8" class="text-center text-muted py-4">Đang tải...</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<!-- Modal Thêm/Sửa -->
-<div class="modal fade" id="itemModal" tabindex="-1">
-    <div class="modal-dialog operation-modal">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title" id="modal-title"><i class="fas fa-box me-2"></i>Thêm vật tư</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" id="item-id">
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Mã vật tư</label>
-                    <input type="text" class="form-control" id="item-code" placeholder="VD: KH01">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Tên vật tư</label>
-                    <input type="text" class="form-control" id="item-name" placeholder="VD: Khăn tắm lớn">
-                </div>
-                <div class="row">
-                    <div class="col-4 mb-3">
-                        <label class="form-label fw-bold">Đơn vị</label>
-                        <input type="text" class="form-control" id="item-unit" value="cái">
-                    </div>
-                    <div class="col-4 mb-3">
-                        <label class="form-label fw-bold">Số lượng</label>
-                        <input type="number" class="form-control" id="item-quantity" value="0">
-                    </div>
-                    <div class="col-4 mb-3">
-                        <label class="form-label fw-bold">Ngưỡng cảnh báo</label>
-                        <input type="number" class="form-control" id="item-min" value="10">
-                    </div>
-                </div>
-                <small class="text-muted d-block mb-3">Giá nhập được quản lý tại trang Chi phí khi đồng bộ vào kho.</small>
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Liên kết dịch vụ <small class="text-muted">(Tự trừ kho khi khách gọi)</small></label>
-                    <select class="form-select" id="item-service"><option value="">-- Không liên kết --</option></select>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                <button type="button" class="btn btn-primary" onclick="saveItem()"><i class="fas fa-save me-1"></i> Lưu</button>
+            <div class="table-responsive data-table-shell">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr><th>Mã</th><th>Tên vật tư</th><th>ĐVT</th><th class="text-end numeric-tabular">Tồn kho</th><th class="text-end numeric-tabular">Ngưỡng</th><th>Dịch vụ liên kết</th><th class="text-center">Trạng thái</th><th class="text-end">Thao tác</th></tr>
+                    </thead>
+                    <tbody id="warehouse-tbody" aria-live="polite">
+                        <tr class="data-table-state-row"><td colspan="8"><div class="data-state data-state--loading" role="status"><div class="data-state__icon"><i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i></div><h2 class="data-state__title">Đang tải dữ liệu kho</h2><p class="data-state__description">Vui lòng chờ trong giây lát.</p></div></td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Modal Nhập kho -->
-<div class="modal fade" id="restockModal" tabindex="-1">
-    <div class="modal-dialog modal-sm operation-modal">
-        <div class="modal-content">
-            <div class="modal-header bg-success text-white">
-                <h5 class="modal-title"><i class="fas fa-truck me-2"></i>Nhập thêm kho</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+<div class="modal fade" id="itemModal" tabindex="-1" aria-labelledby="itemModalTitle" aria-hidden="true">
+    <div class="modal-dialog operation-modal"><div class="modal-content">
+        <div class="modal-header operation-modal__header operation-modal__header--teal"><h5 class="modal-title" id="itemModalTitle"><i class="fas fa-box me-2" aria-hidden="true"></i><span id="item-modal-title-text">Thêm vật tư</span></h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng modal vật tư"></button></div>
+        <div class="modal-body">
+            <input type="hidden" id="item-id"><div id="item-form-status" class="alert alert-danger d-none" role="alert" aria-live="assertive" tabindex="-1"></div>
+            <div class="mb-3"><label class="form-label fw-bold" for="item-code">Mã vật tư</label><input type="text" class="form-control" id="item-code" placeholder="VD: KH01" data-modal-initial-focus></div>
+            <div class="mb-3"><label class="form-label fw-bold" for="item-name">Tên vật tư</label><input type="text" class="form-control" id="item-name" placeholder="VD: Khăn tắm lớn"></div>
+            <div class="row">
+                <div class="col-4 mb-3"><label class="form-label fw-bold" for="item-unit">Đơn vị</label><input type="text" class="form-control" id="item-unit" value="cái"></div>
+                <div class="col-4 mb-3"><label class="form-label fw-bold" for="item-quantity">Số lượng</label><input type="number" class="form-control numeric-tabular" id="item-quantity" value="0" aria-describedby="item-quantity-help"></div>
+                <div class="col-4 mb-3"><label class="form-label fw-bold" for="item-min">Ngưỡng cảnh báo</label><input type="number" class="form-control numeric-tabular" id="item-min" value="10"></div>
             </div>
-            <div class="modal-body">
-                <input type="hidden" id="restock-id">
-                <p>Vật tư: <strong id="restock-name">...</strong></p>
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Số lượng nhập thêm</label>
-                    <input type="number" class="form-control" id="restock-qty" min="1" value="1">
-                </div>
-                <div class="mb-3"><label class="form-label fw-bold" for="restock-expires-at">Hạn sử dụng <small class="text-muted">(nếu có)</small></label><input type="date" class="form-control" id="restock-expires-at"></div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                <button type="button" class="btn btn-success" onclick="confirmRestock()"><i class="fas fa-check me-1"></i> Xác nhận</button>
-            </div>
+            <small id="item-quantity-help" class="text-muted d-block mb-3">Giá nhập được quản lý tại trang Chi phí khi đồng bộ vào kho.</small>
+            <div class="mb-3"><label class="form-label fw-bold" for="item-service">Liên kết dịch vụ <small class="text-muted">(Tự trừ kho khi khách gọi)</small></label><select class="form-select" id="item-service"><option value="">-- Không liên kết --</option></select></div>
         </div>
-    </div>
+        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button><button type="button" class="btn btn-primary" id="item-save-button" aria-busy="false" onclick="saveItem()"><i class="fas fa-save" aria-hidden="true"></i><span>Lưu vật tư</span></button></div>
+    </div></div>
 </div>
 
-<div class="modal fade" id="batchModal" tabindex="-1"><div class="modal-dialog operation-modal"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Lô hàng</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div id="batch-list" class="small">Đang tải…</div></div></div></div></div>
-<div class="modal fade" id="disposeModal" tabindex="-1"><div class="modal-dialog modal-sm operation-modal operation-modal--danger"><div class="modal-content"><div class="modal-header bg-danger text-white"><h5 class="modal-title">Hủy hàng</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="dispose-batch-id"><label class="form-label" for="dispose-quantity">Số lượng</label><input id="dispose-quantity" type="number" min="1" class="form-control mb-2"><label class="form-label" for="dispose-reason">Lý do</label><select id="dispose-reason" class="form-select"><option>Quá hạn sử dụng</option><option>Hư hỏng</option><option>Thất thoát</option><option>Kiểm kê điều chỉnh</option></select></div><div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button><button class="btn btn-danger" onclick="submitDispose()">Xác nhận hủy</button></div></div></div></div>
-<div class="modal fade" id="adjustModal" tabindex="-1"><div class="modal-dialog modal-sm operation-modal"><div class="modal-content"><div class="modal-header bg-primary text-white"><h5 class="modal-title">Điều chỉnh tồn</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="adjust-batch-id"><label class="form-label" for="adjust-quantity">Số lượng thay đổi</label><input id="adjust-quantity" type="number" class="form-control mb-2" placeholder="Dương để tăng, âm để giảm"><label class="form-label" for="adjust-reason">Lý do</label><input id="adjust-reason" type="text" class="form-control" required></div><div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button><button class="btn btn-primary" onclick="submitAdjust()">Lưu điều chỉnh</button></div></div></div></div>
+<div class="modal fade" id="restockModal" tabindex="-1" aria-labelledby="restockModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-sm operation-modal"><div class="modal-content">
+        <div class="modal-header operation-modal__header operation-modal__header--teal"><h5 class="modal-title" id="restockModalTitle"><i class="fas fa-truck me-2" aria-hidden="true"></i>Nhập thêm kho</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng modal nhập kho"></button></div>
+        <div class="modal-body"><input type="hidden" id="restock-id"><div id="restock-form-status" class="alert alert-danger d-none" role="alert" aria-live="assertive" tabindex="-1"></div><p>Vật tư: <strong id="restock-name">...</strong></p><div class="mb-3"><label class="form-label fw-bold" for="restock-qty">Số lượng nhập thêm</label><input type="number" class="form-control numeric-tabular" id="restock-qty" min="1" value="1" data-modal-initial-focus></div><div class="mb-3"><label class="form-label fw-bold" for="restock-expires-at">Hạn sử dụng <small class="text-muted">(nếu có)</small></label><input type="date" class="form-control" id="restock-expires-at"></div></div>
+        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button><button type="button" class="btn btn-primary" id="restock-submit-button" aria-busy="false" onclick="confirmRestock()"><i class="fas fa-check" aria-hidden="true"></i><span>Xác nhận nhập</span></button></div>
+    </div></div>
+</div>
+
+<div class="modal fade" id="batchModal" tabindex="-1" aria-labelledby="batchModalTitle" aria-hidden="true">
+    <div class="modal-dialog operation-modal"><div class="modal-content"><div class="modal-header operation-modal__header operation-modal__header--neutral"><h5 class="modal-title" id="batchModalTitle"><i class="fas fa-layer-group me-2" aria-hidden="true"></i>Lô hàng</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng danh sách lô hàng"></button></div><div class="modal-body"><div id="batch-list" class="warehouse-batch-list" role="status" aria-live="polite"><div class="data-state data-state--loading"><div class="data-state__icon"><i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i></div><h2 class="data-state__title">Đang tải lô hàng</h2></div></div></div></div></div>
+</div>
+
+<div class="modal fade" id="disposeModal" tabindex="-1" aria-labelledby="disposeModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-sm operation-modal operation-modal--danger"><div class="modal-content">
+        <div class="modal-header operation-modal__header operation-modal__header--danger"><h5 class="modal-title" id="disposeModalTitle"><i class="fas fa-trash-can me-2" aria-hidden="true"></i>Hủy hàng</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng modal hủy hàng"></button></div>
+        <div class="modal-body"><input type="hidden" id="dispose-batch-id"><div id="dispose-form-status" class="alert alert-danger d-none" role="alert" aria-live="assertive" tabindex="-1"></div><div class="mb-3"><label class="form-label" for="dispose-quantity">Số lượng</label><input id="dispose-quantity" type="number" min="1" class="form-control numeric-tabular" data-modal-initial-focus></div><div><label class="form-label" for="dispose-reason">Lý do</label><select id="dispose-reason" class="form-select"><option>Quá hạn sử dụng</option><option>Hư hỏng</option><option>Thất thoát</option><option>Kiểm kê điều chỉnh</option></select></div></div>
+        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button><button type="button" class="btn btn-danger" id="dispose-submit-button" aria-busy="false" onclick="submitDispose()"><i class="fas fa-trash-can" aria-hidden="true"></i><span>Xác nhận hủy</span></button></div>
+    </div></div>
+</div>
+
+<div class="modal fade" id="adjustModal" tabindex="-1" aria-labelledby="adjustModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-sm operation-modal"><div class="modal-content">
+        <div class="modal-header operation-modal__header operation-modal__header--teal"><h5 class="modal-title" id="adjustModalTitle"><i class="fas fa-sliders me-2" aria-hidden="true"></i>Điều chỉnh tồn</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng modal điều chỉnh tồn"></button></div>
+        <div class="modal-body"><input type="hidden" id="adjust-batch-id"><div id="adjust-form-status" class="alert alert-danger d-none" role="alert" aria-live="assertive" tabindex="-1"></div><div class="mb-3"><label class="form-label" for="adjust-quantity">Số lượng thay đổi</label><input id="adjust-quantity" type="number" class="form-control numeric-tabular" placeholder="Dương để tăng, âm để giảm" data-modal-initial-focus></div><div><label class="form-label" for="adjust-reason">Lý do</label><input id="adjust-reason" type="text" class="form-control" required></div></div>
+        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button><button type="button" class="btn btn-primary" id="adjust-submit-button" aria-busy="false" onclick="submitAdjust()"><i class="fas fa-check" aria-hidden="true"></i><span>Lưu điều chỉnh</span></button></div>
+    </div></div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
 let allItems = [];
+const warehouseSubmitting = new Set();
+const warehouseSubmitButtons = {
+    save: { buttonId: 'item-save-button', idleLabel: 'Lưu vật tư', busyLabel: 'Đang lưu', iconClass: 'fas fa-save' },
+    restock: { buttonId: 'restock-submit-button', idleLabel: 'Xác nhận nhập', busyLabel: 'Đang nhập kho', iconClass: 'fas fa-check' },
+    dispose: { buttonId: 'dispose-submit-button', idleLabel: 'Xác nhận hủy', busyLabel: 'Đang ghi nhận', iconClass: 'fas fa-trash-can' },
+    adjust: { buttonId: 'adjust-submit-button', idleLabel: 'Lưu điều chỉnh', busyLabel: 'Đang điều chỉnh', iconClass: 'fas fa-check' },
+};
 
 document.addEventListener('DOMContentLoaded', () => { loadItems(); loadServices(); });
 
 function loadItems() {
+    renderWarehouseTableState('loading', 'Đang tải dữ liệu kho', 'Vui lòng chờ trong giây lát.');
     fetch(api('/api/warehouse')).then(r => {
         if (!r.ok) throw new Error('Không thể tải dữ liệu kho.');
         return r.json();
     }).then(data => {
+        if (!Array.isArray(data)) throw new Error('Dữ liệu kho không hợp lệ.');
         allItems = data;
         document.getElementById('warehouse-expiring-count').textContent = data.reduce((sum, item) => sum + (item.expiring_quantity || 0), 0);
         document.getElementById('warehouse-expired-count').textContent = data.reduce((sum, item) => sum + (item.expired_quantity || 0), 0);
         renderTable(data);
-    }).catch(error => showWarehouseFeedback(error.message, 'danger'));
+    }).catch(error => {
+        console.error('Lỗi tải kho:', error);
+        renderWarehouseTableState('error', 'Không thể tải dữ liệu kho', 'Kiểm tra kết nối rồi thử tải lại.', true);
+    });
 }
 
 function showWarehouseFeedback(message, type = 'success') {
@@ -142,48 +127,226 @@ function showWarehouseFeedback(message, type = 'success') {
     feedback.textContent = message;
 }
 
+function clearWarehouseModalStatus(statusId) {
+    const status = document.getElementById(statusId);
+    if (!status) return;
+    status.textContent = '';
+    status.classList.add('d-none');
+}
+
+function showWarehouseModalStatus(statusId, message, type = 'danger') {
+    const status = document.getElementById(statusId);
+    if (!status) return;
+    status.className = `alert alert-${type}`;
+    status.textContent = message;
+    status.focus();
+}
+
+function setWarehouseSubmitBusy(action, isBusy) {
+    const config = warehouseSubmitButtons[action];
+    const button = config ? document.getElementById(config.buttonId) : null;
+    if (!button) return;
+    button.disabled = isBusy;
+    button.setAttribute('aria-busy', isBusy ? 'true' : 'false');
+    const icon = document.createElement(isBusy ? 'span' : 'i');
+    icon.className = isBusy ? 'spinner-border spinner-border-sm' : config.iconClass;
+    icon.setAttribute('aria-hidden', 'true');
+    const label = document.createElement('span');
+    label.textContent = isBusy ? config.busyLabel : config.idleLabel;
+    button.replaceChildren(icon, label);
+}
+
+function submitWarehouseRequest({ action, statusId, modalId, url, options }) {
+    warehouseSubmitting.add(action);
+    setWarehouseSubmitBusy(action, true);
+    clearWarehouseModalStatus(statusId);
+
+    return fetch(url, options)
+        .then(async response => {
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok || !result.success) {
+                throw new Error(result.msg || 'Không thể hoàn tất thao tác.');
+            }
+            return result;
+        })
+        .then(result => {
+            showWarehouseFeedback(result.msg || 'Đã cập nhật kho.', 'success');
+            bootstrap.Modal.getInstance(document.getElementById(modalId))?.hide();
+            loadItems();
+        })
+        .catch(error => showWarehouseModalStatus(statusId, error.message || 'Không thể kết nối máy chủ.'))
+        .finally(() => {
+            warehouseSubmitting.delete(action);
+            setWarehouseSubmitBusy(action, false);
+        });
+}
+
+function renderWarehouseTableState(kind, title, description, showRetry = false) {
+    const tbody = document.getElementById('warehouse-tbody');
+    if (!tbody) return;
+    const row = document.createElement('tr');
+    row.className = 'data-table-state-row';
+    const cell = document.createElement('td');
+    cell.colSpan = 8;
+    const state = document.createElement('div');
+    state.className = `data-state data-state--${kind}`;
+    state.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+    const iconWrap = document.createElement('div');
+    iconWrap.className = 'data-state__icon';
+    const icon = document.createElement('i');
+    icon.className = kind === 'loading' ? 'fas fa-circle-notch fa-spin' : (kind === 'error' ? 'fas fa-cloud-arrow-down' : 'fas fa-box-open');
+    icon.setAttribute('aria-hidden', 'true');
+    iconWrap.appendChild(icon);
+    const heading = document.createElement('h2');
+    heading.className = 'data-state__title';
+    heading.textContent = title;
+    const message = document.createElement('p');
+    message.className = 'data-state__description';
+    message.textContent = description;
+    state.append(iconWrap, heading, message);
+
+    if (kind === 'empty' || showRetry) {
+        const actions = document.createElement('div');
+        actions.className = 'data-state__actions';
+        const emptyAction = document.createElement('button');
+        emptyAction.type = 'button';
+        emptyAction.className = kind === 'empty' ? 'btn btn-primary' : 'btn btn-outline-primary';
+        if (kind === 'empty') {
+            emptyAction.addEventListener('click', openAddModal);
+        } else {
+            emptyAction.addEventListener('click', loadItems);
+        }
+        const actionIcon = document.createElement('i');
+        actionIcon.className = kind === 'empty' ? 'fas fa-plus' : 'fas fa-rotate-right';
+        actionIcon.setAttribute('aria-hidden', 'true');
+        const actionLabel = document.createElement('span');
+        actionLabel.textContent = kind === 'empty' ? 'Thêm vật tư' : 'Thử lại';
+        emptyAction.append(actionIcon, actionLabel);
+        actions.appendChild(emptyAction);
+        state.appendChild(actions);
+    }
+
+    cell.appendChild(state);
+    row.appendChild(cell);
+    tbody.replaceChildren(row);
+}
+
+function createWarehouseCell(text, className = '') {
+    const cell = document.createElement('td');
+    if (className) cell.className = className;
+    cell.textContent = text ?? '-';
+    return cell;
+}
+
+function createWarehouseActionButton(label, iconClass, variant, onClick) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `btn btn-icon ${variant}`;
+    button.setAttribute('aria-label', label);
+    button.title = label;
+    button.addEventListener('click', onClick);
+    const icon = document.createElement('i');
+    icon.className = iconClass;
+    icon.setAttribute('aria-hidden', 'true');
+    button.appendChild(icon);
+    return button;
+}
+
 function loadServices() {
-    fetch(api('/api/services')).then(r => r.json()).then(data => {
+    fetch(api('/api/services')).then(r => {
+        if (!r.ok) throw new Error('Không thể tải dịch vụ.');
+        return r.json();
+    }).then(data => {
         const sel = document.getElementById('item-service');
-        sel.innerHTML = '<option value="">-- Không liên kết --</option>';
-        data.forEach(s => { sel.innerHTML += `<option value="${s.id}">${s.name}</option>`; });
-    }).catch(() => {});
+        const emptyOption = document.createElement('option');
+        emptyOption.value = '';
+        emptyOption.textContent = '-- Không liên kết --';
+        sel.replaceChildren(emptyOption);
+        if (!Array.isArray(data)) return;
+        data.forEach(service => {
+            const option = document.createElement('option');
+            option.value = service.id;
+            option.textContent = service.name;
+            sel.appendChild(option);
+        });
+    }).catch(error => console.error('Lỗi tải dịch vụ kho:', error));
 }
 
 function renderTable(items) {
     const tbody = document.getElementById('warehouse-tbody');
-    if (!items.length) { tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">Chưa có vật tư nào</td></tr>'; return; }
-    
-    tbody.innerHTML = items.map(item => {
-        let badge = '';
-        if (item.status === 'critical') badge = '<span class="badge bg-danger">Hết hàng</span>';
-        else if (item.status === 'low') badge = '<span class="badge bg-warning text-dark">Sắp hết</span>';
-        else badge = '<span class="badge bg-success">Đủ hàng</span>';
-        
-        return `<tr>
-            <td><code>${item.code}</code></td>
-            <td class="fw-bold">${item.name}</td>
-            <td>${item.unit}</td>
-            <td class="text-center fw-bold ${item.status === 'critical' ? 'text-danger' : ''}">${item.quantity}</td>
-            <td class="text-center text-muted">${item.min_quantity}</td>
-            <td>
-                ${item.service_name
-                    ? `<span><i class="fas fa-link text-primary me-1"></i>${item.service_name}</span>
-                       <button class="btn btn-sm btn-link text-danger p-0 ms-2" onclick="unlinkService(${item.id})" title="Gỡ liên kết"><i class="fas fa-unlink"></i></button>`
-                    : '<span class="text-muted">Không liên kết</span>'}
-            </td>
-            <td class="text-center">${badge}</td>
-            <td class="text-end">
-                <button class="btn btn-sm btn-outline-secondary me-1" onclick="showBatches(${item.id})" aria-label="Xem lô ${item.name}"><i class="fas fa-layer-group"></i></button>
-                <button class="btn btn-sm btn-outline-success me-1" onclick="openRestock(${item.id}, '${item.name}')" title="Nhập kho"><i class="fas fa-truck"></i></button>
-                <button class="btn btn-sm btn-outline-primary me-1" onclick="editItem(${item.id})" title="Sửa"><i class="fas fa-edit"></i></button>
-                <button class="btn btn-sm btn-outline-danger" onclick="deleteItem(${item.id})" title="Xóa"><i class="fas fa-trash"></i></button>
-            </td>
-        </tr>`;
-    }).join('');
+    if (!items.length) {
+        renderWarehouseTableState('empty', 'Kho chưa có vật tư', 'Thêm vật tư đầu tiên để bắt đầu theo dõi tồn kho và hạn dùng.');
+        return;
+    }
+    tbody.replaceChildren();
+
+    items.forEach(item => {
+        const row = document.createElement('tr');
+        const codeCell = document.createElement('td');
+        const code = document.createElement('code');
+        code.textContent = item.code || '-';
+        codeCell.appendChild(code);
+        row.appendChild(codeCell);
+        row.appendChild(createWarehouseCell(item.name, 'fw-bold'));
+        row.appendChild(createWarehouseCell(item.unit));
+        row.appendChild(createWarehouseCell(item.quantity, `text-end numeric-tabular fw-bold${item.status === 'critical' ? ' text-danger' : ''}`));
+        row.appendChild(createWarehouseCell(item.min_quantity, 'text-end numeric-tabular text-muted'));
+
+        const serviceCell = document.createElement('td');
+        if (item.service_name) {
+            const link = document.createElement('span');
+            const linkIcon = document.createElement('i');
+            linkIcon.className = 'fas fa-link text-primary me-1';
+            linkIcon.setAttribute('aria-hidden', 'true');
+            const linkName = document.createElement('span');
+            linkName.textContent = item.service_name;
+            link.append(linkIcon, linkName);
+            const unlink = createWarehouseActionButton(`Gỡ liên kết dịch vụ khỏi ${item.name || 'vật tư'}`, 'fas fa-unlink', 'btn-outline-danger', () => unlinkService(item.id));
+            unlink.classList.add('btn-icon--compact');
+            serviceCell.append(link, unlink);
+        } else {
+            const noLink = document.createElement('span');
+            noLink.className = 'text-muted';
+            noLink.textContent = 'Không liên kết';
+            serviceCell.appendChild(noLink);
+        }
+        row.appendChild(serviceCell);
+
+        const statusCell = document.createElement('td');
+        statusCell.className = 'text-center';
+        const status = document.createElement('span');
+        status.className = 'status-badge';
+        if (item.status === 'critical') {
+            status.classList.add('status-badge--danger');
+            status.textContent = 'Hết hàng';
+        } else if (item.status === 'low') {
+            status.classList.add('status-badge--warning');
+            status.textContent = 'Sắp hết';
+        } else {
+            status.classList.add('status-badge--success');
+            status.textContent = 'Đủ hàng';
+        }
+        statusCell.appendChild(status);
+        row.appendChild(statusCell);
+
+        const actionCell = document.createElement('td');
+        actionCell.className = 'text-end';
+        const actions = document.createElement('div');
+        actions.className = 'table-row-actions button-group';
+        actions.append(
+            createWarehouseActionButton(`Xem lô ${item.name || ''}`.trim(), 'fas fa-layer-group', 'btn-outline-secondary', () => showBatches(item.id)),
+            createWarehouseActionButton(`Nhập kho ${item.name || ''}`.trim(), 'fas fa-truck', 'btn-outline-success', () => openRestock(item.id, item.name)),
+            createWarehouseActionButton(`Sửa ${item.name || ''}`.trim(), 'fas fa-pen', 'btn-outline-primary', () => editItem(item.id)),
+            createWarehouseActionButton(`Xóa ${item.name || ''}`.trim(), 'fas fa-trash', 'btn-outline-danger', () => deleteItem(item.id))
+        );
+        actionCell.appendChild(actions);
+        row.appendChild(actionCell);
+        tbody.appendChild(row);
+    });
 }
 
 function openAddModal() {
+    clearWarehouseModalStatus('item-form-status');
     document.getElementById('item-id').value = '';
     document.getElementById('item-code').value = '';
     document.getElementById('item-name').value = '';
@@ -191,8 +354,8 @@ function openAddModal() {
     document.getElementById('item-quantity').value = 0;
     document.getElementById('item-min').value = 10;
     document.getElementById('item-service').value = '';
-    document.getElementById('modal-title').textContent = 'Thêm vật tư';
-    new bootstrap.Modal(document.getElementById('itemModal')).show();
+    document.getElementById('item-modal-title-text').textContent = 'Thêm vật tư';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('itemModal')).show();
 }
 
 function editItem(id) {
@@ -205,11 +368,13 @@ function editItem(id) {
     document.getElementById('item-quantity').value = item.quantity;
     document.getElementById('item-min').value = item.min_quantity;
     document.getElementById('item-service').value = item.service_id || '';
-    document.getElementById('modal-title').textContent = 'Sửa vật tư';
-    new bootstrap.Modal(document.getElementById('itemModal')).show();
+    clearWarehouseModalStatus('item-form-status');
+    document.getElementById('item-modal-title-text').textContent = 'Sửa vật tư';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('itemModal')).show();
 }
 
 function saveItem() {
+    if (warehouseSubmitting.has('save')) return;
     const id = document.getElementById('item-id').value;
     const payload = {
         code: document.getElementById('item-code').value,
@@ -219,17 +384,21 @@ function saveItem() {
         min_quantity: document.getElementById('item-min').value,
         service_id: document.getElementById('item-service').value || null
     };
+    if (!payload.code.trim() || !payload.name.trim()) {
+        showWarehouseModalStatus('item-form-status', 'Vui lòng nhập mã và tên vật tư.');
+        (!payload.code.trim() ? document.getElementById('item-code') : document.getElementById('item-name')).focus();
+        return;
+    }
     const url = api(id ? `/api/warehouse/${id}` : '/api/warehouse');
     const method = id ? 'PUT' : 'POST';
-    
-    fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) })
-    .then(r => r.json()).then(res => {
-        alert(res.msg);
-        if (res.success) { bootstrap.Modal.getInstance(document.getElementById('itemModal')).hide(); loadItems(); }
+    return submitWarehouseRequest({
+        action: 'save', statusId: 'item-form-status', modalId: 'itemModal', url,
+        options: { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) },
     });
 }
 
 function openRestock(id, name) {
+    clearWarehouseModalStatus('restock-form-status');
     document.getElementById('restock-id').value = id;
     document.getElementById('restock-name').textContent = name;
     document.getElementById('restock-qty').value = 1;
@@ -238,28 +407,136 @@ function openRestock(id, name) {
 }
 
 function confirmRestock() {
+    if (warehouseSubmitting.has('restock')) return;
     const id = document.getElementById('restock-id').value;
     const qty = document.getElementById('restock-qty').value;
-    if (Number(qty) <= 0) return showWarehouseFeedback('Số lượng nhập phải lớn hơn 0.', 'danger');
-    fetch(api(`/api/warehouse/${id}/restock`), { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({quantity: qty, expires_at: document.getElementById('restock-expires-at').value || null}) })
-    .then(r => r.json()).then(res => {
-        showWarehouseFeedback(res.msg, res.success ? 'success' : 'danger');
-        if (res.success) { bootstrap.Modal.getInstance(document.getElementById('restockModal')).hide(); loadItems(); }
+    if (Number(qty) <= 0) return showWarehouseModalStatus('restock-form-status', 'Số lượng nhập phải lớn hơn 0.');
+    return submitWarehouseRequest({
+        action: 'restock', statusId: 'restock-form-status', modalId: 'restockModal',
+        url: api(`/api/warehouse/${id}/restock`),
+        options: { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({quantity: qty, expires_at: document.getElementById('restock-expires-at').value || null}) },
     });
 }
 
-function showBatches(itemId) { fetch(api(`/api/warehouse/${itemId}/batches`)).then(r=>r.json()).then(batches=>{ document.getElementById('batch-list').innerHTML = batches.length ? batches.map(batch => `<div class="border-bottom py-2"><strong>${batch.batch_code}</strong> · còn ${batch.quantity_available}${batch.expires_at ? ` · hạn ${batch.expires_at}` : ''}<div class="mt-2"><button class="btn btn-sm btn-outline-primary" onclick="openAdjust(${batch.id})">Điều chỉnh</button><button class="btn btn-sm btn-outline-danger ms-1" onclick="openDispose(${batch.id})">Hủy hàng</button><button class="btn btn-sm btn-link" onclick="showMovements(${batch.id})">Lịch sử</button></div><div id="batch-movements-${batch.id}" class="small text-muted mt-1"></div></div>`).join('') : 'Chưa có lô hàng'; bootstrap.Modal.getOrCreateInstance(document.getElementById('batchModal')).show(); }); }
-function openDispose(id) { document.getElementById('dispose-batch-id').value=id; document.getElementById('dispose-quantity').value=1; bootstrap.Modal.getOrCreateInstance(document.getElementById('disposeModal')).show(); }
-function openAdjust(id) { document.getElementById('adjust-batch-id').value=id; document.getElementById('adjust-quantity').value=''; document.getElementById('adjust-reason').value=''; bootstrap.Modal.getOrCreateInstance(document.getElementById('adjustModal')).show(); }
-function submitAdjust() { const id=document.getElementById('adjust-batch-id').value; const quantity_delta=document.getElementById('adjust-quantity').value; const reason=document.getElementById('adjust-reason').value.trim(); if(!Number(quantity_delta)||!reason) return showWarehouseFeedback('Nhập số lượng thay đổi và lý do điều chỉnh.', 'danger'); fetch(api(`/api/warehouse/batches/${id}/adjust`), {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({quantity_delta,reason})}).then(r=>r.json()).then(res=>{showWarehouseFeedback(res.msg,res.success?'success':'danger');if(res.success){bootstrap.Modal.getInstance(document.getElementById('adjustModal')).hide();loadItems();}}); }
-function showMovements(id) { fetch(api(`/api/warehouse/batches/${id}/movements`)).then(r=>r.json()).then(rows=>{document.getElementById(`batch-movements-${id}`).textContent=rows.length?rows.map(row=>`${row.created_at}: ${row.reason} (${row.quantity_delta>0?'+':''}${row.quantity_delta})`).join(' · '):'Chưa có biến động.';}); }
-function submitDispose() { const id=document.getElementById('dispose-batch-id').value; const quantity=document.getElementById('dispose-quantity').value; if(Number(quantity)<=0) return showWarehouseFeedback('Số lượng hủy phải lớn hơn 0.', 'danger'); fetch(api(`/api/warehouse/batches/${id}/dispose`), {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({quantity,reason:document.getElementById('dispose-reason').value})}).then(r=>r.json()).then(res=>{showWarehouseFeedback(res.msg,res.success?'success':'danger');if(res.success){bootstrap.Modal.getInstance(document.getElementById('disposeModal')).hide();loadItems();}}); }
+function renderBatchListState(kind, title, description = '') {
+    const list = document.getElementById('batch-list');
+    const state = document.createElement('div');
+    state.className = `data-state data-state--${kind}`;
+    state.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+    const heading = document.createElement('h2');
+    heading.className = 'data-state__title';
+    heading.textContent = title;
+    const message = document.createElement('p');
+    message.className = 'data-state__description';
+    message.textContent = description;
+    state.append(heading, message);
+    list.replaceChildren(state);
+}
+
+function renderBatchList(batches) {
+    const list = document.getElementById('batch-list');
+    if (!batches.length) {
+        renderBatchListState('empty', 'Chưa có lô hàng', 'Lô mới sẽ xuất hiện sau khi nhập kho.');
+        return;
+    }
+    list.replaceChildren();
+    batches.forEach(batch => {
+        const card = document.createElement('article');
+        card.className = 'warehouse-batch-card';
+        const heading = document.createElement('strong');
+        heading.textContent = batch.batch_code || `Lô #${batch.id}`;
+        const meta = document.createElement('p');
+        meta.className = 'warehouse-batch-card__meta numeric-tabular';
+        meta.textContent = `Còn ${batch.quantity_available}${batch.expires_at ? ` · Hạn ${batch.expires_at}` : ' · Không hạn dùng'}`;
+        const actions = document.createElement('div');
+        actions.className = 'button-group';
+        const adjust = document.createElement('button');
+        adjust.type = 'button'; adjust.className = 'btn btn-sm btn-outline-primary'; adjust.textContent = 'Điều chỉnh'; adjust.addEventListener('click', () => openAdjust(batch.id));
+        const dispose = document.createElement('button');
+        dispose.type = 'button'; dispose.className = 'btn btn-sm btn-outline-danger'; dispose.textContent = 'Hủy hàng'; dispose.addEventListener('click', () => openDispose(batch.id));
+        const movements = document.createElement('button');
+        movements.type = 'button'; movements.className = 'btn btn-sm btn-outline-secondary'; movements.textContent = 'Lịch sử'; movements.addEventListener('click', () => showMovements(batch.id));
+        actions.append(adjust, dispose, movements);
+        const movementPanel = document.createElement('div');
+        movementPanel.id = `batch-movements-${batch.id}`;
+        movementPanel.className = 'warehouse-batch-card__movements';
+        card.append(heading, meta, actions, movementPanel);
+        list.appendChild(card);
+    });
+}
+
+function showBatches(itemId) {
+    renderBatchListState('loading', 'Đang tải lô hàng', 'Vui lòng chờ trong giây lát.');
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('batchModal')).show();
+    fetch(api(`/api/warehouse/${itemId}/batches`)).then(r => {
+        if (!r.ok) throw new Error('Không thể tải lô hàng.');
+        return r.json();
+    }).then(batches => {
+        if (!Array.isArray(batches)) throw new Error('Dữ liệu lô hàng không hợp lệ.');
+        renderBatchList(batches);
+    }).catch(error => renderBatchListState('error', 'Không thể tải lô hàng', error.message));
+}
+
+function openDispose(id) {
+    clearWarehouseModalStatus('dispose-form-status');
+    document.getElementById('dispose-batch-id').value = id;
+    document.getElementById('dispose-quantity').value = 1;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('disposeModal')).show();
+}
+
+function openAdjust(id) {
+    clearWarehouseModalStatus('adjust-form-status');
+    document.getElementById('adjust-batch-id').value = id;
+    document.getElementById('adjust-quantity').value = '';
+    document.getElementById('adjust-reason').value = '';
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('adjustModal')).show();
+}
+
+function submitAdjust() {
+    if (warehouseSubmitting.has('adjust')) return;
+    const id = document.getElementById('adjust-batch-id').value;
+    const quantity_delta = document.getElementById('adjust-quantity').value;
+    const reason = document.getElementById('adjust-reason').value.trim();
+    if (!Number(quantity_delta) || !reason) return showWarehouseModalStatus('adjust-form-status', 'Nhập số lượng thay đổi và lý do điều chỉnh.');
+    return submitWarehouseRequest({
+        action: 'adjust', statusId: 'adjust-form-status', modalId: 'adjustModal',
+        url: api(`/api/warehouse/batches/${id}/adjust`),
+        options: {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({quantity_delta, reason})},
+    });
+}
+
+function showMovements(id) {
+    const panel = document.getElementById(`batch-movements-${id}`);
+    if (panel) panel.textContent = 'Đang tải lịch sử…';
+    fetch(api(`/api/warehouse/batches/${id}/movements`)).then(r => {
+        if (!r.ok) throw new Error('Không thể tải lịch sử lô.');
+        return r.json();
+    }).then(rows => {
+        if (!panel) return;
+        panel.textContent = Array.isArray(rows) && rows.length
+            ? rows.map(row => `${row.created_at}: ${row.reason} (${row.quantity_delta > 0 ? '+' : ''}${row.quantity_delta})`).join(' · ')
+            : 'Chưa có biến động.';
+    }).catch(error => { if (panel) panel.textContent = error.message; });
+}
+
+function submitDispose() {
+    if (warehouseSubmitting.has('dispose')) return;
+    const id = document.getElementById('dispose-batch-id').value;
+    const quantity = document.getElementById('dispose-quantity').value;
+    if (Number(quantity) <= 0) return showWarehouseModalStatus('dispose-form-status', 'Số lượng hủy phải lớn hơn 0.');
+    return submitWarehouseRequest({
+        action: 'dispose', statusId: 'dispose-form-status', modalId: 'disposeModal',
+        url: api(`/api/warehouse/batches/${id}/dispose`),
+        options: {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({quantity, reason: document.getElementById('dispose-reason').value})},
+    });
+}
 
 function deleteItem(id) {
     if (!confirm('Xóa vật tư này?')) return;
     fetch(api(`/api/warehouse/${id}`), { method: 'DELETE' }).then(r => r.json()).then(res => {
-        alert(res.msg); if (res.success) loadItems();
-    });
+        showWarehouseFeedback(res.msg, res.success ? 'success' : 'danger');
+        if (res.success) loadItems();
+    }).catch(() => showWarehouseFeedback('Không thể xóa vật tư.', 'danger'));
 }
 
 function unlinkService(id) {
@@ -281,9 +558,9 @@ function unlinkService(id) {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(payload)
     }).then(r => r.json()).then(res => {
-        alert(res.msg);
+        showWarehouseFeedback(res.msg, res.success ? 'success' : 'danger');
         if (res.success) loadItems();
-    });
+    }).catch(() => showWarehouseFeedback('Không thể gỡ liên kết dịch vụ.', 'danger'));
 }
 </script>
 {% endblock %}

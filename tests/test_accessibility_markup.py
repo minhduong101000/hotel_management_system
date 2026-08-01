@@ -117,6 +117,45 @@ def test_billing_filters_and_dynamic_detail_actions_have_accessible_names():
     assert 'role="status"' in source
 
 
+def test_warehouse_modals_have_names_linked_labels_and_announced_status():
+    source = _source("templates/warehouse/index.html")
+
+    for modal_title_id in (
+        "itemModalTitle",
+        "restockModalTitle",
+        "batchModalTitle",
+        "disposeModalTitle",
+        "adjustModalTitle",
+    ):
+        assert f'aria-labelledby="{modal_title_id}"' in source
+        assert f'id="{modal_title_id}"' in source
+    for close_label in (
+        "Đóng modal vật tư",
+        "Đóng modal nhập kho",
+        "Đóng danh sách lô hàng",
+        "Đóng modal hủy hàng",
+        "Đóng modal điều chỉnh tồn",
+    ):
+        assert f'aria-label="{close_label}"' in source
+    for control_id in (
+        "item-code",
+        "item-name",
+        "item-unit",
+        "item-quantity",
+        "item-min",
+        "item-service",
+        "restock-qty",
+        "restock-expires-at",
+        "dispose-quantity",
+        "dispose-reason",
+        "adjust-quantity",
+        "adjust-reason",
+    ):
+        _assert_label_for(source, control_id)
+    assert source.count('role="alert"') >= 4
+    assert source.count('aria-live="assertive"') >= 4
+
+
 def test_checkout_modals_have_names_close_labels_and_announced_status():
     checkout = _source("templates/rooms/_checkout_modal.html")
     group_checkout = _source("templates/rooms/_group_checkout_modal.html")
