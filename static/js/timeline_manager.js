@@ -79,7 +79,11 @@ function updateTimelineControls() {
     const label = document.getElementById('timeline-range-label');
     if (label) label.textContent = formatTimelineRange(range);
     ['day', '3days', 'week'].forEach(mode => {
-        document.getElementById(`timeline-view-${mode}`)?.classList.toggle('active', mode === timelineViewMode);
+        const control = document.getElementById(`timeline-view-${mode}`);
+        if (!control) return;
+        const isActive = mode === timelineViewMode;
+        control.classList.toggle('active', isActive);
+        control.setAttribute('aria-pressed', String(isActive));
     });
 }
 
@@ -119,14 +123,28 @@ function showTimelineState(state, message = '') {
     const container = document.getElementById('visualization');
     const stateNode = document.getElementById('timeline-state');
     const emptyNotice = document.getElementById('timeline-empty-notice');
-    if (!container || !stateNode || !emptyNotice) return;
+    const statePanels = {
+        loading: document.getElementById('timeline-loading-state'),
+        empty: document.getElementById('timeline-no-rooms-state'),
+        error: document.getElementById('timeline-error-state'),
+    };
+    if (!container || !stateNode || !emptyNotice || Object.values(statePanels).some(node => !node)) return;
 
-    stateNode.classList.toggle('d-none', state !== 'loading' && state !== 'error' && state !== 'empty');
-    emptyNotice.classList.toggle('d-none', state !== 'no-items');
-    container.classList.toggle('d-none', state === 'loading' || state === 'error' || state === 'empty');
-    if (state === 'loading') stateNode.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i><span>Đang tải Timeline…</span>';
-    if (state === 'error') stateNode.innerHTML = `<i class="fas fa-triangle-exclamation" aria-hidden="true"></i><span>${message}</span>`;
-    if (state === 'empty') stateNode.innerHTML = '<i class="fas fa-bed" aria-hidden="true"></i><span>Khách sạn chưa có phòng để hiển thị trên Timeline.</span>';
+    const isPanelState = state === 'loading' || state === 'error' || state === 'empty';
+    const isNoItems = state === 'no-items';
+    Object.entries(statePanels).forEach(([panelState, panel]) => {
+        panel.classList.toggle('d-none', panelState !== state);
+    });
+    stateNode.classList.toggle('d-none', !isPanelState);
+    emptyNotice.classList.toggle('d-none', !isNoItems);
+    container.classList.toggle('d-none', isPanelState);
+    stateNode.setAttribute('role', state === 'error' ? 'alert' : 'status');
+    stateNode.setAttribute('aria-live', state === 'error' ? 'assertive' : 'polite');
+
+    const errorDescription = document.getElementById('timeline-error-description');
+    if (state === 'error' && errorDescription) {
+        errorDescription.textContent = message || 'Kiểm tra kết nối rồi thử tải lại.';
+    }
 }
 
 function renderTimeline() {
