@@ -174,7 +174,14 @@ function submitFullBooking(status) {
     if(activeTab && activeTab.id === 'tab-hourly') type = 'hourly';
     else if(document.getElementById('bk-type')) type = document.getElementById('bk-type').value;
 
-    if(!phone || !name) { alert("Vui lòng nhập tên và SĐT khách!"); return; }
+    if (!phone.trim()) {
+        showBookingFormError('Vui lòng nhập số điện thoại khách.', 'bk-phone');
+        return;
+    }
+    if (!name.trim()) {
+        showBookingFormError('Vui lòng nhập họ và tên khách.', 'bk-name');
+        return;
+    }
 
     let checkIn, checkOut;
     if (type === 'daily') {
@@ -184,6 +191,22 @@ function submitFullBooking(status) {
         checkIn = document.getElementById('bk-hourly-in').value;
         checkOut = document.getElementById('bk-hourly-out').value;
     }
+
+    if (!checkIn) {
+        showBookingFormError(
+            'Vui lòng chọn thời gian nhận phòng.',
+            type === 'daily' ? 'bk-daily-in' : 'bk-hourly-in'
+        );
+        return;
+    }
+    if (!checkOut) {
+        showBookingFormError(
+            'Vui lòng chọn thời gian trả phòng.',
+            type === 'daily' ? 'bk-daily-out' : 'bk-hourly-out'
+        );
+        return;
+    }
+    if (!beginBookingSubmission(status)) return;
 
     fetch(api('/api/bookings/create'), {
         method: 'POST',
@@ -195,7 +218,8 @@ function submitFullBooking(status) {
             rental_type: type,
             status: status,
             check_in: checkIn,
-            check_out: checkOut
+            check_out: checkOut,
+            deposit: document.getElementById('bk-deposit').value
         })
     })
     .then(res => res.json())
@@ -204,9 +228,11 @@ function submitFullBooking(status) {
             bootstrap.Modal.getInstance(document.getElementById('bookingModal')).hide();
             loadRoomsData();
         } else {
-            alert(data.msg);
+            showBookingFormError(data.msg || 'Không thể tạo đặt phòng.');
         }
-    });
+    })
+    .catch(() => showBookingFormError('Lỗi kết nối máy chủ. Vui lòng thử lại.'))
+    .finally(() => endBookingSubmission());
 }
 
 // Các hàm hỗ trợ booking

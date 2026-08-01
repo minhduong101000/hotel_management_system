@@ -1,10 +1,10 @@
-<div class="modal fade" id="checkoutModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="checkoutModal" tabindex="-1" aria-labelledby="checkoutModalTitle" aria-hidden="true">
     <div class="modal-dialog modal-lg workflow-modal workflow-modal--fullscreen"> <div class="modal-content">
             <div class="modal-header bg-success text-white">
-                <h5 class="modal-title">
+                <h5 class="modal-title" id="checkoutModalTitle" tabindex="-1" data-modal-initial-focus>
                     <i class="fas fa-file-invoice-dollar me-2"></i>HÓA ĐƠN PHÒNG <span id="co-room-number" class="fw-bold text-warning">...</span>
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng hóa đơn phòng"></button>
             </div>
             
             <div class="modal-body">
@@ -102,7 +102,7 @@
                         <span id="co-tax-amount" class="fw-bold">0 đ</span>
                     </div>
                     
-                    <div id="deposit-section" class="d-flex justify-content-between mb-2 text-danger" style="display: none;">
+                    <div id="co-deposit-section" class="d-flex justify-content-between mb-2 text-danger" style="display: none;">
                         <span><i class="fas fa-minus-circle me-1"></i>Đã đặt cọc:</span>
                         <span id="co-deposit" class="fw-bold">- 0 đ</span>
                     </div>

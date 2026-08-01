@@ -50,3 +50,14 @@ def test_customer_icon_actions_have_contextual_accessible_names():
     assert "Sửa khách hàng ${c.name" in source
     assert "Xóa khách hàng ${c.name" in source
     assert "c.name" in source
+    assert "customer-action-button" in source
+
+
+def test_customer_form_focuses_invalid_field_and_prevents_double_submit():
+    source = CUSTOMER_SCRIPT.read_text(encoding="utf-8")
+
+    assert "customerSubmitting" in source
+    assert "showCustomerFormError" in source
+    assert "aria-invalid" in source
+    assert ".focus()" in source
+    assert "customer-save-button" in source

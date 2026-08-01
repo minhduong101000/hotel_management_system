@@ -1005,6 +1005,28 @@ body.login-page {
     outline-offset: 2px;
 }
 
+.input-wrapper input:focus-visible {
+    outline: 3px solid var(--color-focus-ring);
+    outline-offset: 2px;
+}
+
+.customer-action-button,
+.modal .btn-close {
+    min-width: 44px;
+    min-height: 44px;
+}
+
+.customer-action-button {
+    display: inline-grid;
+    place-items: center;
+}
+
+.modal .btn-close {
+    flex: 0 0 44px;
+    padding: 0;
+    background-position: center;
+}
+
 .skip-link {
     position: fixed;
     z-index: 1000;

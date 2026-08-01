@@ -52,3 +52,5 @@ def test_shared_styles_define_semantic_tokens_focus_and_tablet_layout():
     assert "@media (max-width: 991.98px)" in source
     assert ".app-sidebar" in source
     assert "Be+Vietnam+Pro" in source
+    assert ".customer-action-button" in source
+    assert ".modal .btn-close" in source

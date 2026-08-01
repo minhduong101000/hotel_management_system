@@ -1,12 +1,13 @@
-<div class="modal fade" id="bookingModal" tabindex="-1">
+<div class="modal fade" id="bookingModal" tabindex="-1" aria-labelledby="bookingModalTitle" aria-hidden="true">
     <div class="modal-dialog workflow-modal workflow-modal--wide">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title">TẠO ĐẶT PHÒNG: <span id="bk-room-number" class="fw-bold text-warning">...</span></h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title" id="bookingModalTitle" tabindex="-1">TẠO ĐẶT PHÒNG: <span id="bk-room-number" class="fw-bold text-warning">...</span></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng modal đặt phòng"></button>
             </div>
             <div class="modal-body">
                 <form id="booking-form">
+                    <div id="booking-form-status" class="alert alert-danger d-none" role="alert" aria-live="assertive" tabindex="-1"></div>
                     <ul class="nav nav-tabs nav-fill mb-3">
                         <li class="nav-item"><button class="nav-link active fw-bold" id="tab-daily" data-bs-toggle="tab" data-bs-target="#panel-daily" type="button" onclick="setRentalType('daily')">THEO NGÀY</button></li>
                         <li class="nav-item"><button class="nav-link fw-bold" id="tab-hourly" data-bs-toggle="tab" data-bs-target="#panel-hourly" type="button" onclick="setRentalType('hourly')">THEO GIỜ</button></li>
@@ -18,13 +19,13 @@
                     
                     <div class="row g-3 mb-3">
                         <div class="col-md-4">
-                            <label class="form-label small mb-1 fw-bold text-secondary">SĐT</label>
-                            <input type="text" class="form-control shadow-sm border-secondary-subtle" id="bk-phone" autocomplete="off" placeholder="Số điện thoại...">
+                            <label class="form-label small mb-1 fw-bold text-secondary" for="bk-phone">SĐT</label>
+                            <input type="text" class="form-control shadow-sm border-secondary-subtle" id="bk-phone" autocomplete="tel" inputmode="tel" placeholder="Số điện thoại..." data-modal-initial-focus>
                             <div id="bk-customer-candidates" class="mt-2 d-none" aria-live="polite"></div>
                         </div>
                         <div class="col-md-4">
                             <div class="d-flex justify-content-between align-items-center mb-1">
-                                <label class="form-label small mb-0 fw-bold text-secondary">Tên <span class="text-danger">*</span></label>
+                                <label class="form-label small mb-0 fw-bold text-secondary" for="bk-name">Tên <span class="text-danger" aria-hidden="true">*</span></label>
                                 <button type="button" class="btn btn-xs btn-outline-success border-0 py-0 px-2 fw-bold" style="font-size: 0.75rem;" onclick="openQRScanner('single')">
                                     <i class="fas fa-qrcode me-1"></i>QUÉT QR
                                 </button>
@@ -32,20 +33,20 @@
                             <input type="text" class="form-control shadow-sm border-secondary-subtle" id="bk-name" autocomplete="off" placeholder="Họ và tên...">
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small mb-1 fw-bold text-secondary">Số CCCD</label>
+                            <label class="form-label small mb-1 fw-bold text-secondary" for="bk-cccd">Số CCCD</label>
                             <input type="text" class="form-control shadow-sm border-secondary-subtle" id="bk-cccd" autocomplete="off" placeholder="Số định danh...">
                         </div>
                     </div>
                     <div class="row mb-3">
                         <div class="col-12">
-                            <label class="form-label small mb-1 fw-bold text-secondary">Địa chỉ cư trú</label>
+                            <label class="form-label small mb-1 fw-bold text-secondary" for="bk-address">Địa chỉ cư trú</label>
                             <input type="text" class="form-control shadow-sm border-secondary-subtle" id="bk-address" autocomplete="off" placeholder="Tỉnh / Thành phố...">
                         </div>
                     </div>
                     <div class="row mb-2">
                         <div class="col-6">
-                            <div class="mb-3" id="deposit-section">
-                                <label class="form-label">Tiền cọc (VNĐ)</label>
+                            <div class="mb-3" id="booking-deposit-section">
+                                <label class="form-label" for="bk-deposit">Tiền cọc (VNĐ)</label>
                                 <input type="number" class="form-control" id="bk-deposit" placeholder="0">
                                 
                                 <div id="quick-deposit-buttons" class="mt-2">
@@ -56,18 +57,18 @@
                                 <small id="deposit-hint" class="text-muted d-block mt-1"></small>
                             </div>
                         </div>
-                        <div class="col-6"><label>Ghi chú</label><input type="text" class="form-control" id="bk-note" autocomplete="off"></div>
+                        <div class="col-6"><label for="bk-note">Ghi chú</label><input type="text" class="form-control" id="bk-note" autocomplete="off"></div>
                     </div>
 
                     <div class="tab-content mt-3">
                         <div class="tab-pane fade show active" id="panel-daily">
                             <div class="row mb-3">
                                 <div class="col-6">
-                                    <label class="form-label small mb-1 fw-bold text-secondary">Thời gian vào</label>
+                                    <label class="form-label small mb-1 fw-bold text-secondary" for="bk-daily-in">Thời gian vào</label>
                                     <input type="datetime-local" class="form-control shadow-sm border-primary-subtle" id="bk-daily-in">
                                 </div>
                                 <div class="col-6">
-                                    <label class="form-label small mb-1 fw-bold text-secondary">Thời gian ra (dự kiến)</label>
+                                    <label class="form-label small mb-1 fw-bold text-secondary" for="bk-daily-out">Thời gian ra (dự kiến)</label>
                                     <input type="datetime-local" class="form-control shadow-sm border-danger-subtle" id="bk-daily-out">
                                 </div>
                             </div>
@@ -75,11 +76,11 @@
                         <div class="tab-pane fade" id="panel-hourly">
                             <div class="row mb-3">
                                 <div class="col-6">
-                                    <label class="form-label small mb-1 fw-bold text-secondary">Thời gian vào</label>
+                                    <label class="form-label small mb-1 fw-bold text-secondary" for="bk-hourly-in">Thời gian vào</label>
                                     <input type="datetime-local" class="form-control shadow-sm border-primary-subtle" id="bk-hourly-in" onchange="updateHourlyEnd()">
                                 </div>
                                 <div class="col-6">
-                                    <label class="form-label small mb-1 fw-bold text-secondary">Thời gian ra (dự kiến)</label>
+                                    <label class="form-label small mb-1 fw-bold text-secondary" for="bk-hourly-out">Thời gian ra (dự kiến)</label>
                                     <input type="datetime-local" class="form-control shadow-sm border-danger-subtle" id="bk-hourly-out" readonly>
                                 </div>
                             </div>
@@ -88,10 +89,10 @@
                 </form>
             </div>
             <div class="modal-footer bg-light border-top shadow-sm d-flex justify-content-between">
-                <button type="button" class="btn btn-outline-primary fw-bold px-3 shadow-sm" onclick="submitFullBooking('booked')">
+                <button type="button" class="btn btn-outline-primary fw-bold px-3 shadow-sm" data-booking-submit="booked" aria-busy="false" aria-describedby="booking-form-status" onclick="submitFullBooking('booked')">
                     <i class="fas fa-calendar-check me-1"></i> LƯU ĐẶT TRƯỚC
                 </button>
-                <button type="button" class="btn btn-success fw-bold px-4 shadow" onclick="submitFullBooking('checked_in')">
+                <button type="button" class="btn btn-success fw-bold px-4 shadow" data-booking-submit="checked_in" aria-busy="false" aria-describedby="booking-form-status" onclick="submitFullBooking('checked_in')">
                     <i class="fas fa-sign-in-alt me-1"></i> VÀO Ở NGAY
                 </button>
             </div>

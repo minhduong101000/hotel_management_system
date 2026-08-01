@@ -186,13 +186,14 @@
             </div>
             <div class="modal-body p-3">
                 <input type="hidden" id="reschedule-booking-room-id">
+                <div id="reschedule-status" class="alert alert-danger d-none" role="alert" aria-live="assertive" tabindex="-1"></div>
                 <div class="alert alert-light border small mb-3" role="note">
                     <i class="fas fa-circle-info text-primary me-1"></i>
                     Chọn ngày/phòng mới, sau đó quyết định giữ giá đã chốt hoặc áp dụng giá hiện tại.
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold" for="reschedule-room-select">Phòng mới</label>
-                    <select class="form-select" id="reschedule-room-select" required></select>
+                    <select class="form-select" id="reschedule-room-select" required data-modal-initial-focus></select>
                 </div>
                 <div class="row g-3 mb-3">
                     <div class="col-sm-6">
@@ -234,8 +235,8 @@
             </div>
             <div class="modal-footer bg-light">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
-                <button type="button" class="btn btn-outline-primary fw-bold" id="reschedule-check-availability" onclick="checkRescheduleAvailability()"><i class="fas fa-search me-1"></i>Kiểm tra phòng trống</button>
-                <button type="button" class="btn btn-primary fw-bold" id="reschedule-submit" onclick="submitRescheduleBooking()" disabled><i class="fas fa-check me-1"></i>Xác nhận dời lịch</button>
+                <button type="button" class="btn btn-outline-primary fw-bold" id="reschedule-check-availability" aria-busy="false" aria-describedby="reschedule-status" onclick="checkRescheduleAvailability()"><i class="fas fa-search me-1" aria-hidden="true"></i>Kiểm tra phòng trống</button>
+                <button type="button" class="btn btn-primary fw-bold" id="reschedule-submit" aria-busy="false" aria-describedby="reschedule-status" onclick="submitRescheduleBooking()" disabled><i class="fas fa-check me-1" aria-hidden="true"></i>Xác nhận dời lịch</button>
             </div>
         </div>
     </div>

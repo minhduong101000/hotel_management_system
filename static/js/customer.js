@@ -1,5 +1,10 @@
+let customerSubmitting = false;
+
 document.addEventListener('DOMContentLoaded', () => {
     loadCustomers(); // Tải danh sách khi vào trang
+    document.querySelectorAll('#customerModal input, #customerModal textarea').forEach(control => {
+        control.addEventListener('input', clearCustomerFormError);
+    });
 });
 
 function createCustomerCell(text, className = '') {
@@ -14,7 +19,7 @@ function createCustomerCell(text, className = '') {
 function createCustomerActionButton({ className, iconClass, label, onClick }) {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = className;
+    button.className = `${className} customer-action-button`;
     button.setAttribute('aria-label', label);
     button.title = label;
     button.addEventListener('click', onClick);
@@ -107,6 +112,7 @@ function handleSearch(event) {
 
 // 3. MỞ MODAL (Dùng chung cho Thêm và Sửa)
 function openModal(id = null, name = '', phone = '', cccd = '', email = '', address = '') {
+    clearCustomerFormError();
     document.getElementById('cus-id').value = id || '';
     document.getElementById('cus-name').value = name;
     document.getElementById('cus-phone').value = phone;
@@ -119,8 +125,50 @@ function openModal(id = null, name = '', phone = '', cccd = '', email = '', addr
     bootstrap.Modal.getOrCreateInstance(document.getElementById('customerModal')).show();
 }
 
+function clearCustomerFormError() {
+    const modal = document.getElementById('customerModal');
+    const status = document.getElementById('customer-form-status');
+    if (!modal || !status) return;
+    status.textContent = '';
+    status.classList.add('d-none');
+    modal.querySelectorAll('[aria-invalid="true"]').forEach(control => {
+        control.removeAttribute('aria-invalid');
+        if (control.getAttribute('aria-describedby') === status.id) {
+            control.removeAttribute('aria-describedby');
+        }
+    });
+}
+
+function showCustomerFormError(message, fieldId = null) {
+    const status = document.getElementById('customer-form-status');
+    const field = fieldId ? document.getElementById(fieldId) : null;
+    if (!status) return;
+    clearCustomerFormError();
+    status.textContent = message;
+    status.classList.remove('d-none');
+    if (field) {
+        field.setAttribute('aria-invalid', 'true');
+        field.setAttribute('aria-describedby', status.id);
+        field.focus();
+    } else {
+        status.focus();
+    }
+}
+
+function setCustomerSaveBusy(isBusy) {
+    const button = document.getElementById('customer-save-button');
+    if (!button) return;
+    customerSubmitting = isBusy;
+    button.disabled = isBusy;
+    button.setAttribute('aria-busy', isBusy ? 'true' : 'false');
+    button.innerHTML = isBusy
+        ? '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Đang lưu...'
+        : '<i class="fas fa-save me-1" aria-hidden="true"></i> Lưu thông tin';
+}
+
 // 4. LƯU KHÁCH HÀNG
 function saveCustomer() {
+    if (customerSubmitting) return;
     const id = document.getElementById('cus-id').value;
     const data = {
         name: document.getElementById('cus-name').value,
@@ -130,13 +178,19 @@ function saveCustomer() {
         address: document.getElementById('cus-address').value
     };
 
-    if (!data.name || !data.phone) {
-        alert("Vui lòng nhập Tên và Số điện thoại!");
+    if (!data.name.trim()) {
+        showCustomerFormError('Vui lòng nhập họ và tên khách hàng.', 'cus-name');
+        return;
+    }
+    if (!data.phone.trim()) {
+        showCustomerFormError('Vui lòng nhập số điện thoại khách hàng.', 'cus-phone');
         return;
     }
 
     const url = api(id ? `/api/customers/${id}` : '/api/customers');
     const method = id ? 'PUT' : 'POST';
+    setCustomerSaveBusy(true);
+    clearCustomerFormError();
 
     fetch(url, {
         method: method,
@@ -154,10 +208,11 @@ function saveCustomer() {
             // Load lại bảng
             loadCustomers();
         } else {
-            alert("Lỗi: " + resData.msg);
+            showCustomerFormError(resData.msg || 'Không thể lưu khách hàng.');
         }
     })
-    .catch(err => alert("Lỗi kết nối server"));
+    .catch(() => showCustomerFormError('Lỗi kết nối máy chủ. Vui lòng thử lại.'))
+    .finally(() => setCustomerSaveBusy(false));
 }
 
 // 5. XÓA KHÁCH HÀNG

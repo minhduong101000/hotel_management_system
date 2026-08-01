@@ -220,7 +220,10 @@ function submitFullBooking(status) {
     const rentalType = document.getElementById('bk-type').value;
 
     if (selectedDepositRatio !== 0.5 && selectedDepositRatio !== 1) {
-        alert("Bắt buộc chọn cọc 50% hoặc 100% trước khi tạo booking.");
+        showBookingFormError(
+            'Bắt buộc chọn cọc 50% hoặc 100% trước khi tạo booking.',
+            'bk-deposit'
+        );
         return;
     }
     
@@ -243,7 +246,25 @@ function submitFullBooking(status) {
         note: document.getElementById('bk-note').value
     };
 
-    if(!data.phone) { alert("Vui lòng nhập Số điện thoại khách!"); return; }
+    if (!data.phone.trim()) {
+        showBookingFormError('Vui lòng nhập số điện thoại khách.', 'bk-phone');
+        return;
+    }
+    if (!data.check_in) {
+        showBookingFormError(
+            'Vui lòng chọn thời gian nhận phòng.',
+            rentalType === 'daily' ? 'bk-daily-in' : 'bk-hourly-in'
+        );
+        return;
+    }
+    if (!data.check_out) {
+        showBookingFormError(
+            'Vui lòng chọn thời gian trả phòng.',
+            rentalType === 'daily' ? 'bk-daily-out' : 'bk-hourly-out'
+        );
+        return;
+    }
+    if (!beginBookingSubmission(status)) return;
 
     fetch(api('/api/bookings/create'), {
         method: 'POST',
@@ -259,12 +280,17 @@ function submitFullBooking(status) {
         } else {
             if (d.code === 'customer_phone_ambiguous') {
                 renderCustomerCandidates(d.candidates || []);
+                showBookingFormError(
+                    'Có nhiều khách dùng số điện thoại này. Vui lòng chọn đúng khách.',
+                    'bk-phone'
+                );
                 return;
             }
-            alert(d.msg);
+            showBookingFormError(d.msg || 'Không thể tạo đặt phòng.');
         }
     })
-    .catch(err => alert("Lỗi kết nối: " + err));
+    .catch(() => showBookingFormError('Lỗi kết nối máy chủ. Vui lòng thử lại.'))
+    .finally(() => endBookingSubmission());
 }
 
 function renderCustomerCandidates(candidates) {
@@ -455,9 +481,55 @@ function saveBookingChanges() {
     }
 }
 
+let rescheduleSubmitting = false;
+
+function showRescheduleStatus(message, level = 'danger', fieldId = null) {
+    const status = document.getElementById('reschedule-status');
+    const field = fieldId ? document.getElementById(fieldId) : null;
+    if (!status) return;
+    status.textContent = message || '';
+    status.className = `alert alert-${level}`;
+    status.classList.toggle('d-none', !message);
+    document.querySelectorAll('#rescheduleModal [aria-invalid="true"]').forEach(control => {
+        control.removeAttribute('aria-invalid');
+        if (control.getAttribute('aria-describedby') === status.id) {
+            control.removeAttribute('aria-describedby');
+        }
+    });
+    if (!message) return;
+    if (field) {
+        field.setAttribute('aria-invalid', 'true');
+        field.setAttribute('aria-describedby', status.id);
+        field.focus();
+    } else if (level === 'danger' || level === 'warning') {
+        status.focus();
+    }
+}
+
+function setRescheduleButtonBusy(button, busy, busyText, idleHtml) {
+    if (!button) return;
+    button.disabled = busy;
+    button.setAttribute('aria-busy', busy ? 'true' : 'false');
+    button.innerHTML = busy
+        ? `<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>${busyText}`
+        : idleHtml;
+}
+
+function rescheduleInvalidField(data, requireReason = false) {
+    if (!data.room_id) return 'reschedule-room-select';
+    if (!data.check_in) return 'reschedule-checkin';
+    if (!data.check_out) return 'reschedule-checkout';
+    if (requireReason && !data.reason) return 'reschedule-reason';
+    if (new Date(data.check_out) <= new Date(data.check_in)) {
+        return 'reschedule-checkout';
+    }
+    return null;
+}
+
 function resetRescheduleAvailability() {
     document.getElementById('reschedule-price-summary').classList.add('d-none');
     document.getElementById('reschedule-submit').disabled = true;
+    showRescheduleStatus('');
 }
 
 function openRescheduleModal() {
@@ -532,13 +604,18 @@ function checkRescheduleAvailability() {
     const data = getReschedulePayload();
     const error = validateReschedulePayload(data);
     if (error) {
-        alert(error);
+        showRescheduleStatus(error, 'danger', rescheduleInvalidField(data));
         return;
     }
 
     const button = document.getElementById('reschedule-check-availability');
-    button.disabled = true;
-    button.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Đang kiểm tra';
+    setRescheduleButtonBusy(
+        button,
+        true,
+        'Đang kiểm tra...',
+        '<i class="fas fa-search me-1" aria-hidden="true"></i>Kiểm tra phòng trống'
+    );
+    showRescheduleStatus('Đang kiểm tra phòng trống...', 'info');
     fetch(api('/api/bookings/reschedule/availability'), {
         method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
     })
@@ -546,31 +623,59 @@ function checkRescheduleAvailability() {
         .then(result => {
             if (!result.available) {
                 resetRescheduleAvailability();
-                alert(result.msg || 'Phòng không phù hợp trong khoảng thời gian đã chọn.');
+                showRescheduleStatus(
+                    result.msg || 'Phòng không phù hợp trong khoảng thời gian đã chọn.',
+                    'danger'
+                );
                 return;
             }
             renderReschedulePriceSummary(result);
             document.getElementById('reschedule-submit').disabled = false;
+            showRescheduleStatus('Phòng còn trống. Vui lòng kiểm tra giá trước khi xác nhận.', 'success');
         })
-        .catch(() => alert('Không thể kiểm tra phòng trống. Vui lòng thử lại.'))
+        .catch(() => showRescheduleStatus(
+            'Không thể kiểm tra phòng trống. Vui lòng thử lại.',
+            'danger'
+        ))
         .finally(() => {
-            button.disabled = false;
-            button.innerHTML = '<i class="fas fa-search me-1"></i>Kiểm tra phòng trống';
+            setRescheduleButtonBusy(
+                button,
+                false,
+                '',
+                '<i class="fas fa-search me-1" aria-hidden="true"></i>Kiểm tra phòng trống'
+            );
         });
 }
 
 function submitRescheduleBooking() {
+    if (rescheduleSubmitting) return;
     const data = getReschedulePayload();
     const error = validateReschedulePayload(data, true);
     if (error) {
-        alert(error);
+        showRescheduleStatus(
+            error,
+            'danger',
+            rescheduleInvalidField(data, true)
+        );
         return;
     }
     if (document.getElementById('reschedule-submit').disabled) {
-        alert('Vui lòng kiểm tra phòng trống trước khi xác nhận.');
+        showRescheduleStatus(
+            'Vui lòng kiểm tra phòng trống trước khi xác nhận.',
+            'warning'
+        );
         return;
     }
 
+    const submitButton = document.getElementById('reschedule-submit');
+    rescheduleSubmitting = true;
+    setRescheduleButtonBusy(
+        submitButton,
+        true,
+        'Đang dời lịch...',
+        '<i class="fas fa-check me-1" aria-hidden="true"></i>Xác nhận dời lịch'
+    );
+    showRescheduleStatus('Đang lưu thay đổi lịch đặt phòng...', 'info');
     fetch(api('/api/bookings/reschedule'), {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -579,7 +684,10 @@ function submitRescheduleBooking() {
         .then(response => response.json())
         .then(data => {
             if (!data.success) {
-                alert(data.msg || 'Không thể dời lịch đặt phòng.');
+                showRescheduleStatus(
+                    data.msg || 'Không thể dời lịch đặt phòng.',
+                    'danger'
+                );
                 return;
             }
             bootstrap.Modal.getInstance(document.getElementById('rescheduleModal')).hide();
@@ -587,7 +695,19 @@ function submitRescheduleBooking() {
             alert(data.msg || 'Đã dời lịch đặt phòng.');
             loadTimeline();
         })
-        .catch(() => alert('Không thể kết nối để dời lịch. Vui lòng thử lại.'));
+        .catch(() => showRescheduleStatus(
+            'Không thể kết nối để dời lịch. Vui lòng thử lại.',
+            'danger'
+        ))
+        .finally(() => {
+            rescheduleSubmitting = false;
+            setRescheduleButtonBusy(
+                submitButton,
+                false,
+                '',
+                '<i class="fas fa-check me-1" aria-hidden="true"></i>Xác nhận dời lịch'
+            );
+        });
 }
 
 function formatVND(amount) {

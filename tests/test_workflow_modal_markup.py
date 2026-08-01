@@ -83,6 +83,10 @@ def test_room_map_and_timeline_share_the_booking_modal_partial():
     partial = (ROOT / 'templates/rooms/_booking_modal.html').read_text(encoding='utf-8')
     for element_id in ('bk-room-id', 'bk-phone', 'bk-daily-in', 'bk-hourly-in', 'bk-deposit'):
         assert f'id="{element_id}"' in partial
+    assert 'aria-labelledby="bookingModalTitle"' in partial
+    assert 'aria-label="Đóng modal đặt phòng"' in partial
+    assert 'data-booking-submit' in partial
+    assert 'aria-busy="false"' in partial
 
 
 def test_room_map_and_timeline_share_the_group_checkout_modal_partial():

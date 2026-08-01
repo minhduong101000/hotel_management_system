@@ -24,8 +24,8 @@
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
             {% for category, message in messages %}
-              <div class="alert alert-{{ 'danger' if category == 'error' else category }}">
-                <i class="fa-solid fa-circle-exclamation"></i>
+              <div class="alert alert-{{ 'danger' if category == 'error' else category }}" role="alert">
+                <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
                 {{ message }}
               </div>
             {% endfor %}
@@ -35,18 +35,18 @@
         <form method="POST">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="input-group">
-                <label>Tên đăng nhập</label>
+                <label for="username">Tên đăng nhập</label>
                 <div class="input-wrapper">
-                    <i class="fa-solid fa-user"></i>
-                    <input type="text" name="username" required placeholder="Nhập username..." autocomplete="off">
+                    <i class="fa-solid fa-user" aria-hidden="true"></i>
+                    <input type="text" id="username" name="username" required placeholder="Nhập username..." autocomplete="username">
                 </div>
             </div>
 
             <div class="input-group">
-                <label>Mật khẩu</label>
+                <label for="password">Mật khẩu</label>
                 <div class="input-wrapper">
-                    <i class="fa-solid fa-lock"></i>
-                    <input type="password" name="password" required placeholder="Nhập mật khẩu...">
+                    <i class="fa-solid fa-lock" aria-hidden="true"></i>
+                    <input type="password" id="password" name="password" required placeholder="Nhập mật khẩu..." autocomplete="current-password">
                 </div>
             </div>
 

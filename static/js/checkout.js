@@ -5,6 +5,7 @@ var currentBookingId = null;    // Lưu booking_id quan trọng
 var currentBookingRoomId = null; // Lưu booking_room_id cho thao tác checkout
 var checkoutIncludeTax = false; // Trạng thái bật/tắt VAT 8%
 var currentCheckoutQuote = null;
+var checkoutSubmitting = false;
 
 function showCheckoutStatus(message, level = 'info') {
     const status = document.getElementById('checkout-status');
@@ -143,7 +144,7 @@ function checkOut(roomNumber, bookingId = null) {
             document.getElementById('co-total-bill').innerText = data.formatted_total_bill + ' đ'; 
 
             // 2. Hiển thị dòng Trừ Cọc (nếu có)
-            const depositSection = document.getElementById('deposit-section');
+            const depositSection = document.getElementById('co-deposit-section');
             if (data.prepaid_amount && data.prepaid_amount > 0) {
                 depositSection.style.display = 'flex';
                 document.getElementById('co-deposit').innerText = '- ' + data.formatted_prepaid_amount + ' đ';
@@ -288,10 +289,12 @@ function changeServiceQty(serviceId, changeValue, currentQty) {
  * 4. HÀM XÁC NHẬN THANH TOÁN
  */
 function confirmCheckout() {
+    if (checkoutSubmitting) return;
     if (!currentCheckoutQuote) {
         showCheckoutStatus('Báo giá chưa sẵn sàng. Vui lòng tải lại.', 'warning');
         return;
     }
+    checkoutSubmitting = true;
     setCheckoutConfirmBusy(true);
     showCheckoutStatus('Đang xác nhận thanh toán...', 'info');
 
@@ -331,18 +334,21 @@ function confirmCheckout() {
                     'Báo giá đã thay đổi. Hệ thống đang tải lại để bạn kiểm tra.',
                     'warning'
                 );
+                checkoutSubmitting = false;
                 setCheckoutConfirmBusy(false);
                 checkOut(currentCheckoutRoom, currentBookingId);
                 return;
             }
             showCheckoutStatus(data.msg || 'Không thể xác nhận thanh toán.', 'danger');
             alert(data.msg);
+            checkoutSubmitting = false;
             setCheckoutConfirmBusy(false);
         }
     })
     .catch(err => {
         alert("Lỗi server: " + err);
         showCheckoutStatus('Lỗi kết nối khi xác nhận thanh toán.', 'danger');
+        checkoutSubmitting = false;
         setCheckoutConfirmBusy(false);
     });
 }

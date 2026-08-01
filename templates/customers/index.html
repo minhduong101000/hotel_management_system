@@ -4,8 +4,8 @@
 <div class="container-fluid p-4">
     <div class="page-header mb-3 rounded-3">
         <div><h1 class="page-header__title"><i class="fas fa-users me-2"></i>Khách hàng</h1><small class="text-muted">Tra cứu và quản lý hồ sơ khách lưu trú</small></div>
-        <button class="btn btn-primary shadow-sm" onclick="openModal()">
-            <i class="fas fa-user-plus"></i> Thêm khách mới
+        <button type="button" class="btn btn-primary shadow-sm" id="add-customer-button" onclick="openModal()">
+            <i class="fas fa-user-plus" aria-hidden="true"></i> Thêm khách mới
         </button>
     </div>
 
@@ -13,7 +13,8 @@
         <div class="card-body py-3">
             <div class="customer-search-bar">
                 <div class="input-group customer-search-bar__input">
-                    <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
+                    <span class="input-group-text bg-white"><i class="fas fa-search text-muted" aria-hidden="true"></i></span>
+                    <label class="visually-hidden" for="search-input">Tìm khách hàng</label>
                     <input type="text" id="search-input" class="form-control border-start-0"
                            placeholder="Tìm theo Tên, SĐT hoặc CCCD..." onkeyup="handleSearch(event)">
                 </div>
@@ -44,45 +45,46 @@
     </div>
 </div>
 
-<div class="modal fade" id="customerModal" tabindex="-1">
+<div class="modal fade" id="customerModal" tabindex="-1" aria-labelledby="modalTitle" aria-hidden="true">
     <div class="modal-dialog operation-modal">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title" id="modalTitle">Thêm Khách Hàng</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title" id="modalTitle" tabindex="-1">Thêm Khách Hàng</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng modal khách hàng"></button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="cus-id">
+                <div id="customer-form-status" class="alert alert-danger d-none" role="alert" aria-live="assertive" tabindex="-1"></div>
                 
                 <div class="mb-3">
-                    <label class="form-label fw-bold">Họ và Tên <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control" id="cus-name" required>
+                    <label class="form-label fw-bold" for="cus-name">Họ và Tên <span class="text-danger" aria-hidden="true">*</span></label>
+                    <input type="text" class="form-control" id="cus-name" required autocomplete="name" data-modal-initial-focus>
                 </div>
                 
                 <div class="row">
                     <div class="col-md-6 mb-3">
-                        <label class="form-label fw-bold">Số điện thoại <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="cus-phone" required>
+                        <label class="form-label fw-bold" for="cus-phone">Số điện thoại <span class="text-danger" aria-hidden="true">*</span></label>
+                        <input type="text" class="form-control" id="cus-phone" required autocomplete="tel" inputmode="tel">
                     </div>
                     <div class="col-md-6 mb-3">
-                        <label class="form-label">CCCD / CMND</label>
+                        <label class="form-label" for="cus-cccd">CCCD / CMND</label>
                         <input type="text" class="form-control" id="cus-cccd">
                     </div>
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label">Email</label>
-                    <input type="email" class="form-control" id="cus-email">
+                    <label class="form-label" for="cus-email">Email</label>
+                    <input type="email" class="form-control" id="cus-email" autocomplete="email">
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label">Địa chỉ</label>
+                    <label class="form-label" for="cus-address">Địa chỉ</label>
                     <textarea class="form-control" id="cus-address" rows="2"></textarea>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
-                <button type="button" class="btn btn-primary" onclick="saveCustomer()">
+                <button type="button" class="btn btn-primary" id="customer-save-button" aria-busy="false" aria-describedby="customer-form-status" onclick="saveCustomer()">
                     <i class="fas fa-save me-1"></i> Lưu thông tin
                 </button>
             </div>
