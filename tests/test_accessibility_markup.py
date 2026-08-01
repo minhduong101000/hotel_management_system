@@ -156,6 +156,54 @@ def test_warehouse_modals_have_names_linked_labels_and_announced_status():
     assert source.count('aria-live="assertive"') >= 4
 
 
+def test_finance_filters_forms_and_modals_have_accessible_names():
+    revenue = _source("templates/reports/revenue.html")
+    cashier = _source("templates/reports/cashier.html")
+    expenses = _source("templates/reports/expenses.html")
+
+    for control_id in ("period-select", "date-start", "date-end"):
+        _assert_label_for(revenue, control_id)
+    assert 'id="revenue-feedback"' in revenue
+    assert 'aria-live="polite"' in revenue
+
+    for control_id in (
+        "start-date",
+        "end-date",
+        "deposit-booking-id",
+    ):
+        _assert_label_for(cashier, control_id)
+    assert 'id="cashier-filter-status"' in cashier
+    assert 'id="deposit-print-status"' in cashier
+
+    for control_id in (
+        "filter-start",
+        "filter-end",
+        "filter-category",
+        "exp-category",
+        "exp-amount",
+        "exp-date",
+        "exp-desc",
+        "wh-existing-item",
+        "wh-code",
+        "wh-name",
+        "wh-unit",
+        "wh-qty",
+        "wh-min",
+        "wh-service",
+        "svc-existing-service",
+        "svc-name",
+        "svc-price",
+        "void-expense-reason",
+    ):
+        _assert_label_for(expenses, control_id)
+    assert 'aria-labelledby="expenseModalTitle"' in expenses
+    assert 'aria-label="Đóng modal thêm chi phí"' in expenses
+    assert 'aria-labelledby="voidExpenseModalTitle"' in expenses
+    assert 'aria-label="Đóng modal hủy ghi nhận chi phí"' in expenses
+    assert expenses.count('role="alert"') >= 2
+    assert expenses.count('aria-live="assertive"') >= 2
+
+
 def test_checkout_modals_have_names_close_labels_and_announced_status():
     checkout = _source("templates/rooms/_checkout_modal.html")
     group_checkout = _source("templates/rooms/_group_checkout_modal.html")

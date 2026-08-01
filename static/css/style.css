@@ -1796,9 +1796,72 @@ body.login-page {
 }
 .pricing-weekday-picker__weekend { color: #9f1239; background: #fff1f2 !important; border-color: #fecdd3 !important; }
 
+.finance-filter-layout {
+    display: grid;
+    grid-template-columns: minmax(180px, 220px) minmax(0, 1fr) auto minmax(220px, auto);
+    align-items: end;
+    gap: var(--space-3);
+}
+
+.finance-filter-field { min-width: 0; }
+.finance-filter-field .form-label,
+.cashier-period-fieldset > .form-label {
+    margin-bottom: var(--space-1);
+    color: var(--color-muted-text);
+    font-size: 12px;
+    font-weight: 700;
+}
+.finance-filter-field .form-control,
+.finance-filter-field .form-select { min-height: 44px; }
+.finance-custom-range { display: grid; grid-template-columns: repeat(2, minmax(160px, 220px)); gap: var(--space-2); }
+.finance-filter-actions { align-self: end; }
+.finance-period-label { margin: 0; color: var(--color-muted-text); font-size: 12px; line-height: 1.45; text-align: right; }
+.finance-kpi-grid .kpi-card { height: 100%; }
+.finance-panel-header { min-height: 64px; padding: var(--space-4); background: var(--color-surface); border-bottom: 1px solid var(--color-border); }
+.finance-panel-title { margin: 0; color: var(--color-text); font-size: 16px; font-weight: 750; line-height: 1.35; }
+.finance-panel-title i { color: var(--color-action); }
+.finance-chart-card { overflow: hidden; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-surface); box-shadow: var(--shadow-surface); }
+.finance-chart-body { min-height: 360px; padding: var(--space-4); }
+.finance-chart-body > .data-state { min-height: 320px; }
+.finance-chart-content { display: grid; gap: var(--space-3); }
+.finance-chart-canvas { position: relative; height: 280px; min-height: 280px; }
+.finance-chart-summary { margin: 0; padding: var(--space-3); color: var(--color-muted-text); background: #f8fafc; border: 1px solid var(--color-border); border-radius: var(--radius-control); font-size: 12px; line-height: 1.5; }
+.finance-positive { color: #047857 !important; }
+.finance-negative { color: var(--color-danger) !important; }
+
+.cashier-filter-layout { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-4); }
+.cashier-period-fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.finance-period-pills { display: flex; flex-wrap: wrap; }
+.cashier-custom-toggle { min-height: 44px; display: flex; align-items: center; gap: var(--space-2); margin: 0; }
+.cashier-custom-toggle .form-check-input { margin-top: 0; }
+.deposit-print-card .card-body { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(360px, 560px); align-items: end; gap: var(--space-4); }
+.deposit-print-form { display: grid; grid-template-columns: minmax(180px, 1fr) auto; align-items: end; gap: var(--space-2); }
+.deposit-print-card #deposit-print-status { grid-column: 1 / -1; }
+
+.expense-filter-layout { display: grid; grid-template-columns: minmax(160px, 200px) minmax(160px, 200px) minmax(180px, 220px) auto minmax(280px, 1fr); align-items: end; gap: var(--space-3); }
+.expense-total-card { min-height: 86px; padding: var(--space-3) var(--space-4); }
+.expense-sync-panel { padding: var(--space-4); background: var(--color-surface); border: 1px solid #b9e5db; border-radius: var(--radius-control); }
+
+@media (max-width: 1199.98px) {
+    .finance-filter-layout { grid-template-columns: minmax(180px, 220px) 1fr auto; }
+    .finance-custom-range { grid-column: span 2; }
+    .finance-period-label { grid-column: 1 / -1; text-align: left; }
+    .expense-filter-layout { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .expense-total-card { grid-column: span 2; }
+}
+
 @media (max-width: 767.98px) {
     .pricing-panel-header { min-height: 0; flex-direction: column; }
     .operation-form-section { padding: var(--space-3); }
+    .finance-filter-layout,
+    .expense-filter-layout { grid-template-columns: minmax(0, 1fr); }
+    .finance-custom-range { grid-column: auto; grid-template-columns: minmax(0, 1fr); }
+    .finance-filter-actions .btn { width: 100%; }
+    .expense-total-card { grid-column: auto; }
+    .deposit-print-card .card-body,
+    .deposit-print-form { grid-template-columns: minmax(0, 1fr); }
+    .finance-chart-body { min-height: 320px; padding: var(--space-3); }
+    .finance-chart-canvas { height: 240px; min-height: 240px; }
 }
 
 .warehouse-batch-list { display: grid; gap: var(--space-3); }

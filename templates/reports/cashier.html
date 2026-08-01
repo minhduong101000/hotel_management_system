@@ -1,272 +1,82 @@
 {% extends "layouts/base.html" %}
 
-{% block title %}Sổ Quỹ - Thu Ngân{% endblock %}
-{% block page_title %}Thu Ngân / Sổ Quỹ{% endblock %}
+{% block title %}Sổ quỹ - Thu ngân{% endblock %}
 
 {% block content %}
-<div class="page-header mb-3 rounded-3">
-    <div>
-        <h1 class="page-header__title"><i class="fas fa-cash-register me-2"></i>Thu ngân / Sổ quỹ</h1>
-        <p class="page-header__description mb-0">Đối soát các khoản thu, hoàn cọc và chi phí vận hành theo kỳ.</p>
+<div class="container-fluid p-4">
+    <div class="page-header mb-3 rounded-3 flex-wrap">
+        <div>
+            <h1 class="page-header__title"><i class="fas fa-cash-register me-2" aria-hidden="true"></i>Thu ngân / Sổ quỹ</h1>
+            <p class="page-header__description mb-0">Đối soát các khoản thu, hoàn cọc và chi phí vận hành theo kỳ.</p>
+        </div>
     </div>
-</div>
-<div class="row mb-4">
-    <!-- Filter Card -->
-    <div class="col-12 col-xl-4 mb-4 mb-xl-0">
-        <div class="card h-100 shadow-sm border-0">
-            <div class="card-body">
-                <h5 class="card-title fw-bold text-primary mb-3"><i class="fas fa-filter me-2"></i>Bộ Lọc Sổ Quỹ</h5>
-                
-                <div class="btn-group w-100 mb-3" role="group">
-                    <input type="radio" class="btn-check" name="period" id="btn-today" value="today" checked>
-                    <label class="btn btn-outline-primary" for="btn-today">Hôm nay</label>
 
-                    <input type="radio" class="btn-check" name="period" id="btn-week" value="week">
-                    <label class="btn btn-outline-primary" for="btn-week">Tuần này</label>
-
-                    <input type="radio" class="btn-check" name="period" id="btn-month" value="month">
-                    <label class="btn btn-outline-primary" for="btn-month">Tháng này</label>
-                </div>
-
-                <div class="form-check form-switch mb-3">
+    <section class="card data-filter-bar finance-filter-bar mb-3" aria-label="Bộ lọc sổ quỹ">
+        <div class="card-body">
+            <div class="cashier-filter-layout">
+                <fieldset class="cashier-period-fieldset">
+                    <legend class="form-label">Kỳ dữ liệu</legend>
+                    <div class="btn-group finance-period-pills" role="group" aria-label="Chọn kỳ sổ quỹ">
+                        <input type="radio" class="btn-check" name="period" id="btn-today" value="today" checked>
+                        <label class="btn btn-outline-primary" for="btn-today">Hôm nay</label>
+                        <input type="radio" class="btn-check" name="period" id="btn-week" value="week">
+                        <label class="btn btn-outline-primary" for="btn-week">Tuần này</label>
+                        <input type="radio" class="btn-check" name="period" id="btn-month" value="month">
+                        <label class="btn btn-outline-primary" for="btn-month">Tháng này</label>
+                    </div>
+                </fieldset>
+                <div class="form-check form-switch cashier-custom-toggle">
                     <input class="form-check-input" type="checkbox" id="custom-date-switch">
-                    <label class="form-check-label" for="custom-date-switch">Chọn mốc thời gian tùy chỉnh</label>
+                    <label class="form-check-label" for="custom-date-switch">Chọn ngày tùy chỉnh</label>
                 </div>
-
-                <div id="custom-date-group" class="mb-3" style="display: none;">
-                    <div class="row g-2">
-                        <div class="col-6">
-                            <label class="form-label text-muted small">Từ ngày</label>
-                            <input type="date" class="form-control" id="start-date">
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label text-muted small">Đến ngày</label>
-                            <input type="date" class="form-control" id="end-date">
-                        </div>
-                    </div>
+                <div id="custom-date-group" class="finance-custom-range" hidden>
+                    <div class="finance-filter-field"><label class="form-label" for="start-date">Từ ngày</label><input type="date" class="form-control" id="start-date"></div>
+                    <div class="finance-filter-field"><label class="form-label" for="end-date">Đến ngày</label><input type="date" class="form-control" id="end-date"></div>
                 </div>
-
-                <button class="btn btn-primary w-100 shadow-sm fw-bold" onclick="loadCashierData()">
-                    <i class="fas fa-sync-alt me-2"></i>Tải Dữ Liệu
-                </button>
-                <div id="period-display" class="text-center text-muted small mt-2"></div>
+                <div class="finance-filter-actions button-group">
+                    <button type="button" class="btn btn-primary" id="cashier-load-button" aria-busy="false" onclick="loadCashierData()"><i class="fas fa-rotate-right" aria-hidden="true"></i><span>Tải dữ liệu</span></button>
+                </div>
             </div>
+            <div id="cashier-filter-status" class="alert alert-danger d-none mt-3 mb-0" role="alert" aria-live="assertive" tabindex="-1"></div>
+            <p id="period-display" class="finance-period-label mt-3" role="status" aria-live="polite">Đang xác định kỳ dữ liệu…</p>
         </div>
+    </section>
+
+    <div class="row g-3 mb-3 finance-kpi-grid" aria-label="Tổng quan sổ quỹ">
+        <div class="col-sm-6 col-xl-3"><article class="kpi-card kpi-card--teal"><div><p class="kpi-card__label">Tổng thu vào</p><strong class="kpi-card__value numeric-tabular" id="total-received">0 đ</strong><small class="kpi-card__meta">Các khoản thanh toán dương</small></div><span class="kpi-card__icon" aria-hidden="true"><i class="fas fa-arrow-down"></i></span></article></div>
+        <div class="col-sm-6 col-xl-3"><article class="kpi-card"><div><p class="kpi-card__label">Tổng hoàn cọc</p><strong class="kpi-card__value numeric-tabular" id="total-refunded">0 đ</strong><small class="kpi-card__meta">Các khoản hoàn tiền</small></div><span class="kpi-card__icon" aria-hidden="true"><i class="fas fa-rotate-left"></i></span></article></div>
+        <div class="col-sm-6 col-xl-3"><article class="kpi-card kpi-card--danger"><div><p class="kpi-card__label">Chi vận hành</p><strong class="kpi-card__value numeric-tabular" id="total-expense">0 đ</strong><small class="kpi-card__meta">Không gồm khoản đã void</small></div><span class="kpi-card__icon" aria-hidden="true"><i class="fas fa-file-invoice-dollar"></i></span></article></div>
+        <div class="col-sm-6 col-xl-3"><article class="kpi-card kpi-card--blue"><div><p class="kpi-card__label">Dư thực tế</p><strong class="kpi-card__value numeric-tabular" id="net-amount">0 đ</strong><small class="kpi-card__meta">Thu trừ hoàn và chi phí</small></div><span class="kpi-card__icon" aria-hidden="true"><i class="fas fa-piggy-bank"></i></span></article></div>
     </div>
 
-    <!-- Tóm tắt số liệu -->
-    <div class="col-12 col-xl-8">
-        <div class="row g-3">
-            <div class="col-md-3">
-                <div class="card bg-success text-white h-100 shadow-sm border-0 bg-gradient">
-                    <div class="card-body">
-                        <h6 class="card-title opacity-75 small"><i class="fas fa-arrow-down me-1"></i>Tổng Thu Vào</h6>
-                        <h4 class="fw-bold mb-0" id="total-received">0 đ</h4>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="col-md-3">
-                <div class="card bg-secondary text-white h-100 shadow-sm border-0 bg-gradient">
-                    <div class="card-body">
-                        <h6 class="card-title opacity-75 small"><i class="fas fa-redo me-1"></i>Tổng Hoàn Cọc</h6>
-                        <h4 class="fw-bold mb-0" id="total-refunded">0 đ</h4>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-3">
-                <div class="card bg-danger text-white h-100 shadow-sm border-0 bg-gradient">
-                    <div class="card-body">
-                        <h6 class="card-title opacity-75 small"><i class="fas fa-file-invoice-dollar me-1"></i>Chi Vận Hành</h6>
-                        <h4 class="fw-bold mb-0" id="total-expense">0 đ</h4>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-3">
-                <div class="card bg-primary text-white h-100 shadow-sm border-0 bg-gradient">
-                    <div class="card-body">
-                        <h6 class="card-title opacity-75 small"><i class="fas fa-piggy-bank me-1"></i>Dư Thực Tế</h6>
-                        <h4 class="fw-bold mb-0" id="net-amount">0 đ</h4>
-                    </div>
-                </div>
+    <section class="card data-table-card mb-3" aria-labelledby="cashier-history-title">
+        <div class="card-header finance-panel-header"><h2 id="cashier-history-title" class="finance-panel-title"><i class="fas fa-list me-2" aria-hidden="true"></i>Lịch sử giao dịch</h2></div>
+        <div class="card-body p-0">
+            <div class="table-responsive data-table-shell">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light"><tr><th class="ps-4">Thời gian</th><th>Mã đặt phòng</th><th>Khách hàng</th><th>Phân loại</th><th>Nội dung / Ghi chú</th><th class="text-end numeric-tabular">Số tiền</th><th class="text-center pe-4">In cọc</th></tr></thead>
+                    <tbody id="payment-table-body" aria-live="polite"><tr class="data-table-state-row"><td colspan="7"><div class="data-state data-state--loading" role="status"><div class="data-state__icon"><i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i></div><h3 class="data-state__title">Đang tải giao dịch</h3><p class="data-state__description">Vui lòng chờ trong giây lát.</p></div></td></tr></tbody>
+                </table>
             </div>
         </div>
-    </div>
+    </section>
+
+    <section class="card data-filter-bar deposit-print-card" aria-labelledby="deposit-print-title">
+        <div class="card-body">
+            <div>
+                <h2 id="deposit-print-title" class="finance-panel-title"><i class="fas fa-file-invoice-dollar me-2" aria-hidden="true"></i>In hóa đơn đặt cọc</h2>
+                <p class="pricing-panel-description">Nhập Booking ID nếu giao dịch không nằm trong bảng hiện tại.</p>
+            </div>
+            <div class="deposit-print-form">
+                <div class="finance-filter-field"><label class="form-label" for="deposit-booking-id">Booking ID</label><input type="number" class="form-control numeric-tabular" id="deposit-booking-id" min="1" placeholder="Ví dụ: 123"></div>
+                <button type="button" class="btn btn-outline-primary" onclick="printDepositInvoice()"><i class="fas fa-print" aria-hidden="true"></i><span>In hóa đơn</span></button>
+            </div>
+            <div id="deposit-print-status" class="alert alert-danger d-none mb-0" role="alert" aria-live="assertive" tabindex="-1"></div>
+        </div>
+    </section>
 </div>
+{% endblock %}
 
-<!-- DATA TABLE -->
-<div class="card shadow-sm border-0 mb-4">
-    <div class="card-header bg-white py-3">
-        <h5 class="card-title mb-0 fw-bold text-dark"><i class="fas fa-list-alt text-primary me-2"></i>Lịch Sử Giao Dịch</h5>
-    </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th class="ps-4">Thời Gian</th>
-                        <th>Mã Đặt Phòng</th>
-                        <th>Khách Hàng</th>
-                        <th>Phân Loại</th>
-                        <th>Nội Dung / Ghi chú</th>
-                        <th class="text-end pe-4">Số Tiền</th>
-                        <th class="text-center pe-4">In cọc</th>
-                    </tr>
-                </thead>
-                <tbody id="payment-table-body">
-                    <tr><td colspan="7" class="text-center py-4 text-muted">Đang tải dữ liệu...</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<!-- Kịch bản riêng -->
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    loadCashierData();
-    
-    // Xử lý bật tắt input custom date
-    document.getElementById('custom-date-switch').addEventListener('change', function(e) {
-        document.getElementById('custom-date-group').style.display = e.target.checked ? 'block' : 'none';
-        if(e.target.checked) {
-            document.querySelectorAll('input[name="period"]').forEach(rb => rb.checked = false);
-        } else {
-            document.getElementById('btn-today').checked = true;
-        }
-    });
-
-    // Bỏ check switch nếu click radio buttons
-    document.querySelectorAll('input[name="period"]').forEach(rb => {
-        rb.addEventListener('change', function() {
-            document.getElementById('custom-date-switch').checked = false;
-            document.getElementById('custom-date-group').style.display = 'none';
-        });
-    });
-});
-
-function loadCashierData() {
-    let period = 'today';
-    const isCustom = document.getElementById('custom-date-switch').checked;
-    
-    if (!isCustom) {
-        period = document.querySelector('input[name="period"]:checked').value;
-    } else {
-        period = 'custom';
-    }
-
-    const start = document.getElementById('start-date').value;
-    const end = document.getElementById('end-date').value;
-
-    if (period === 'custom' && (!start || !end)) {
-        alert("Vui lòng chọn đầy đủ Từ ngày và Đến ngày!");
-        return;
-    }
-
-    let url = api(`/api/reports/cashier?period=${period}`);
-    if (period === 'custom') {
-        url += `&start=${start}&end=${end}`;
-    }
-
-    fetch(url)
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                renderOverview(data.data);
-                renderTable(data.data.records);
-            } else {
-                alert("Lỗi tải dữ liệu: " + data.msg);
-            }
-        })
-        .catch(err => {
-            console.error(err);
-            alert("Lỗi kết nối máy chủ");
-        });
-}
-
-function fmtMoney(num) {
-    return new Intl.NumberFormat('vi-VN').format(num);
-}
-
-function renderOverview(data) {
-    document.getElementById('total-received').innerText = fmtMoney(data.total_received) + ' đ';
-    document.getElementById('total-refunded').innerText = fmtMoney(data.total_refunded) + ' đ';
-    document.getElementById('total-expense').innerText = fmtMoney(data.total_expense) + ' đ';
-    document.getElementById('net-amount').innerText = fmtMoney(data.net_amount) + ' đ';
-    document.getElementById('period-display').innerText = data.period_label;
-}
-
-function renderTable(records) {
-    const tbody = document.getElementById('payment-table-body');
-    tbody.innerHTML = '';
-    
-    if(records.length === 0){
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Không có giao dịch phát sinh.</td></tr>';
-        return;
-    }
-
-    records.forEach(r => {
-        // Màu cho số tiền dựa trên Âm / Dương
-        let amountHtml = '';
-        if (r.amount < 0) {
-            amountHtml = `<span class="text-danger fw-bold">${r.formatted_amount}</span>`;
-        } else {
-            amountHtml = `<span class="text-success fw-bold">+${r.formatted_amount}</span>`;
-        }
-        
-        const tr = document.createElement('tr');
-        const canPrintDeposit = r.type_raw === 'deposit' && !!r.booking_id;
-        const printButton = canPrintDeposit
-            ? `<button class="btn btn-sm btn-outline-success" onclick="openDepositInvoice(${r.booking_id})"><i class="fas fa-print"></i></button>`
-            : '<span class="text-muted">--</span>';
-
-        tr.innerHTML = `
-            <td class="ps-4 text-nowrap">${r.time}</td>
-            <td class="fw-bold text-primary">#${r.booking_code}</td>
-            <td>${r.customer_name}</td>
-            <td><span class="badge bg-${r.badge_color}">${r.type_label}</span></td>
-            <td><small class="text-muted">${r.note}</small></td>
-            <td class="text-end pe-4">${amountHtml}</td>
-            <td class="text-center pe-4">${printButton}</td>
-        `;
-        tbody.appendChild(tr);
-    });
-}
-</script>
-
-<div class="row mt-4">
-    <div class="col-12">
-        <div class="card shadow-sm border-0">
-            <div class="card-body">
-                <h5 class="card-title fw-bold text-primary mb-3">
-                    <i class="fas fa-file-invoice-dollar me-2"></i>In Hóa Đơn Đặt Cọc
-                </h5>
-                <div class="input-group">
-                    <input type="number" class="form-control" id="deposit-booking-id" placeholder="Nhập Booking ID">
-                    <button class="btn btn-outline-success" onclick="printDepositInvoice()">
-                        <i class="fas fa-print me-2"></i>In Hóa Đơn
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-function openDepositInvoice(bookingId) {
-    window.open(api(`/api/bookings/${bookingId}/deposit-invoice`), '_blank');
-}
-
-function printDepositInvoice() {
-    const bookingId = document.getElementById('deposit-booking-id').value;
-    if (!bookingId) {
-        alert('Vui lòng nhập Booking ID hợp lệ!');
-        return;
-    }
-    window.open(api(`/api/bookings/${bookingId}/deposit-invoice`), '_blank');
-}
-</script>
-
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/cashier_report.js') }}"></script>
 {% endblock %}
