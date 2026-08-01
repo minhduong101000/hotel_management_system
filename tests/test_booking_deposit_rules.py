@@ -78,3 +78,22 @@ def test_group_booking_frontend_uses_server_quote_for_deposit():
     assert "/api/bookings/calculate-price" in source
     assert "deposit_options" in source
     assert "totalSelectedPricePerNight" not in source
+
+
+def test_room_map_booking_uses_server_quote_for_deposit():
+    source = open("static/js/room.js", encoding="utf-8").read()
+
+    assert "selectedDepositRatio" in source
+    assert "currentBookingQuote" in source
+    assert "function calculateQuickDeposit" in source
+    assert "/api/bookings/calculate-price" in source
+    assert "deposit_options" in source
+    assert "quote_fingerprint" in source
+    assert "document.getElementById('bk-room-id').value" in source
+
+
+def test_room_map_hourly_end_does_not_depend_on_missing_duration_control():
+    source = open("static/js/room.js", encoding="utf-8").read()
+
+    assert "document.getElementById('bk-duration')" not in source
+    assert "start.setHours(start.getHours() + 2)" in source

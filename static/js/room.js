@@ -5,10 +5,22 @@
 // Biến toàn cục
 let allRooms = [];
 let currentCheckInRoomNumber = null; // Dùng cho Modal tạo Booking mới
+let selectedDepositRatio = null;
+let currentBookingQuote = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     loadRoomsData();
     setInterval(loadRoomsData, 30000); // Tự động cập nhật 30s
+
+    document.getElementById('bk-deposit')?.addEventListener('input', () => {
+        selectedDepositRatio = null;
+        currentBookingQuote = null;
+        const hint = document.getElementById('deposit-hint');
+        if (hint) hint.textContent = 'Vui lòng bấm nút cọc 50% hoặc 100% để xác nhận lại giá.';
+    });
+    ['bk-daily-in', 'bk-daily-out', 'bk-hourly-in'].forEach(controlId => {
+        document.getElementById(controlId)?.addEventListener('change', resetBookingQuote);
+    });
 });
 
 // ==========================================
@@ -136,13 +148,21 @@ function performCheckIn(bookingRoomId) {
 
 function openBookingModal(roomNumber) {
     currentCheckInRoomNumber = roomNumber;
+    const selectedRoom = allRooms.find(
+        room => String(room.number) === String(roomNumber)
+    );
     const titleEl = document.getElementById('bk-room-number');
     if(titleEl) titleEl.innerText = roomNumber;
+    document.getElementById('bk-room-id').value = selectedRoom?.id || '';
+    document.getElementById('bk-customer-id').value = '';
     
     if(document.getElementById('bk-phone')) document.getElementById('bk-phone').value = '';
     if(document.getElementById('bk-name')) document.getElementById('bk-name').value = '';
     if(document.getElementById('bk-cccd')) document.getElementById('bk-cccd').value = '';
     if(document.getElementById('bk-address')) document.getElementById('bk-address').value = '';
+    if(document.getElementById('bk-note')) document.getElementById('bk-note').value = '';
+    setRentalType('daily');
+    bootstrap.Tab.getOrCreateInstance(document.getElementById('tab-daily')).show();
     
     // Set thời gian mặc định
     const now = new Date();
@@ -157,6 +177,7 @@ function openBookingModal(roomNumber) {
     tomorrow.setHours(12, 0, 0, 0);
     const tomLocal = new Date(tomorrow.getTime() - tomorrow.getTimezoneOffset() * 60000);
     if(document.getElementById('bk-daily-out')) document.getElementById('bk-daily-out').value = tomLocal.toISOString().slice(0,16);
+    resetBookingQuote();
 
     const modalEl = document.getElementById('bookingModal');
     if(modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).show();
@@ -206,6 +227,13 @@ function submitFullBooking(status) {
         );
         return;
     }
+    if (selectedDepositRatio !== 0.5 && selectedDepositRatio !== 1) {
+        showBookingFormError(
+            'Bắt buộc chọn cọc 50% hoặc 100% trước khi tạo booking.',
+            'bk-deposit'
+        );
+        return;
+    }
     if (!beginBookingSubmission(status)) return;
 
     fetch(api('/api/bookings/create'), {
@@ -219,7 +247,8 @@ function submitFullBooking(status) {
             status: status,
             check_in: checkIn,
             check_out: checkOut,
-            deposit: document.getElementById('bk-deposit').value
+            deposit: document.getElementById('bk-deposit').value,
+            quote_fingerprint: currentBookingQuote?.fingerprint || null
         })
     })
     .then(res => res.json())
@@ -238,11 +267,10 @@ function submitFullBooking(status) {
 // Các hàm hỗ trợ booking
 function updateHourlyEnd() {
     const startStr = document.getElementById('bk-hourly-in').value;
-    const duration = parseInt(document.getElementById('bk-duration').value);
-    if(!startStr || !duration) return;
+    if(!startStr) return;
 
     const start = new Date(startStr);
-    start.setHours(start.getHours() + duration);
+    start.setHours(start.getHours() + 2);
     const local = new Date(start.getTime() - start.getTimezoneOffset() * 60000);
     document.getElementById('bk-hourly-out').value = local.toISOString().slice(0, 16);
 }
@@ -250,6 +278,75 @@ function updateHourlyEnd() {
 function setRentalType(type) {
     const el = document.getElementById('bk-type');
     if(el) el.value = type;
+    resetBookingQuote();
+}
+
+function resetBookingQuote() {
+    selectedDepositRatio = null;
+    currentBookingQuote = null;
+    const depositInput = document.getElementById('bk-deposit');
+    const hint = document.getElementById('deposit-hint');
+    if (depositInput) depositInput.value = 0;
+    if (hint) {
+        hint.textContent = 'Vui lòng bấm nút cọc 50% hoặc 100% trước khi tạo booking.';
+    }
+}
+
+async function calculateQuickDeposit(percent = 0.5) {
+    const rentalType = document.getElementById('bk-type').value;
+    const checkIn = document.getElementById(
+        rentalType === 'daily' ? 'bk-daily-in' : 'bk-hourly-in'
+    ).value;
+    const checkOut = document.getElementById(
+        rentalType === 'daily' ? 'bk-daily-out' : 'bk-hourly-out'
+    ).value;
+    const roomId = document.getElementById('bk-room-id').value;
+    const depositInput = document.getElementById('bk-deposit');
+    const hint = document.getElementById('deposit-hint');
+
+    if (!roomId || !checkIn || !checkOut) {
+        if (hint) hint.textContent = 'Vui lòng chọn đủ phòng và thời gian để tính giá.';
+        return;
+    }
+    if (new Date(checkOut) <= new Date(checkIn)) {
+        if (hint) hint.textContent = 'Giờ trả phòng phải sau giờ nhận phòng.';
+        return;
+    }
+
+    if (hint) hint.textContent = 'Đang tính giá từ hệ thống...';
+    try {
+        const response = await fetch(api('/api/bookings/calculate-price'), {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                room_id: roomId,
+                check_in: checkIn,
+                check_out: checkOut,
+                rental_type: rentalType
+            })
+        });
+        const data = await response.json();
+        if (!data.success || !data.quote) {
+            throw new Error(data.msg || 'Không thể tính giá.');
+        }
+
+        currentBookingQuote = data.quote;
+        selectedDepositRatio = percent;
+        const optionKey = percent === 1 ? 'maximum_100' : 'suggested_50';
+        const totalAmount = Number(data.quote.total);
+        const depositAmount = Number(
+            data.quote.deposit_options?.[optionKey] ?? totalAmount * percent
+        );
+        depositInput.value = depositAmount;
+        if (hint) {
+            const percentLabel = percent === 1 ? '100%' : '50%';
+            hint.textContent = `Đã chọn cọc ${percentLabel}: ${depositAmount.toLocaleString('vi-VN')} đ (tổng tạm tính ${totalAmount.toLocaleString('vi-VN')} đ).`;
+        }
+    } catch (error) {
+        selectedDepositRatio = null;
+        currentBookingQuote = null;
+        if (hint) hint.textContent = error.message || 'Không thể kết nối để tính giá.';
+    }
 }
 
 // ==========================================
