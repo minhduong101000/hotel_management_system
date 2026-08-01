@@ -84,3 +84,30 @@ def test_timeline_initial_loading_state_uses_shared_data_state(client, seed_hote
     assert b'data-state data-state--loading' in response.data
     assert b'data-state__title' in response.data
     assert 'Đang tải Timeline'.encode() in response.data
+
+
+def test_service_and_pricing_pages_share_table_shells_and_action_hierarchy(
+    client, seed_hotels, login_as
+):
+    hotel, _, admin, _, _, _ = seed_hotels
+    login_as(client, admin)
+
+    service_response = client.get(f'/{hotel.slug}/services/services')
+    price_response = client.get(f'/{hotel.slug}/prices/admin/price-manager')
+
+    assert service_response.status_code == 200
+    service_html = service_response.get_data(as_text=True)
+    assert 'page-header__actions button-group' in service_html
+    assert 'id="add-service-button"' in service_html
+    assert 'data-table-card' in service_html
+    assert 'data-table-shell' in service_html
+    assert 'data-state data-state--loading' in service_html
+
+    assert price_response.status_code == 200
+    price_html = price_response.get_data(as_text=True)
+    assert 'page-header__actions button-group' in price_html
+    assert 'id="refresh-prices-button"' in price_html
+    assert 'id="add-price-rule-button"' in price_html
+    assert price_html.count('data-table-card') >= 2
+    assert price_html.count('data-table-shell') >= 2
+    assert price_html.count('data-state data-state--loading') >= 2

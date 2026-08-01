@@ -1711,6 +1711,96 @@ body.login-page {
 .operation-modal__header--danger { color: #fff; background: var(--color-danger); border-bottom-color: var(--color-danger) !important; }
 .operation-modal__header--neutral { color: var(--color-text); background: #f8fafc; }
 
+.operation-form-section {
+    min-width: 0;
+    margin: 0 0 var(--space-4);
+    padding: var(--space-4);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-control);
+}
+
+.operation-form-section:last-child { margin-bottom: 0; }
+.operation-form-section--accent { background: var(--color-surface-teal); border-color: #b9e5db; }
+.operation-form-section__title {
+    float: none;
+    width: auto;
+    margin: 0 0 var(--space-3);
+    padding: 0;
+    color: var(--color-text);
+    font-size: 14px;
+    font-weight: 750;
+}
+
+.pricing-panel-header {
+    display: flex;
+    min-height: 84px;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.pricing-panel-title {
+    margin: 0;
+    color: var(--color-text);
+    font-size: 16px;
+    font-weight: 750;
+    line-height: 1.35;
+}
+
+.pricing-panel-title i { color: var(--color-action); }
+.pricing-panel-description { margin: var(--space-1) 0 0; color: var(--color-muted-text); font-size: 12px; line-height: 1.45; }
+.pricing-table { min-width: 680px; }
+.pricing-table--base { min-width: 720px; }
+.pricing-col-daily { width: 190px; }
+.pricing-col-hourly { width: 250px; }
+.pricing-col-actions { width: 68px; }
+.pricing-room-cell { display: grid; justify-items: start; gap: var(--space-2); }
+.pricing-room-number { color: var(--color-text); font-size: 16px; line-height: 1.25; }
+.pricing-input-group { min-width: 150px; }
+.pricing-input-label { width: 52px; justify-content: center; color: var(--color-muted-text); font-weight: 700; }
+.pricing-hourly-stack { display: grid; gap: var(--space-1); }
+.pricing-rule-name { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); margin-bottom: var(--space-1); }
+.pricing-rule-range { display: block; color: var(--color-info); font-size: 12px; }
+.pricing-rule-days { display: flex; flex-wrap: wrap; gap: 4px; margin-top: var(--space-2); color: var(--color-muted-text); font-size: 12px; }
+.pricing-day-badge {
+    display: inline-flex;
+    min-width: 28px;
+    min-height: 24px;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 6px;
+    color: #475569;
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+}
+.pricing-day-badge--weekend { color: #9f1239; background: #fff1f2; border-color: #fecdd3; }
+.pricing-rule-price { color: #047857; }
+.pricing-weekday-picker { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.pricing-weekday-picker .form-check {
+    display: inline-flex;
+    min-height: 36px;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    padding: 6px 10px 6px 32px;
+    background: #f8fafc;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+}
+.pricing-weekday-picker__weekend { color: #9f1239; background: #fff1f2 !important; border-color: #fecdd3 !important; }
+
+@media (max-width: 767.98px) {
+    .pricing-panel-header { min-height: 0; flex-direction: column; }
+    .operation-form-section { padding: var(--space-3); }
+}
+
 .warehouse-batch-list { display: grid; gap: var(--space-3); }
 .warehouse-batch-list .data-state { min-height: 180px; padding: var(--space-4); }
 .warehouse-batch-card { display: grid; gap: var(--space-2); padding: var(--space-4); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-control); }
@@ -1757,6 +1847,7 @@ body.login-page {
 
 .status-badge--success { color: #065f46; background: #ecfdf5; border: 1px solid #a7f3d0; }
 .status-badge--info { color: #1d4ed8; background: #eff6ff; border: 1px solid #bfdbfe; }
+.status-badge--neutral { color: #475569; background: #f8fafc; border: 1px solid #cbd5e1; }
 .status-badge--warning { color: #92400e; background: #fffbeb; border: 1px solid #fde68a; }
 .status-badge--danger { color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; }
 
