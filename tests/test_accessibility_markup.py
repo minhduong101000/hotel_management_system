@@ -204,6 +204,33 @@ def test_finance_filters_forms_and_modals_have_accessible_names():
     assert expenses.count('aria-live="assertive"') >= 2
 
 
+def test_staff_audit_and_master_forms_keep_linked_labels_and_named_actions():
+    staff = _source("templates/staff/index.html")
+    audit = _source("templates/audit/index.html")
+    master_login = _source("templates/master/login.html")
+    master_dashboard = _source("templates/master/dashboard.html")
+
+    for control_id in ("staff-username", "staff-password", "staff-role"):
+        _assert_label_for(staff, control_id)
+    assert 'aria-label="Lưu mật khẩu mới cho {{ user.username }}"' in staff
+
+    for control_id in (
+        "audit-start",
+        "audit-end",
+        "audit-group",
+        "audit-action",
+        "audit-entity",
+    ):
+        _assert_label_for(audit, control_id)
+    assert 'id="audit-feedback"' in audit
+    assert 'aria-live="polite"' in audit
+
+    for control_id in ("master-username", "master-password"):
+        _assert_label_for(master_login, control_id)
+    for control_id in ("hotel-name", "hotel-slug", "admin-username", "admin-password"):
+        _assert_label_for(master_dashboard, control_id)
+
+
 def test_checkout_modals_have_names_close_labels_and_announced_status():
     checkout = _source("templates/rooms/_checkout_modal.html")
     group_checkout = _source("templates/rooms/_group_checkout_modal.html")

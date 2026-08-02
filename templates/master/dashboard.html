@@ -1,10 +1,134 @@
 {% extends 'master/base.html' %}
+
+{% block title %}Tổng quan khách sạn · Master Console{% endblock %}
+
 {% block content %}
 <section class="master-dashboard">
-  <header class="master-page-header mb-4">
-    <div><p class="master-page-header__eyebrow">Quản trị hệ thống</p><h1 class="master-page-header__title">Tổng quan khách sạn</h1><p class="master-page-header__description">Quản lý từng khách sạn độc lập và truy cập đúng không gian vận hành của họ.</p></div>
-  </header>
-  <div class="row g-3 mb-4"><div class="col-md-4"><article class="card master-stat card-body"><small>Tổng khách sạn</small><strong class="fs-3">{{ hotels|length }}</strong></article></div><div class="col-md-4"><article class="card master-stat card-body"><small>Đang hoạt động</small><strong class="fs-3 text-success">{{ hotels|selectattr('is_active')|list|length }}</strong></article></div><div class="col-md-4"><article class="card master-stat card-body"><small>Tạm ngưng</small><strong class="fs-3 text-secondary">{{ hotels|rejectattr('is_active')|list|length }}</strong></article></div></div>
-  <section class="card"><div class="card-header bg-white d-flex justify-content-between align-items-center gap-3"><div><h2 class="h6 fw-bold mb-0">Khách sạn</h2><small class="text-muted">Tạo khách sạn mới hoặc vào đúng không gian quản lý.</small></div><button class="btn btn-primary btn-sm" data-bs-toggle="collapse" data-bs-target="#createHotel" aria-expanded="false" aria-controls="createHotel">Tạo khách sạn</button></div><div id="createHotel" class="collapse"><form method="post" action="{{ url_for('master.create_hotel') }}" class="p-3 border-bottom row g-3"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="col-md-3"><label class="form-label small" for="hotel-name">Tên khách sạn</label><input id="hotel-name" class="form-control" name="name" required></div><div class="col-md-2"><label class="form-label small" for="hotel-slug">Slug</label><input id="hotel-slug" class="form-control" name="slug" required></div><div class="col-md-3"><label class="form-label small" for="admin-username">Tài khoản quản lý</label><input id="admin-username" class="form-control" name="admin_username" required></div><div class="col-md-2"><label class="form-label small" for="admin-password">Mật khẩu</label><input id="admin-password" class="form-control" type="password" name="admin_password" required></div><div class="col-md-2 d-flex align-items-end"><button class="btn btn-primary w-100">Tạo khách sạn</button></div></form></div><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="table-light"><tr><th>Tên</th><th>Slug</th><th>Phòng</th><th>Tài khoản</th><th>Trạng thái</th><th class="text-end">Thao tác</th></tr></thead><tbody>{% for hotel in hotels %}<tr><td class="fw-semibold">{{ hotel.name }}</td><td><code>{{ hotel.slug }}</code></td><td>{{ room_counts.get(hotel.id, 0) }}</td><td>{{ user_counts.get(hotel.id, 0) }}</td><td><span class="badge {{ 'text-bg-success' if hotel.is_active else 'text-bg-secondary' }}">{{ 'Hoạt động' if hotel.is_active else 'Tạm ngưng' }}</span></td><td class="text-end"><a class="btn btn-outline-primary btn-sm" href="{{ url_for('master.enter_hotel', hotel_id=hotel.id) }}">Vào quản lý</a><form class="d-inline" method="post" action="{{ url_for('master.toggle_hotel_active', hotel_id=hotel.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-outline-secondary btn-sm">{{ 'Tạm ngưng' if hotel.is_active else 'Kích hoạt' }}</button></form></td></tr>{% else %}<tr><td colspan="6" class="text-center text-muted py-4">Chưa có khách sạn.</td></tr>{% endfor %}</tbody></table></div></section>
+    <header class="master-page-header">
+        <div>
+            <p class="master-page-header__eyebrow">Quản trị hệ thống</p>
+            <h1 class="master-page-header__title">Tổng quan khách sạn</h1>
+            <p class="master-page-header__description">Quản lý từng khách sạn độc lập và truy cập đúng không gian vận hành của họ.</p>
+        </div>
+        <button class="btn btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#createHotel" aria-expanded="false" aria-controls="createHotel">
+            Tạo khách sạn
+        </button>
+    </header>
+
+    <div class="row g-3 master-kpi-grid">
+        <div class="col-md-4">
+            <article class="master-kpi-card master-kpi-card--blue">
+                <span class="master-kpi-card__label">Tổng khách sạn</span>
+                <strong class="master-kpi-card__value">{{ hotels|length }}</strong>
+                <span class="master-kpi-card__meta">Đã thiết lập trên hệ thống</span>
+            </article>
+        </div>
+        <div class="col-md-4">
+            <article class="master-kpi-card master-kpi-card--success">
+                <span class="master-kpi-card__label">Đang hoạt động</span>
+                <strong class="master-kpi-card__value">{{ hotels|selectattr('is_active')|list|length }}</strong>
+                <span class="master-kpi-card__meta">Có thể truy cập vận hành</span>
+            </article>
+        </div>
+        <div class="col-md-4">
+            <article class="master-kpi-card master-kpi-card--neutral">
+                <span class="master-kpi-card__label">Tạm ngưng</span>
+                <strong class="master-kpi-card__value">{{ hotels|rejectattr('is_active')|list|length }}</strong>
+                <span class="master-kpi-card__meta">Đang khóa truy cập</span>
+            </article>
+        </div>
+    </div>
+
+    <section class="master-create-panel collapse" id="createHotel" aria-labelledby="create-hotel-title">
+        <div class="master-section-heading">
+            <div>
+                <p class="master-section-heading__eyebrow">Thiết lập mới</p>
+                <h2 id="create-hotel-title">Tạo khách sạn</h2>
+                <p>Khởi tạo không gian vận hành cùng tài khoản quản lý đầu tiên.</p>
+            </div>
+        </div>
+        <form method="post" action="{{ url_for('master.create_hotel') }}" class="row g-3 align-items-end">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="col-xl-3 col-md-6">
+                <label class="form-label" for="hotel-name">Tên khách sạn</label>
+                <input id="hotel-name" class="form-control" name="name" required autocomplete="organization">
+            </div>
+            <div class="col-xl-2 col-md-6">
+                <label class="form-label" for="hotel-slug">Slug</label>
+                <input id="hotel-slug" class="form-control" name="slug" required autocapitalize="none" spellcheck="false">
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <label class="form-label" for="admin-username">Tài khoản quản lý</label>
+                <input id="admin-username" class="form-control" name="admin_username" required autocomplete="off">
+            </div>
+            <div class="col-xl-2 col-md-6">
+                <label class="form-label" for="admin-password">Mật khẩu</label>
+                <input id="admin-password" class="form-control" type="password" name="admin_password" required autocomplete="new-password">
+            </div>
+            <div class="col-xl-2 col-md-12">
+                <button class="btn btn-primary w-100" type="submit">Tạo khách sạn</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="master-table-card" aria-labelledby="hotel-list-title">
+        <div class="master-section-heading master-table-card__header">
+            <div>
+                <p class="master-section-heading__eyebrow">Danh mục hệ thống</p>
+                <h2 id="hotel-list-title">Danh sách khách sạn</h2>
+                <p>{{ hotels|length }} khách sạn thuộc phạm vi quản trị.</p>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Tên</th>
+                        <th>Slug</th>
+                        <th>Phòng</th>
+                        <th>Tài khoản</th>
+                        <th>Trạng thái</th>
+                        <th class="text-end">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for hotel in hotels %}
+                    <tr>
+                        <td class="fw-semibold">{{ hotel.name }}</td>
+                        <td><code>{{ hotel.slug }}</code></td>
+                        <td>{{ room_counts.get(hotel.id, 0) }}</td>
+                        <td>{{ user_counts.get(hotel.id, 0) }}</td>
+                        <td>
+                            <span class="master-status {{ 'master-status--active' if hotel.is_active else 'master-status--inactive' }}">
+                                {{ 'Hoạt động' if hotel.is_active else 'Tạm ngưng' }}
+                            </span>
+                        </td>
+                        <td class="text-end">
+                            <div class="master-table-actions">
+                                <a class="btn btn-outline-primary" href="{{ url_for('master.enter_hotel', hotel_id=hotel.id) }}">Vào quản lý</a>
+                                <form method="post" action="{{ url_for('master.toggle_hotel_active', hotel_id=hotel.id) }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button class="btn {{ 'btn-outline-warning' if hotel.is_active else 'btn-outline-success' }}" type="submit">
+                                        {{ 'Tạm ngưng' if hotel.is_active else 'Kích hoạt' }}
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6">
+                            <div class="master-empty-state" role="status">
+                                <span class="master-empty-state__icon" aria-hidden="true">+</span>
+                                <h3>Chưa có khách sạn</h3>
+                                <p>Dùng nút “Tạo khách sạn” để thiết lập không gian vận hành đầu tiên.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
 </section>
 {% endblock %}

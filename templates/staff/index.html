@@ -1,59 +1,123 @@
 {% extends 'layouts/base.html' %}
 
 {% block content %}
-<section class="container-fluid py-3 staff-management">
+<section class="container-fluid p-4 staff-management">
     <header class="page-header mb-3 rounded-3">
         <div>
-            <h1 class="page-header__title"><i class="fa-solid fa-users-gear me-2"></i>Quản lý nhân sự</h1>
+            <p class="page-header__eyebrow mb-1">Cấu hình vận hành</p>
+            <h1 class="page-header__title">
+                <i class="fa-solid fa-users-gear me-2" aria-hidden="true"></i>Quản lý nhân sự
+            </h1>
             <p class="page-header__description mb-0">Tạo và quản lý tài khoản làm việc trong phạm vi khách sạn hiện tại.</p>
         </div>
     </header>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ 'danger' if category == 'error' else category }}" role="alert">
-                    <i class="fa-solid fa-circle-info me-2"></i>{{ message }}
-                </div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
-
     <div class="row g-3 align-items-start">
         <div class="col-xl-4">
-            <section class="card shadow-sm border-0">
-                <div class="card-header bg-white"><h2 class="h6 fw-bold mb-0"><i class="fa-solid fa-user-plus text-primary me-2"></i>Tạo tài khoản</h2></div>
+            <section class="card staff-form-card" aria-labelledby="staff-create-title">
+                <div class="card-header admin-panel-header">
+                    <h2 class="admin-panel-title" id="staff-create-title">
+                        <i class="fa-solid fa-user-plus me-2" aria-hidden="true"></i>Tạo tài khoản
+                    </h2>
+                </div>
                 <div class="card-body">
                     <form method="POST" action="{{ url_for('staff.index') }}" class="vstack gap-3">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <div><label class="form-label" for="staff-username">Tên đăng nhập</label><input id="staff-username" type="text" name="username" required class="form-control" autocomplete="username"></div>
-                        <div><label class="form-label" for="staff-password">Mật khẩu</label><input id="staff-password" type="password" name="password" required class="form-control" autocomplete="new-password"></div>
-                        <div><label class="form-label" for="staff-role">Vai trò</label><select id="staff-role" name="role" class="form-select"><option value="staff">Nhân viên</option><option value="admin">Quản lý</option></select></div>
-                        <button type="submit" class="btn btn-primary w-100"><i class="fa-solid fa-plus me-2"></i>Tạo tài khoản</button>
+                        <div>
+                            <label class="form-label" for="staff-username">Tên đăng nhập</label>
+                            <input id="staff-username" type="text" name="username" required class="form-control" autocomplete="username">
+                        </div>
+                        <div>
+                            <label class="form-label" for="staff-password">Mật khẩu</label>
+                            <input id="staff-password" type="password" name="password" required class="form-control" autocomplete="new-password">
+                        </div>
+                        <div>
+                            <label class="form-label" for="staff-role">Vai trò</label>
+                            <select id="staff-role" name="role" class="form-select">
+                                <option value="staff">Nhân viên</option>
+                                <option value="admin">Quản lý</option>
+                            </select>
+                            <small class="form-text text-muted">Quản lý có quyền truy cập báo cáo, chi phí và cấu hình nhân sự.</small>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fa-solid fa-plus" aria-hidden="true"></i><span>Tạo tài khoản</span>
+                        </button>
                     </form>
                 </div>
             </section>
         </div>
 
         <div class="col-xl-8">
-            <section class="card shadow-sm border-0">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center"><h2 class="h6 fw-bold mb-0"><i class="fa-solid fa-users text-primary me-2"></i>Danh sách tài khoản</h2><span class="text-muted small">{{ users|length }} tài khoản</span></div>
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light"><tr><th>Tên đăng nhập</th><th>Vai trò</th><th>Đổi mật khẩu</th><th class="text-end">Thao tác</th></tr></thead>
-                        <tbody>
-                            {% for user in users %}
-                            <tr>
-                                <td class="fw-semibold">{{ user.username }}{% if user.id == current_user.id %}<span class="text-muted small ms-1">(bạn)</span>{% endif %}</td>
-                                <td><span class="status-badge {{ 'status-badge--danger' if user.role == 'admin' else 'status-badge--info' }}">{{ 'Quản lý' if user.role == 'admin' else 'Nhân viên' }}</span></td>
-                                <td><form action="{{ url_for('staff.reset_password', user_id=user.id) }}" method="POST" class="d-flex gap-2"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input aria-label="Mật khẩu mới cho {{ user.username }}" type="password" name="new_password" required class="form-control form-control-sm" placeholder="Mật khẩu mới"><button type="submit" class="btn btn-sm btn-outline-primary" title="Lưu mật khẩu"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i></button></form></td>
-                                <td class="text-end">{% if user.id != current_user.id %}<form class="d-inline" action="{{ url_for('staff.delete_user', user_id=user.id) }}" method="POST" onsubmit="return confirm('Xóa tài khoản {{ user.username }}?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-trash-can me-1"></i>Xóa</button></form>{% else %}<span class="text-muted small">Đang sử dụng</span>{% endif %}</td>
-                            </tr>
-                            {% else %}
-                            <tr><td colspan="4" class="text-center text-muted py-4">Chưa có tài khoản nào.</td></tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+            <section class="card data-table-card" aria-labelledby="staff-list-title">
+                <div class="card-header admin-panel-header">
+                    <div>
+                        <h2 class="admin-panel-title" id="staff-list-title">
+                            <i class="fa-solid fa-users me-2" aria-hidden="true"></i>Danh sách tài khoản
+                        </h2>
+                        <p class="admin-panel-description">{{ users|length }} tài khoản trong khách sạn này</p>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive data-table-shell">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Tên đăng nhập</th>
+                                    <th>Vai trò</th>
+                                    <th>Đặt lại mật khẩu</th>
+                                    <th class="text-end">Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in users %}
+                                <tr>
+                                    <td class="fw-semibold">
+                                        {{ user.username }}
+                                        {% if user.id == current_user.id %}<span class="status-badge status-badge--neutral ms-2">Bạn</span>{% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="status-badge {{ 'status-badge--info' if user.role == 'admin' else 'status-badge--neutral' }}">
+                                            {{ 'Quản lý' if user.role == 'admin' else 'Nhân viên' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <form action="{{ url_for('staff.reset_password', user_id=user.id) }}" method="POST" class="staff-password-reset">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <input aria-label="Mật khẩu mới cho {{ user.username }}" type="password" name="new_password" required class="form-control" placeholder="Mật khẩu mới" autocomplete="new-password">
+                                            <button type="submit" class="btn btn-icon btn-outline-primary" aria-label="Lưu mật khẩu mới cho {{ user.username }}" title="Lưu mật khẩu mới cho {{ user.username }}">
+                                                <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                    <td class="text-end">
+                                        {% if user.id != current_user.id %}
+                                        <form class="d-inline" action="{{ url_for('staff.delete_user', user_id=user.id) }}" method="POST" onsubmit="return confirm('Xóa tài khoản {{ user.username }}?');">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="btn btn-outline-danger">
+                                                <i class="fa-solid fa-trash-can" aria-hidden="true"></i><span>Xóa tài khoản</span>
+                                            </button>
+                                        </form>
+                                        {% else %}
+                                        <button type="button" class="btn btn-outline-danger" disabled aria-label="Không thể xóa tài khoản đang sử dụng" title="Không thể xóa tài khoản đang sử dụng">
+                                            <i class="fa-solid fa-trash-can" aria-hidden="true"></i><span>Đang sử dụng</span>
+                                        </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr class="data-table-state-row">
+                                    <td colspan="4">
+                                        <div class="data-state data-state--empty" role="status">
+                                            <div class="data-state__icon"><i class="fa-solid fa-users" aria-hidden="true"></i></div>
+                                            <h3 class="data-state__title">Chưa có tài khoản</h3>
+                                            <p class="data-state__description">Tạo tài khoản đầu tiên bằng biểu mẫu bên cạnh.</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </section>
         </div>

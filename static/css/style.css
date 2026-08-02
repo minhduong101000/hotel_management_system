@@ -656,6 +656,84 @@ body:not(.login-page) {
     }
 }
 
+/* Staff and audit administration */
+.staff-form-card,
+.admin-panel-header {
+    border-color: var(--color-border);
+}
+
+.staff-form-card {
+    overflow: hidden;
+    border-radius: var(--radius-surface);
+    box-shadow: var(--shadow-surface);
+}
+
+.admin-panel-header {
+    display: flex;
+    min-height: 76px;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: linear-gradient(115deg, var(--color-surface) 35%, var(--color-surface-blue) 100%);
+}
+
+.admin-panel-title {
+    margin: 0;
+    color: var(--color-primary);
+    font-size: 16px;
+    font-weight: 750;
+}
+
+.admin-panel-description {
+    margin: var(--space-1) 0 0;
+    color: var(--color-muted-text);
+    font-size: 12px;
+}
+
+.staff-password-reset {
+    display: grid;
+    min-width: 260px;
+    align-items: center;
+    grid-template-columns: minmax(180px, 1fr) 44px;
+    gap: var(--space-2);
+}
+
+.audit-table-footer {
+    display: flex;
+    min-height: 66px;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-surface);
+    border-top-color: var(--color-border);
+}
+
+.audit-detail-cell details { position: relative; }
+.audit-detail-toggle { min-height: 40px !important; list-style: none; cursor: pointer; }
+.audit-detail-toggle::-webkit-details-marker { display: none; }
+.audit-detail-data {
+    width: min(480px, 60vw);
+    max-height: 260px;
+    overflow: auto;
+    margin: var(--space-2) 0 0 auto;
+    padding: var(--space-3);
+    color: #dbeafe;
+    background: #172b3a;
+    border-radius: var(--radius-control);
+    font-size: 12px;
+    white-space: pre-wrap;
+}
+
+@media (max-width: 767.98px) {
+    .staff-management,
+    .audit-log-page { padding: 16px !important; }
+    .audit-table-footer { align-items: stretch; flex-direction: column; }
+    .audit-table-footer .btn-group { width: 100%; }
+    .audit-table-footer .btn { flex: 1; }
+}
+
 /* Room map toolbar: separate context, controls and operational counts. */
 .room-map-toolbar {
     display: flex;

@@ -63,3 +63,46 @@ def test_hotel_login_script_handles_password_visibility_and_submit_feedback():
     assert "submitButton.disabled = true" in source
     assert "aria-busy" in source
     assert "Đang đăng nhập" in source
+
+
+def test_staff_and_audit_use_shared_cards_tables_and_data_states(client, seed_hotels, login_as):
+    hotel, _, admin, _, _, _ = seed_hotels
+    login_as(client, admin)
+
+    staff = client.get(f'/{hotel.slug}/staff/').get_data(as_text=True)
+    audit = client.get(f'/{hotel.slug}/activity-log/').get_data(as_text=True)
+
+    for html in (staff, audit):
+        assert 'data-table-card' in html
+        assert 'data-table-shell' in html
+    assert 'staff-form-card' in staff
+    assert 'btn btn-icon btn-outline-primary' in staff
+    assert 'aria-label="Lưu mật khẩu mới' in staff
+    assert 'btn btn-outline-danger' in staff
+    assert 'data-filter-bar' in audit
+    assert 'data-state data-state--loading' in audit
+
+
+def test_master_dashboard_and_login_use_accessible_polished_components():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    base = (root / 'templates' / 'master' / 'base.html').read_text(encoding='utf-8')
+    dashboard = (root / 'templates' / 'master' / 'dashboard.html').read_text(encoding='utf-8')
+    login = (root / 'templates' / 'master' / 'login.html').read_text(encoding='utf-8')
+
+    assert 'master-skip-link' in base
+    assert 'id="master-main-content"' in base
+    assert 'master-kpi-card' in dashboard
+    assert 'master-table-card' in dashboard
+    assert 'master-empty-state' in dashboard
+    assert 'id="master-login-form"' in login
+    assert 'id="master-password-toggle"' in login
+    assert 'aria-controls="master-password"' in login
+    assert 'aria-pressed="false"' in login
+    assert 'aria-label="Hiện mật khẩu"' in login
+    assert 'id="master-login-submit"' in login
+    assert 'aria-busy="false"' in login
+    assert 'id="master-login-status"' in login
+    assert 'role="status"' in login
+    assert 'style=' not in login
