@@ -35,6 +35,50 @@ def timeline_view():
 
 # --- API ROUTES ---
 
+@room_bp.route('/api/settings')
+@login_required
+def get_room_settings():
+    active_booking_counts = db.session.query(
+        BookingRoom.room_id.label('room_id'),
+        func.count(BookingRoom.id).label('active_booking_count'),
+    ).filter(
+        BookingRoom.hotel_id == current_hotel_id(),
+        BookingRoom.status.in_(['booked', 'checked_in']),
+    ).group_by(
+        BookingRoom.room_id,
+    ).subquery()
+
+    room_rows = tenant_query(Room).outerjoin(
+        active_booking_counts,
+        active_booking_counts.c.room_id == Room.id,
+    ).add_columns(
+        active_booking_counts.c.active_booking_count,
+    ).order_by(
+        Room.room_number.asc(),
+    ).all()
+
+    rooms = [
+        {
+            'id': room.id,
+            'room_number': room.room_number,
+            'room_type': room.room_type,
+            'price_per_night': float(room.price_per_night or 0),
+            'price_initial_block': float(room.price_initial_block or 0),
+            'initial_hours': int(room.initial_hours or 0),
+            'price_next_hour': float(room.price_next_hour or 0),
+            'status': room.status,
+            'clean_status': room.clean_status,
+            'active_booking_count': int(active_booking_count or 0),
+        }
+        for room, active_booking_count in room_rows
+    ]
+
+    return jsonify({
+        'rooms': rooms,
+        'room_types': sorted({room['room_type'] for room in rooms}),
+    })
+
+
 @room_bp.route('/api/rooms')
 @login_required
 def get_rooms():
