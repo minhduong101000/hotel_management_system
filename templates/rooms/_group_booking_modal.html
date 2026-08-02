@@ -3,7 +3,7 @@
         <div class="modal-content">
             <div class="modal-header bg-success text-white">
                 <h5 class="modal-title"><i class="fas fa-users"></i> ĐẶT PHÒNG THEO ĐOÀN</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng modal đặt phòng theo đoàn"></button>
             </div>
             
             <div class="modal-body bg-light">
@@ -12,14 +12,14 @@
                         <h6 class="text-success fw-bold mb-2">1. Thời gian lưu trú</h6>
                         <div class="row g-2 align-items-end">
                             <div class="col-md-5">
-                                <label class="small fw-bold text-muted">Check-in (Mặc định 14:00)</label>
+                                <label class="small fw-bold text-muted" for="g_check_in">Check-in (Mặc định 14:00)</label>
                                 <div class="input-group">
                                     <input type="date" class="form-control" id="g_check_in" name="check_in" required>
                                     <span class="input-group-text bg-light text-muted small fw-bold">14:00</span>
                                 </div>
                             </div>
                             <div class="col-md-5">
-                                <label class="small fw-bold text-muted">Check-out (Mặc định 12:00)</label>
+                                <label class="small fw-bold text-muted" for="g_check_out">Check-out (Mặc định 12:00)</label>
                                 <div class="input-group">
                                     <input type="date" class="form-control" id="g_check_out" name="check_out" required>
                                     <span class="input-group-text bg-light text-muted small fw-bold">12:00</span>
@@ -48,12 +48,12 @@
                          </h6>
                          <div class="row g-3 mb-3">
                             <div class="col-md-4">
-                                <label class="form-label small fw-bold text-secondary mb-1">Số điện thoại <span class="text-danger">*</span></label>
+                                <label class="form-label small fw-bold text-secondary mb-1" for="group_phone">Số điện thoại <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control shadow-sm border-secondary-subtle" name="group_phone" id="group_phone" required autocomplete="off" placeholder="Nhập SĐT...">
                             </div>
                             <div class="col-md-4">
                                 <div class="d-flex justify-content-between align-items-center mb-1">
-                                    <label class="form-label small mb-0 fw-bold text-secondary">Trưởng đoàn <span class="text-danger">*</span></label>
+                                    <label class="form-label small mb-0 fw-bold text-secondary" for="group_name">Trưởng đoàn <span class="text-danger">*</span></label>
                                     <button type="button" class="btn btn-xs btn-outline-success border-0 py-0 px-2 fw-bold" style="font-size: 0.75rem;" onclick="openQRScanner('group')">
                                         <i class="fas fa-qrcode me-1"></i>QUÉT QR
                                     </button>
@@ -61,20 +61,20 @@
                                 <input type="text" class="form-control shadow-sm border-secondary-subtle" name="group_name" id="group_name" required autocomplete="off" placeholder="Tên trưởng đoàn...">
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label small fw-bold text-secondary mb-1">Số CCCD</label>
+                                <label class="form-label small fw-bold text-secondary mb-1" for="group_cccd">Số CCCD</label>
                                 <input type="text" class="form-control shadow-sm border-secondary-subtle" name="group_cccd" id="group_cccd" autocomplete="off" placeholder="Số CCCD...">
                             </div>
                         </div>
                         <div class="row g-3">
                             <div class="col-md-12">
-                                <label class="form-label small fw-bold text-secondary mb-1">Địa chỉ cư trú</label>
+                                <label class="form-label small fw-bold text-secondary mb-1" for="group_address">Địa chỉ cư trú</label>
                                 <input type="text" class="form-control shadow-sm border-secondary-subtle" name="group_address" id="group_address" autocomplete="off" placeholder="Địa chỉ thường trú / tạm trú...">
                             </div>
                         </div>
 
                         <div class="row mb-2">
                             <div class="col-md-6">
-                                <label class="form-label small">Tiền cọc Tổng (VND)</label>
+                                <label class="form-label small" for="group_total_deposit">Tiền cọc Tổng (VND)</label>
                                 <div class="input-group">
                                     <input type="number" class="form-control fw-bold text-danger" name="total_deposit" id="group_total_deposit" placeholder="0">
                                     <button class="btn btn-outline-danger" type="button" onclick="calculateGroupQuickDeposit(0.5)">50%</button>
@@ -83,7 +83,7 @@
                                 <small class="text-muted" id="group-deposit-hint" style="font-size: 0.75rem;"></small>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label small">Ghi chú</label>
+                                <label class="form-label small" for="group_note">Ghi chú</label>
                                 <input type="text" class="form-control" name="note" id="group_note" placeholder="VD: Đoàn công ty..." autocomplete="off">
                             </div>
                         </div>

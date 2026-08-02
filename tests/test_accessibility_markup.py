@@ -305,6 +305,65 @@ def test_shared_buttons_keep_touch_targets_busy_feedback_and_reduced_motion():
     assert "@media (prefers-reduced-motion: reduce)" in source
 
 
+def test_refreshed_modal_close_buttons_all_have_accessible_names():
+    templates = (
+        "templates/rooms/map.html",
+        "templates/rooms/timeline.html",
+        "templates/rooms/_booking_modal.html",
+        "templates/rooms/_checkout_modal.html",
+        "templates/rooms/_group_booking_modal.html",
+        "templates/rooms/_group_checkout_modal.html",
+        "templates/rooms/_qr_scanner_modal.html",
+        "templates/customers/index.html",
+        "templates/billing/index.html",
+        "templates/warehouse/index.html",
+        "templates/services/index.html",
+        "templates/admin/price_manager.html",
+        "templates/reports/expenses.html",
+    )
+
+    for template in templates:
+        source = _source(template)
+        close_buttons = re.findall(
+            r'<button\b[^>]*\bclass="[^"]*\bbtn-close\b[^"]*"[^>]*>',
+            source,
+            re.DOTALL,
+        )
+        assert close_buttons, f"Không tìm thấy nút đóng trong {template}"
+        for button in close_buttons:
+            assert 'aria-label="' in button, f"Nút đóng chưa có tên trong {template}"
+
+
+def test_group_booking_and_timeline_editor_keep_labels_linked_to_controls():
+    group_booking = _source("templates/rooms/_group_booking_modal.html")
+    timeline = _source("templates/rooms/timeline.html")
+
+    for control_id in (
+        "g_check_in",
+        "g_check_out",
+        "group_phone",
+        "group_name",
+        "group_cccd",
+        "group_address",
+        "group_total_deposit",
+        "group_note",
+    ):
+        _assert_label_for(group_booking, control_id)
+
+    for control_id in (
+        "edit-customer",
+        "edit-room-select",
+        "edit-cccd",
+        "edit-address",
+        "edit-status",
+        "edit-checkin",
+        "edit-checkout",
+        "edit-deposit",
+        "refund-percent",
+    ):
+        _assert_label_for(timeline, control_id)
+
+
 def test_async_workflows_guard_double_submission_with_text_feedback():
     customer = _source("static/js/customer.js")
     checkout = _source("static/js/checkout.js")

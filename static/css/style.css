@@ -1747,6 +1747,11 @@ body.login-page {
 }
 
 .data-table-shell { min-height: 240px; }
+.table-responsive {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
 .data-table-state-row > td { padding: 0 !important; background: var(--color-surface); }
 .data-table-state-row:hover > td { background: var(--color-surface) !important; }
 .data-table-state-row .data-state { min-height: 240px; }
@@ -1768,6 +1773,9 @@ body.login-page {
 }
 
 @media (max-width: 575.98px) {
+    .app-content .form-control,
+    .app-content .form-select { font-size: 16px; }
+
     .customer-search-bar { align-items: stretch; flex-direction: column; }
     .customer-search-bar__button { width: 100%; }
     .billing-filter-layout { grid-template-columns: minmax(0, 1fr); }

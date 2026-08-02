@@ -92,7 +92,7 @@
         <div class="modal-content">
             <div class="modal-header bg-warning">
                 <h5 class="modal-title fw-bold">SỬA BOOKING #<span id="edit-id">...</span></h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng modal sửa đặt phòng"></button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="edit-booking-id">
@@ -100,7 +100,7 @@
                 <div class="row g-3 mb-3">
                     <div class="col-md-7">
                         <div class="d-flex justify-content-between align-items-center mb-1">
-                            <label class="form-label small mb-0 fw-bold text-secondary">Họ tên khách hàng</label>
+                            <label class="form-label small mb-0 fw-bold text-secondary" for="edit-customer">Họ tên khách hàng</label>
                             <button type="button" class="btn btn-xs btn-outline-success border-0 py-0 px-2 fw-bold" style="font-size: 0.75rem;" onclick="openQRScanner('edit')">
                                 <i class="fas fa-qrcode me-1"></i>QUÉT QR
                             </button>
@@ -108,24 +108,24 @@
                         <input type="text" class="form-control shadow-sm border-secondary-subtle" id="edit-customer" autocomplete="off" placeholder="Nhập tên khách...">
                     </div>
                     <div class="col-md-5">
-                        <label class="form-label small mb-1 fw-bold text-secondary">Phòng</label>
+                        <label class="form-label small mb-1 fw-bold text-secondary" for="edit-room-select">Phòng</label>
                         <select class="form-select shadow-sm border-secondary-subtle" id="edit-room-select"></select>
                     </div>
                 </div>
                 
                 <div class="row g-3 mb-3">
                     <div class="col-md-6">
-                        <label class="form-label small mb-1 fw-bold text-secondary">Số CCCD / Passport</label>
+                        <label class="form-label small mb-1 fw-bold text-secondary" for="edit-cccd">Số CCCD / Passport</label>
                         <input type="text" class="form-control shadow-sm border-secondary-subtle" id="edit-cccd" autocomplete="off" placeholder="Số định danh...">
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label small mb-1 fw-bold text-secondary">Địa chỉ</label>
+                        <label class="form-label small mb-1 fw-bold text-secondary" for="edit-address">Địa chỉ</label>
                         <input type="text" class="form-control shadow-sm border-secondary-subtle" id="edit-address" autocomplete="off" placeholder="Tỉnh/Thành phố...">
                     </div>
                 </div>
                 
                 <div class="mb-3">
-                    <label class="form-label small mb-1 fw-bold text-secondary">Trạng thái đặt phòng</label>
+                    <label class="form-label small mb-1 fw-bold text-secondary" for="edit-status">Trạng thái đặt phòng</label>
                     <select class="form-select shadow-sm border-warning-subtle fw-bold" id="edit-status" onchange="toggleRefundSection()">
                         <option value="pending">Chờ cọc</option>
                         <option value="booked">Đã cọc (Đặt trước)</option>
@@ -135,12 +135,12 @@
                 </div>
 
                 <div class="row mb-3">
-                    <div class="col-6"><label>Vào</label><input type="datetime-local" class="form-control" id="edit-checkin"></div>
-                    <div class="col-6"><label>Ra</label><input type="datetime-local" class="form-control" id="edit-checkout"></div>
+                    <div class="col-6"><label for="edit-checkin">Vào</label><input type="datetime-local" class="form-control" id="edit-checkin"></div>
+                    <div class="col-6"><label for="edit-checkout">Ra</label><input type="datetime-local" class="form-control" id="edit-checkout"></div>
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label small mb-1 fw-bold text-danger">Tiền đặt cọc (VNĐ)</label>
+                    <label class="form-label small mb-1 fw-bold text-danger" for="edit-deposit">Tiền đặt cọc (VNĐ)</label>
                     <input type="number" class="form-control text-danger fw-bold shadow-sm" id="edit-deposit" placeholder="0">
                     <div class="mt-1"><small class="text-muted"><i class="fas fa-info-circle me-1"></i>Khoản cọc được trừ trực tiếp khi thanh toán.</small></div>
                 </div>
@@ -156,7 +156,7 @@
                     </div>
 
                     <div class="mb-2">
-                        <label>Mức hoàn tiền:</label>
+                        <label for="refund-percent">Mức hoàn tiền:</label>
                         <select class="form-select form-select-sm" id="refund-percent" onchange="calculateRefund()">
                             <option value="0" selected>0% (Không hoàn)</option>
                             <option value="30">30%</option>

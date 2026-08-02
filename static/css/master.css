@@ -385,6 +385,9 @@ body.master-login {
 }
 
 @media (max-width: 767.98px) {
+    .master-console .form-control,
+    .master-console .form-select,
+    .master-login .form-control { font-size: 16px; }
     .master-nav { padding-inline: 16px; }
     .master-content { padding: 18px 16px 34px; }
     .master-page-header { align-items: stretch; flex-direction: column; padding: 20px; }

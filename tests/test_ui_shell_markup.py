@@ -5,6 +5,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 BASE_TEMPLATE = ROOT / "templates" / "layouts" / "base.html"
 STYLE_SHEET = ROOT / "static" / "css" / "style.css"
+MASTER_STYLE_SHEET = ROOT / "static" / "css" / "master.css"
 MAIN_SCRIPT = ROOT / "static" / "js" / "main.js"
 
 
@@ -167,3 +168,29 @@ def test_mobile_navigation_drawer_closes_with_backdrop_and_escape():
     )
     assert ".sidebar-backdrop" in styles
     assert "body.sidebar-open" in styles
+
+
+def test_small_viewports_keep_inputs_readable_and_tables_scrollable():
+    styles = STYLE_SHEET.read_text(encoding="utf-8")
+    master_styles = MASTER_STYLE_SHEET.read_text(encoding="utf-8")
+
+    assert re.search(
+        r"@media \(max-width: 575\.98px\)\s*\{.*?"
+        r"\.app-content \.form-control,\s*\.app-content \.form-select\s*"
+        r"\{[^}]*font-size:\s*16px",
+        styles,
+        re.DOTALL,
+    )
+    assert re.search(
+        r"\.table-responsive\s*\{[^}]*overflow-x:\s*auto",
+        styles,
+        re.DOTALL,
+    )
+    assert "-webkit-overflow-scrolling: touch" in styles
+    assert re.search(
+        r"@media \(max-width: 767\.98px\)\s*\{.*?"
+        r"\.master-console \.form-control,.*?\.master-login \.form-control\s*"
+        r"\{[^}]*font-size:\s*16px",
+        master_styles,
+        re.DOTALL,
+    )
