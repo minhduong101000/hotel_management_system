@@ -63,8 +63,8 @@
             <li class="menu-header">DỊCH VỤ & KHO</li>
 
             <li class="menu-item">
-                <a href="{{ url_for('price.index') }}" class="{{ 'active' if 'price.' in request.endpoint else '' }}" aria-current="{{ 'page' if 'price.' in request.endpoint else 'false' }}">
-                    <i class="fas fa-tags" aria-hidden="true"></i><span>Quản lý Giá phòng</span>
+                <a href="{{ url_for('room.settings_view') }}" class="{{ 'active' if request.endpoint in ('room.settings_view', 'price.index') else '' }}" aria-current="{{ 'page' if request.endpoint in ('room.settings_view', 'price.index') else 'false' }}">
+                    <i class="fas fa-sliders" aria-hidden="true"></i><span>Cấu hình phòng & giá</span>
                 </a>
             </li>
             

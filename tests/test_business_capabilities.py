@@ -12,7 +12,10 @@ def test_staff_can_access_price_management_api(client, seed_hotels, login_as):
 
     response = client.get(f"/{hotel.slug}/prices/api/prices/all-data")
     page_response = client.get(f"/{hotel.slug}/prices/admin/price-manager")
+    settings_response = client.get(f"/{hotel.slug}/rooms/settings")
 
     assert response.status_code == 200
     assert page_response.status_code == 200
-    assert "Quản lý Giá phòng" in page_response.text
+    assert settings_response.status_code == 200
+    assert "Giá đặc biệt qua đêm" in page_response.text
+    assert "Cấu hình phòng" in settings_response.text

@@ -108,6 +108,7 @@ def test_service_and_pricing_pages_share_table_shells_and_action_hierarchy(
     assert 'page-header__actions button-group' in price_html
     assert 'id="refresh-prices-button"' in price_html
     assert 'id="add-price-rule-button"' in price_html
-    assert price_html.count('data-table-card') >= 2
-    assert price_html.count('data-table-shell') >= 2
-    assert price_html.count('data-state data-state--loading') >= 2
+    assert price_html.count('data-table-card') == 1
+    assert price_html.count('data-table-shell') == 1
+    assert price_html.count('data-state data-state--loading') == 1
+    assert 'Giá cơ bản' not in price_html

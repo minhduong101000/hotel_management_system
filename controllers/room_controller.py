@@ -43,6 +43,12 @@ def map_view():
 def timeline_view():
     return render_template('rooms/timeline.html')
 
+
+@room_bp.route('/settings')
+@login_required
+def settings_view():
+    return render_template('rooms/settings.html')
+
 # --- API ROUTES ---
 
 @room_bp.route('/api/settings')

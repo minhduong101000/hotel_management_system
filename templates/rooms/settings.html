@@ -1,0 +1,206 @@
+{% extends "layouts/base.html" %}
+
+{% set can_manage_room_structure = current_user.role == 'admin' or current_user.is_super_admin %}
+
+{% block content %}
+<div
+    class="container-fluid p-4 room-settings-page"
+    id="room-settings-page"
+    data-can-manage-structure="{{ 'true' if can_manage_room_structure else 'false' }}"
+>
+    <div class="page-header mb-3 rounded-3 flex-wrap">
+        <div>
+            <p class="page-header__eyebrow mb-1">Vận hành phòng</p>
+            <h1 class="page-header__title"><i class="fas fa-bed me-2" aria-hidden="true"></i>Cấu hình phòng &amp; giá</h1>
+            <p class="page-header__description mb-0">Thiết lập phòng, giá mặc định và theo dõi trạng thái bảo trì tại một nơi.</p>
+        </div>
+        <div class="page-header__actions button-group">
+            <button type="button" class="btn btn-outline-secondary" id="room-settings-refresh" aria-busy="false">
+                <i class="fas fa-rotate-right" aria-hidden="true"></i><span>Làm mới</span>
+            </button>
+            {% if can_manage_room_structure %}
+            <button type="button" class="btn btn-primary" id="add-room-button" data-room-structure-action aria-haspopup="dialog">
+                <i class="fas fa-plus" aria-hidden="true"></i><span>Thêm phòng</span>
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <nav class="settings-page-tabs mb-3" aria-label="Danh mục cấu hình phòng và giá">
+        <a class="settings-page-tabs__link is-active" href="{{ url_for('room.settings_view') }}" aria-current="page">
+            <i class="fas fa-bed" aria-hidden="true"></i><span>Phòng &amp; giá mặc định</span>
+        </a>
+        <a class="settings-page-tabs__link" href="{{ url_for('price.index') }}" aria-current="false">
+            <i class="fas fa-calendar-days" aria-hidden="true"></i><span>Giá đặc biệt qua đêm</span>
+        </a>
+    </nav>
+
+    <div id="room-settings-feedback" class="alert d-none" role="status" aria-live="polite"></div>
+
+    <section class="card data-filter-bar mb-3" aria-labelledby="room-settings-filter-title">
+        <div class="card-body">
+            <h2 class="visually-hidden" id="room-settings-filter-title">Lọc danh sách phòng</h2>
+            <div class="room-settings-filter-layout">
+                <div class="room-settings-filter-field room-settings-filter-field--search">
+                    <label class="form-label" for="room-settings-search">Tìm phòng</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fas fa-magnifying-glass" aria-hidden="true"></i></span>
+                        <input type="search" class="form-control" id="room-settings-search" placeholder="Số phòng hoặc loại phòng" autocomplete="off">
+                    </div>
+                </div>
+                <div class="room-settings-filter-field">
+                    <label class="form-label" for="room-settings-type-filter">Loại phòng</label>
+                    <select class="form-select" id="room-settings-type-filter">
+                        <option value="">Tất cả loại phòng</option>
+                    </select>
+                </div>
+                <div class="room-settings-filter-field">
+                    <label class="form-label" for="room-settings-status-filter">Trạng thái</label>
+                    <select class="form-select" id="room-settings-status-filter">
+                        <option value="">Tất cả trạng thái</option>
+                        <option value="available">Sẵn sàng</option>
+                        <option value="occupied">Đang ở</option>
+                        <option value="maintenance">Bảo trì</option>
+                        <option value="dirty">Chờ dọn</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="card data-table-card" aria-labelledby="room-settings-table-title">
+        <div class="pricing-panel-header">
+            <div>
+                <h2 class="pricing-panel-title" id="room-settings-table-title"><i class="fas fa-list-check me-2" aria-hidden="true"></i>Danh sách phòng</h2>
+                <p class="pricing-panel-description">Giá theo giờ luôn lấy từ từng phòng; giá đặc biệt chỉ thay đổi giá qua đêm.</p>
+            </div>
+            <span class="status-badge status-badge--info" id="room-settings-count">0 phòng</span>
+        </div>
+        <div class="table-responsive data-table-shell">
+            <table class="table table-hover align-middle mb-0 room-settings-table">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-3">Phòng</th>
+                        <th>Giá qua đêm</th>
+                        <th>Giá giờ</th>
+                        <th>Trạng thái</th>
+                        <th class="text-end pe-3"><span class="visually-hidden">Thao tác</span></th>
+                    </tr>
+                </thead>
+                <tbody id="room-settings-table" aria-live="polite">
+                    <tr class="data-table-state-row" id="room-settings-loading-state"><td colspan="5"><div class="data-state data-state--loading" role="status"><div class="data-state__icon"><i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i></div><h3 class="data-state__title">Đang tải cấu hình phòng</h3><p class="data-state__description">Vui lòng chờ trong giây lát.</p></div></td></tr>
+                    <tr class="data-table-state-row d-none" id="room-settings-empty-state"><td colspan="5"><div class="data-state data-state--empty" role="status"><div class="data-state__icon"><i class="fas fa-bed" aria-hidden="true"></i></div><h3 class="data-state__title">Chưa có phòng phù hợp</h3><p class="data-state__description">Hãy điều chỉnh bộ lọc hoặc thêm phòng mới.</p></div></td></tr>
+                    <tr class="data-table-state-row d-none" id="room-settings-error-state"><td colspan="5"><div class="data-state data-state--error" role="alert"><div class="data-state__icon"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i></div><h3 class="data-state__title">Không thể tải cấu hình phòng</h3><p class="data-state__description">Kiểm tra kết nối rồi thử lại.</p></div></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+{% if can_manage_room_structure %}
+<div class="modal fade" id="room-settings-modal" tabindex="-1" aria-labelledby="room-settings-modal-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered operation-modal operation-modal--wide">
+        <div class="modal-content">
+            <div class="modal-header operation-modal__header operation-modal__header--teal">
+                <h2 class="modal-title" id="room-settings-modal-title" tabindex="-1"><i class="fas fa-bed me-2" aria-hidden="true"></i><span id="room-settings-modal-title-text">Thêm phòng</span></h2>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng modal cấu hình phòng"></button>
+            </div>
+            <form id="room-settings-form" novalidate>
+                <div class="modal-body">
+                    <div id="room-settings-form-status" class="alert alert-danger d-none" role="alert" aria-live="assertive" tabindex="-1"></div>
+                    <input type="hidden" id="room-settings-id">
+                    <fieldset class="operation-form-section">
+                        <legend class="operation-form-section__title">Thông tin phòng</legend>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label" for="room-number">Số phòng</label>
+                                <input type="text" class="form-control" id="room-number" maxlength="10" autocomplete="off" data-modal-initial-focus>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="room-type">Loại phòng</label>
+                                <input type="text" class="form-control" id="room-type" maxlength="20" list="room-type-options" autocomplete="off">
+                                <datalist id="room-type-options"></datalist>
+                            </div>
+                        </div>
+                    </fieldset>
+                    <fieldset class="operation-form-section operation-form-section--accent">
+                        <legend class="operation-form-section__title">Giá mặc định</legend>
+                        <p class="form-text mt-0">Giá đặc biệt chỉ ghi đè giá qua đêm; giá theo giờ dưới đây luôn được giữ theo phòng.</p>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label" for="room-price-night">Giá qua đêm (VNĐ)</label>
+                                <input type="number" class="form-control numeric-tabular" id="room-price-night" min="1" step="1000" inputmode="numeric">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="room-price-initial">Giá block đầu (VNĐ)</label>
+                                <input type="number" class="form-control numeric-tabular" id="room-price-initial" min="1" step="1000" inputmode="numeric">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="room-initial-hours">Số giờ block đầu</label>
+                                <input type="number" class="form-control numeric-tabular" id="room-initial-hours" min="1" step="1" inputmode="numeric">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="room-price-next">Giá giờ tiếp theo (VNĐ)</label>
+                                <input type="number" class="form-control numeric-tabular" id="room-price-next" min="1" step="1000" inputmode="numeric">
+                            </div>
+                        </div>
+                    </fieldset>
+                    <div class="form-check form-switch" id="room-maintenance-field">
+                        <input class="form-check-input" type="checkbox" role="switch" id="room-maintenance">
+                        <label class="form-check-label" for="room-maintenance">Tạo phòng ở trạng thái bảo trì</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary" id="room-settings-save" aria-busy="false"><i class="fas fa-save" aria-hidden="true"></i><span>Lưu phòng</span></button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="modal fade" id="room-rate-modal" tabindex="-1" aria-labelledby="room-rate-modal-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered operation-modal">
+        <div class="modal-content">
+            <div class="modal-header operation-modal__header operation-modal__header--teal">
+                <h2 class="modal-title" id="room-rate-modal-title" tabindex="-1"><i class="fas fa-coins me-2" aria-hidden="true"></i>Cập nhật giá mặc định</h2>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng modal cập nhật giá phòng"></button>
+            </div>
+            <form id="room-rate-form" novalidate>
+                <div class="modal-body">
+                    <div id="room-rate-form-status" class="alert alert-danger d-none" role="alert" aria-live="assertive" tabindex="-1"></div>
+                    <input type="hidden" id="room-rate-id">
+                    <p class="text-muted small" id="room-rate-description"></p>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label" for="rate-price-night">Giá qua đêm (VNĐ)</label>
+                            <input type="number" class="form-control numeric-tabular" id="rate-price-night" min="1" step="1000" inputmode="numeric" data-modal-initial-focus>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="rate-price-initial">Giá block đầu (VNĐ)</label>
+                            <input type="number" class="form-control numeric-tabular" id="rate-price-initial" min="1" step="1000" inputmode="numeric">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="rate-initial-hours">Số giờ block đầu</label>
+                            <input type="number" class="form-control numeric-tabular" id="rate-initial-hours" min="1" step="1" inputmode="numeric">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="rate-price-next">Giá giờ tiếp theo (VNĐ)</label>
+                            <input type="number" class="form-control numeric-tabular" id="rate-price-next" min="1" step="1000" inputmode="numeric">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary" id="room-rate-save" aria-busy="false"><i class="fas fa-save" aria-hidden="true"></i><span>Lưu giá</span></button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/room_settings.js') }}"></script>
+{% endblock %}

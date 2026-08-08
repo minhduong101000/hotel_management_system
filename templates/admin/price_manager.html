@@ -4,120 +4,89 @@
 <div class="container-fluid p-4">
     <div class="page-header mb-3 rounded-3 flex-wrap">
         <div>
-            <h1 class="page-header__title"><i class="fas fa-tags me-2" aria-hidden="true"></i>Quản lý giá phòng</h1>
-            <small class="text-muted">Giá cơ bản và luật giá theo thời điểm</small>
+            <p class="page-header__eyebrow mb-1">Vận hành phòng</p>
+            <h1 class="page-header__title"><i class="fas fa-calendar-days me-2" aria-hidden="true"></i>Giá đặc biệt qua đêm</h1>
+            <p class="page-header__description mb-0">Tạo luật giá theo ngày, thứ và loại phòng. Giá theo giờ vẫn lấy từ cấu hình từng phòng.</p>
         </div>
         <div class="page-header__actions button-group">
-            <button type="button" class="btn btn-outline-secondary" id="refresh-prices-button" onclick="loadData()">
+            <button type="button" class="btn btn-outline-secondary" id="refresh-prices-button" aria-busy="false">
                 <i class="fas fa-rotate-right" aria-hidden="true"></i><span>Làm mới</span>
             </button>
-            <button type="button" class="btn btn-primary" id="add-price-rule-button" onclick="openRuleModal()" aria-haspopup="dialog">
+            <button type="button" class="btn btn-primary" id="add-price-rule-button" aria-haspopup="dialog">
                 <i class="fas fa-plus" aria-hidden="true"></i><span>Thêm luật giá</span>
             </button>
         </div>
     </div>
 
+    <nav class="settings-page-tabs mb-3" aria-label="Danh mục cấu hình phòng và giá">
+        <a class="settings-page-tabs__link" href="{{ url_for('room.settings_view') }}" aria-current="false">
+            <i class="fas fa-bed" aria-hidden="true"></i><span>Phòng &amp; giá mặc định</span>
+        </a>
+        <a class="settings-page-tabs__link is-active" href="{{ url_for('price.index') }}" aria-current="page">
+            <i class="fas fa-calendar-days" aria-hidden="true"></i><span>Giá đặc biệt qua đêm</span>
+        </a>
+    </nav>
+
     <div id="price-feedback" class="alert d-none" role="status" aria-live="polite"></div>
 
-    <div class="row g-3 pricing-grid">
-        <div class="col-xl-6 col-lg-6">
-            <section class="card data-table-card h-100" aria-labelledby="base-price-title">
-                <div class="card-header pricing-panel-header">
-                    <div>
-                        <h2 class="pricing-panel-title" id="base-price-title"><i class="fas fa-house me-2" aria-hidden="true"></i>Giá cơ bản</h2>
-                        <p class="pricing-panel-description">Áp dụng khi không có luật giá phù hợp.</p>
-                    </div>
-                    <span class="status-badge status-badge--neutral">Theo phòng</span>
-                </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive data-table-shell">
-                        <table class="table table-hover align-middle mb-0 pricing-table pricing-table--base">
-                            <thead class="table-light">
-                                <tr>
-                                    <th class="ps-3">Phòng</th>
-                                    <th class="pricing-col-daily text-end">Giá ngày</th>
-                                    <th class="pricing-col-hourly">Giá giờ</th>
-                                    <th class="pricing-col-actions"><span class="visually-hidden">Thao tác</span></th>
-                                </tr>
-                            </thead>
-                            <tbody id="base-price-table" aria-live="polite">
-                                <tr class="data-table-state-row"><td colspan="4"><div class="data-state data-state--loading" role="status"><div class="data-state__icon"><i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i></div><h3 class="data-state__title">Đang tải giá cơ bản</h3><p class="data-state__description">Vui lòng chờ trong giây lát.</p></div></td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
+    <section class="card data-table-card" aria-labelledby="price-rules-title">
+        <div class="pricing-panel-header">
+            <div>
+                <h2 class="pricing-panel-title" id="price-rules-title"><i class="fas fa-tags me-2" aria-hidden="true"></i>Luật giá theo thời điểm</h2>
+                <p class="pricing-panel-description">Khi nhiều luật phù hợp, hệ thống chọn luật có độ ưu tiên cao hơn.</p>
+            </div>
+            <span class="status-badge status-badge--warning">Chỉ qua đêm</span>
         </div>
-
-        <div class="col-xl-6 col-lg-6">
-            <section class="card data-table-card h-100" aria-labelledby="price-rules-title">
-                <div class="card-header pricing-panel-header">
-                    <div>
-                        <h2 class="pricing-panel-title" id="price-rules-title"><i class="fas fa-calendar-check me-2" aria-hidden="true"></i>Luật giá theo thời điểm</h2>
-                        <p class="pricing-panel-description">Ưu tiên luật phù hợp để ghi đè giá qua đêm.</p>
-                    </div>
-                    <span class="status-badge status-badge--warning">Theo lịch</span>
-                </div>
-                <div class="card-body p-0">
-                    <div class="table-responsive data-table-shell">
-                        <table class="table table-hover align-middle mb-0 pricing-table">
-                            <thead class="table-light">
-                                <tr>
-                                    <th class="ps-3">Sự kiện</th>
-                                    <th>Thời gian</th>
-                                    <th class="text-end">Giá ngày</th>
-                                    <th class="text-end pe-3">Thao tác</th>
-                                </tr>
-                            </thead>
-                            <tbody id="rules-table" aria-live="polite">
-                                <tr class="data-table-state-row"><td colspan="4"><div class="data-state data-state--loading" role="status"><div class="data-state__icon"><i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i></div><h3 class="data-state__title">Đang tải luật giá</h3><p class="data-state__description">Vui lòng chờ trong giây lát.</p></div></td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
+        <div class="table-responsive data-table-shell">
+            <table class="table table-hover align-middle mb-0 pricing-table">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-3">Sự kiện</th>
+                        <th>Thời gian</th>
+                        <th class="text-end">Giá qua đêm</th>
+                        <th class="text-end pe-3"><span class="visually-hidden">Thao tác</span></th>
+                    </tr>
+                </thead>
+                <tbody id="rules-table" aria-live="polite">
+                    <tr class="data-table-state-row"><td colspan="4"><div class="data-state data-state--loading" role="status"><div class="data-state__icon"><i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i></div><h3 class="data-state__title">Đang tải luật giá</h3><p class="data-state__description">Vui lòng chờ trong giây lát.</p></div></td></tr>
+                </tbody>
+            </table>
         </div>
-    </div>
+    </section>
 </div>
 
 <div class="modal fade" id="ruleModal" tabindex="-1" data-bs-backdrop="static" aria-labelledby="ruleModalTitle" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg operation-modal operation-modal--wide">
         <div class="modal-content">
             <div class="modal-header operation-modal__header operation-modal__header--teal">
-                <h5 class="modal-title" id="ruleModalTitle"><i class="fas fa-tags me-2" aria-hidden="true"></i><span id="rule-modal-title-text">Thêm luật giá</span></h5>
+                <h2 class="modal-title" id="ruleModalTitle" tabindex="-1"><i class="fas fa-tags me-2" aria-hidden="true"></i><span id="rule-modal-title-text">Thêm luật giá</span></h2>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Đóng modal luật giá"></button>
             </div>
-            <div class="modal-body">
-                <form id="rule-form">
+            <form id="rule-form" novalidate>
+                <div class="modal-body">
                     <input type="hidden" id="r-id">
                     <div id="rule-form-status" class="alert alert-danger d-none" role="alert" aria-live="assertive" tabindex="-1"></div>
-
                     <fieldset class="operation-form-section">
                         <legend class="operation-form-section__title">Thông tin áp dụng</legend>
                         <div class="row g-3">
                             <div class="col-12">
-                                <label class="form-label fw-bold" for="r-name">Tên sự kiện</label>
+                                <label class="form-label" for="r-name">Tên sự kiện</label>
                                 <input type="text" class="form-control" id="r-name" placeholder="Ví dụ: Mùa hè, Tết Nguyên Đán" autocomplete="off" data-modal-initial-focus>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-bold" for="r-room-type">Loại phòng</label>
-                                <select class="form-select" id="r-room-type">
-                                    <option value="Standard">Standard</option>
-                                    <option value="Deluxe">Deluxe</option>
-                                    <option value="Suite">Suite</option>
-                                </select>
+                                <label class="form-label" for="r-room-type">Loại phòng</label>
+                                <select class="form-select" id="r-room-type"></select>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-bold" for="r-priority">Độ ưu tiên</label>
+                                <label class="form-label" for="r-priority">Độ ưu tiên</label>
                                 <select class="form-select" id="r-priority" aria-describedby="r-priority-help">
                                     <option value="1">1 - Mùa cao điểm</option>
-                                    <option value="2">2 - Ngày lễ (ưu tiên cao nhất)</option>
+                                    <option value="2">2 - Ngày lễ (ưu tiên cao hơn)</option>
                                 </select>
                                 <small id="r-priority-help" class="form-text text-muted">Số lớn hơn được áp dụng trước khi nhiều luật cùng khớp.</small>
                             </div>
                         </div>
                     </fieldset>
-
                     <fieldset class="operation-form-section">
                         <legend class="operation-form-section__title">Điều kiện thời gian</legend>
                         <div class="row g-3">
@@ -144,24 +113,21 @@
                             </div>
                         </div>
                     </fieldset>
-
                     <fieldset class="operation-form-section operation-form-section--accent">
                         <legend class="operation-form-section__title">Giá qua đêm mới</legend>
-                        <label class="form-label fw-bold" for="r-price-daily">Đơn giá (VNĐ)</label>
+                        <label class="form-label" for="r-price-daily">Đơn giá (VNĐ)</label>
                         <div class="input-group">
-                            <input type="number" class="form-control numeric-tabular fw-bold" id="r-price-daily" placeholder="0" min="1" step="10000" inputmode="numeric" aria-describedby="r-price-daily-help">
+                            <input type="number" class="form-control numeric-tabular fw-bold" id="r-price-daily" placeholder="0" min="1" step="1000" inputmode="numeric" aria-describedby="r-price-daily-help">
                             <span class="input-group-text">đ</span>
                         </div>
-                        <small id="r-price-daily-help" class="form-text text-muted">Luật giá chỉ thay đổi giá qua đêm; giá giờ được chỉnh tại bảng giá cơ bản.</small>
+                        <small id="r-price-daily-help" class="form-text text-muted">Giá theo giờ luôn lấy từ cấu hình mặc định của phòng.</small>
                     </fieldset>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                <button type="button" class="btn btn-primary" id="rule-save-button" aria-busy="false" onclick="saveRule()">
-                    <i class="fas fa-save" aria-hidden="true"></i><span>Lưu luật giá</span>
-                </button>
-            </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary" id="rule-save-button" aria-busy="false"><i class="fas fa-save" aria-hidden="true"></i><span>Lưu luật giá</span></button>
+                </div>
+            </form>
         </div>
     </div>
 </div>

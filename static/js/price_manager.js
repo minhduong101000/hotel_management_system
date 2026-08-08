@@ -1,9 +1,14 @@
 let allRules = [];
+let priceRuleRoomTypes = [];
 let pricesLoading = false;
-const basePriceSubmitting = new Set();
 let priceRuleSubmitting = false;
 
-document.addEventListener('DOMContentLoaded', loadData);
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('refresh-prices-button')?.addEventListener('click', loadData);
+    document.getElementById('add-price-rule-button')?.addEventListener('click', openRuleModal);
+    document.getElementById('rule-form')?.addEventListener('submit', saveRule);
+    loadData();
+});
 
 function createPricingStateIcon(kind) {
     const icons = {
@@ -20,11 +25,11 @@ function createPricingStateIcon(kind) {
     return wrapper;
 }
 
-function createPricingStateRow(kind, title, description, colSpan) {
+function createPricingStateRow(kind, title, description) {
     const row = document.createElement('tr');
     row.className = 'data-table-state-row';
     const cell = document.createElement('td');
-    cell.colSpan = colSpan;
+    cell.colSpan = 4;
     const state = document.createElement('div');
     state.className = `data-state data-state--${kind}`;
     state.setAttribute('role', kind === 'error' ? 'alert' : 'status');
@@ -39,16 +44,15 @@ function createPricingStateRow(kind, title, description, colSpan) {
     if (kind === 'error') {
         const actions = document.createElement('div');
         actions.className = 'data-state__actions button-group';
-        const retry = document.createElement('button');
-        retry.type = 'button';
-        retry.className = 'btn btn-outline-primary';
-        const icon = document.createElement('i');
-        icon.className = 'fas fa-rotate-right';
-        icon.setAttribute('aria-hidden', 'true');
+        const retry = createPriceActionButton(
+            'Thử tải lại luật giá',
+            'fas fa-rotate-right',
+            'btn-outline-primary',
+            loadData
+        );
         const label = document.createElement('span');
         label.textContent = 'Thử tải lại';
-        retry.append(icon, label);
-        retry.addEventListener('click', loadData);
+        retry.appendChild(label);
         actions.appendChild(retry);
         state.appendChild(actions);
     }
@@ -58,14 +62,10 @@ function createPricingStateRow(kind, title, description, colSpan) {
     return row;
 }
 
-function renderBaseTableState(kind, title, description = '') {
-    const tbody = document.getElementById('base-price-table');
-    tbody.replaceChildren(createPricingStateRow(kind, title, description, 4));
-}
-
 function renderRulesTableState(kind, title, description = '') {
-    const tbody = document.getElementById('rules-table');
-    tbody.replaceChildren(createPricingStateRow(kind, title, description, 4));
+    document.getElementById('rules-table').replaceChildren(
+        createPricingStateRow(kind, title, description)
+    );
 }
 
 function setPriceRefreshBusy(isBusy) {
@@ -75,35 +75,30 @@ function setPriceRefreshBusy(isBusy) {
     button.setAttribute('aria-busy', String(isBusy));
 }
 
-function loadData() {
+async function loadData() {
     if (pricesLoading) return;
     pricesLoading = true;
     setPriceRefreshBusy(true);
-    renderBaseTableState('loading', 'Đang tải giá cơ bản', 'Vui lòng chờ trong giây lát.');
     renderRulesTableState('loading', 'Đang tải luật giá', 'Vui lòng chờ trong giây lát.');
-
-    return fetch(api('/api/prices/all-data'))
-        .then(response => {
-            if (!response.ok) throw new Error('Không thể tải dữ liệu giá phòng.');
-            return response.json();
-        })
-        .then(data => {
-            if (data.error) throw new Error(data.error);
-            if (!Array.isArray(data.rooms) || !Array.isArray(data.rules)) {
-                throw new Error('Dữ liệu giá phòng không hợp lệ.');
-            }
-            allRules = data.rules;
-            renderBaseTable(data.rooms);
-            renderRulesTable(data.rules);
-        })
-        .catch(error => {
-            renderBaseTableState('error', 'Không thể tải giá cơ bản', error.message);
-            renderRulesTableState('error', 'Không thể tải luật giá', error.message);
-        })
-        .finally(() => {
-            pricesLoading = false;
-            setPriceRefreshBusy(false);
-        });
+    try {
+        const data = await requestPriceJson(api('/api/prices/rules'));
+        if (!Array.isArray(data.rules) || !Array.isArray(data.room_types)) {
+            throw new Error('Dữ liệu luật giá không hợp lệ.');
+        }
+        allRules = data.rules;
+        priceRuleRoomTypes = data.room_types;
+        renderRoomTypeOptions();
+        renderRulesTable(allRules);
+    } catch (error) {
+        renderRulesTableState(
+            'error',
+            'Không thể tải luật giá',
+            priceErrorMessage(error)
+        );
+    } finally {
+        pricesLoading = false;
+        setPriceRefreshBusy(false);
+    }
 }
 
 function createPriceActionButton(label, iconClass, variant, handler) {
@@ -125,86 +120,6 @@ function createPriceBadge(text, className = 'status-badge--neutral') {
     badge.className = `status-badge ${className}`;
     badge.textContent = text;
     return badge;
-}
-
-function createPriceInput(id, value, label, options = {}) {
-    const group = document.createElement('div');
-    group.className = 'input-group input-group-sm pricing-input-group';
-    const hiddenLabel = document.createElement('label');
-    hiddenLabel.className = 'visually-hidden';
-    hiddenLabel.htmlFor = id;
-    hiddenLabel.textContent = label;
-
-    if (options.prefix) {
-        const prefix = document.createElement('span');
-        prefix.className = 'input-group-text pricing-input-label';
-        prefix.textContent = options.prefix;
-        group.appendChild(prefix);
-    }
-
-    const input = document.createElement('input');
-    input.type = 'number';
-    input.className = `form-control numeric-tabular${options.emphasis ? ' fw-bold' : ''}`;
-    input.id = id;
-    input.value = Number(value) || 0;
-    input.step = options.step || '1000';
-    input.min = '0';
-    input.inputMode = 'numeric';
-    group.append(hiddenLabel, input);
-
-    if (options.suffix) {
-        const suffix = document.createElement('span');
-        suffix.className = 'input-group-text';
-        suffix.textContent = options.suffix;
-        group.appendChild(suffix);
-    }
-    return group;
-}
-
-function renderBaseTable(rooms) {
-    if (!rooms.length) {
-        renderBaseTableState('empty', 'Chưa có phòng để thiết lập giá', 'Phòng mới sẽ xuất hiện tại đây sau khi được cấu hình.');
-        return;
-    }
-
-    const tbody = document.getElementById('base-price-table');
-    tbody.replaceChildren();
-    rooms.forEach(room => {
-        const row = document.createElement('tr');
-
-        const roomCell = document.createElement('td');
-        roomCell.className = 'ps-3 pricing-room-cell';
-        const roomNumber = document.createElement('strong');
-        roomNumber.className = 'pricing-room-number';
-        roomNumber.textContent = `P.${room.number}`;
-        roomCell.append(roomNumber, createPriceBadge(room.type || 'Chưa phân loại'));
-
-        const dailyCell = document.createElement('td');
-        dailyCell.appendChild(createPriceInput(
-            `base-d-${room.id}`,
-            room.price_daily,
-            `Giá ngày phòng ${room.number}`,
-            {step: '10000', suffix: 'đ', emphasis: true}
-        ));
-
-        const hourlyCell = document.createElement('td');
-        const hourlyStack = document.createElement('div');
-        hourlyStack.className = 'pricing-hourly-stack';
-        hourlyStack.append(
-            createPriceInput(`base-init-${room.id}`, room.price_initial, `Giá block đầu phòng ${room.number}`, {prefix: 'Đầu'}),
-            createPriceInput(`base-next-${room.id}`, room.price_next, `Giá giờ tiếp theo phòng ${room.number}`, {prefix: 'Tiếp'})
-        );
-        hourlyCell.appendChild(hourlyStack);
-
-        const actionCell = document.createElement('td');
-        actionCell.className = 'text-end pe-3';
-        const save = createPriceActionButton(`Lưu giá phòng ${room.number}`, 'fas fa-save', 'btn-outline-primary', () => updateBase(room.id));
-        save.id = `base-save-${room.id}`;
-        save.setAttribute('aria-busy', 'false');
-        actionCell.appendChild(save);
-        row.append(roomCell, dailyCell, hourlyCell, actionCell);
-        tbody.appendChild(row);
-    });
 }
 
 function createRuleTimeContent(rule) {
@@ -238,7 +153,11 @@ function createRuleTimeContent(rule) {
 
 function renderRulesTable(rules) {
     if (!rules.length) {
-        renderRulesTableState('empty', 'Chưa có luật giá', 'Giá cơ bản đang được áp dụng cho mọi thời điểm.');
+        renderRulesTableState(
+            'empty',
+            'Chưa có luật giá',
+            'Giá mặc định của từng phòng đang được áp dụng.'
+        );
         return;
     }
 
@@ -246,7 +165,6 @@ function renderRulesTable(rules) {
     tbody.replaceChildren();
     rules.forEach(rule => {
         const row = document.createElement('tr');
-
         const eventCell = document.createElement('td');
         eventCell.className = 'ps-3';
         const nameLine = document.createElement('div');
@@ -254,7 +172,9 @@ function renderRulesTable(rules) {
         const name = document.createElement('strong');
         name.textContent = rule.name || '-';
         nameLine.appendChild(name);
-        if (Number(rule.priority) === 2) {
+        if (!rule.is_active) {
+            nameLine.appendChild(createPriceBadge('Tạm ngưng', 'status-badge--neutral'));
+        } else if (Number(rule.priority) > 1) {
             nameLine.appendChild(createPriceBadge('Ưu tiên cao', 'status-badge--warning'));
         }
         eventCell.append(nameLine, createPriceBadge(rule.room_type || 'Mọi loại phòng'));
@@ -272,8 +192,18 @@ function renderRulesTable(rules) {
         actions.className = 'table-row-actions button-group';
         const ruleName = rule.name || 'luật giá';
         actions.append(
-            createPriceActionButton(`Sửa ${ruleName}`, 'fas fa-pen', 'btn-outline-primary', () => editRule(rule.id)),
-            createPriceActionButton(`Xóa ${ruleName}`, 'fas fa-trash', 'btn-outline-danger', () => deleteRule(rule.id))
+            createPriceActionButton(
+                `Sửa ${ruleName}`,
+                'fas fa-pen',
+                'btn-outline-primary',
+                () => editRule(rule.id)
+            ),
+            createPriceActionButton(
+                `Xóa ${ruleName}`,
+                'fas fa-trash',
+                'btn-outline-danger',
+                () => deleteRule(rule.id)
+            )
         );
         actionCell.appendChild(actions);
         row.append(eventCell, timeCell, priceCell, actionCell);
@@ -281,49 +211,25 @@ function renderRulesTable(rules) {
     });
 }
 
+function renderRoomTypeOptions(selectedValue = '') {
+    const select = document.getElementById('r-room-type');
+    const currentValue = selectedValue || select.value;
+    select.replaceChildren();
+    priceRuleRoomTypes.forEach(roomType => {
+        const option = document.createElement('option');
+        option.value = roomType;
+        option.textContent = roomType;
+        select.appendChild(option);
+    });
+    if (priceRuleRoomTypes.includes(currentValue)) {
+        select.value = currentValue;
+    }
+}
+
 function showPriceFeedback(message, kind = 'success') {
     const feedback = document.getElementById('price-feedback');
     feedback.className = `alert alert-${kind}`;
     feedback.textContent = message;
-}
-
-function setBasePriceBusy(id, isBusy) {
-    const button = document.getElementById(`base-save-${id}`);
-    if (!button) return;
-    button.disabled = isBusy;
-    button.setAttribute('aria-busy', String(isBusy));
-    const icon = document.createElement('i');
-    icon.className = isBusy ? 'fas fa-circle-notch fa-spin' : 'fas fa-save';
-    icon.setAttribute('aria-hidden', 'true');
-    button.replaceChildren(icon);
-}
-
-function updateBase(id) {
-    if (basePriceSubmitting.has(id)) return;
-    const daily = document.getElementById(`base-d-${id}`).value;
-    const initial = document.getElementById(`base-init-${id}`).value;
-    const next = document.getElementById(`base-next-${id}`).value;
-    basePriceSubmitting.add(id);
-    setBasePriceBusy(id, true);
-
-    return fetch(api('/api/prices/update-base'), {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({id, price_daily: daily, price_initial: initial, price_next: next}),
-    })
-        .then(response => {
-            if (!response.ok) throw new Error('Không thể cập nhật giá phòng.');
-            return response.json();
-        })
-        .then(data => {
-            if (!data.success) throw new Error(data.msg || 'Không thể cập nhật giá phòng.');
-            showPriceFeedback(data.msg || 'Đã cập nhật giá phòng.');
-        })
-        .catch(error => showPriceFeedback(error.message, 'danger'))
-        .finally(() => {
-            basePriceSubmitting.delete(id);
-            setBasePriceBusy(id, false);
-        });
 }
 
 function clearRuleFormStatus() {
@@ -354,16 +260,17 @@ function showRuleFormStatus(message, fieldId) {
 }
 
 function setRuleModalTitle(label, iconClass) {
-    const titleText = document.getElementById('rule-modal-title-text');
-    const titleIcon = document.querySelector('#ruleModalTitle i');
-    titleText.textContent = label;
-    titleIcon.className = `${iconClass} me-2`;
+    document.getElementById('rule-modal-title-text').textContent = label;
+    document.querySelector('#ruleModalTitle i').className = `${iconClass} me-2`;
 }
 
 function openRuleModal() {
-    document.getElementById('r-id').value = '';
     document.getElementById('rule-form').reset();
-    document.querySelectorAll('input[name="daycheck"]').forEach(checkbox => { checkbox.checked = true; });
+    document.getElementById('r-id').value = '';
+    renderRoomTypeOptions();
+    document.querySelectorAll('input[name="daycheck"]').forEach(checkbox => {
+        checkbox.checked = true;
+    });
     clearRuleFormStatus();
     setRuleModalTitle('Thêm luật giá', 'fas fa-plus');
     bootstrap.Modal.getOrCreateInstance(document.getElementById('ruleModal')).show();
@@ -374,12 +281,14 @@ function editRule(id) {
     if (!rule) return;
     document.getElementById('r-id').value = rule.id;
     document.getElementById('r-name').value = rule.name;
-    document.getElementById('r-room-type').value = rule.room_type;
+    renderRoomTypeOptions(rule.room_type);
     document.getElementById('r-priority').value = rule.priority;
     document.getElementById('r-start').value = rule.start_date || '';
     document.getElementById('r-end').value = rule.end_date || '';
     document.getElementById('r-price-daily').value = rule.price_daily;
-    document.querySelectorAll('input[name="daycheck"]').forEach(checkbox => { checkbox.checked = false; });
+    document.querySelectorAll('input[name="daycheck"]').forEach(checkbox => {
+        checkbox.checked = false;
+    });
     if (rule.days_of_week) {
         const selectedDays = rule.days_of_week.split(',');
         document.querySelectorAll('input[name="daycheck"]').forEach(checkbox => {
@@ -403,9 +312,9 @@ function setRuleSubmitBusy(isBusy) {
     button.replaceChildren(icon, label);
 }
 
-function saveRule() {
+async function saveRule(event) {
+    event.preventDefault();
     if (priceRuleSubmitting) return;
-    const days = Array.from(document.querySelectorAll('input[name="daycheck"]:checked')).map(checkbox => checkbox.value);
     const payload = {
         id: document.getElementById('r-id').value,
         name: document.getElementById('r-name').value.trim(),
@@ -413,12 +322,17 @@ function saveRule() {
         priority: document.getElementById('r-priority').value,
         start_date: document.getElementById('r-start').value,
         end_date: document.getElementById('r-end').value,
-        days_of_week: days,
+        days_of_week: Array.from(
+            document.querySelectorAll('input[name="daycheck"]:checked')
+        ).map(checkbox => checkbox.value),
         price_daily: document.getElementById('r-price-daily').value,
     };
-
     if (!payload.name) {
         showRuleFormStatus('Vui lòng nhập tên sự kiện.', 'r-name');
+        return;
+    }
+    if (!payload.room_type) {
+        showRuleFormStatus('Hãy chọn loại phòng.', 'r-room-type');
         return;
     }
     if (payload.start_date && payload.end_date && payload.end_date < payload.start_date) {
@@ -433,40 +347,67 @@ function saveRule() {
     priceRuleSubmitting = true;
     setRuleSubmitBusy(true);
     clearRuleFormStatus();
-    return fetch(api('/api/prices/save-rule'), {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(payload),
-    })
-        .then(response => response.json().then(data => ({ok: response.ok, data})))
-        .then(({ok, data}) => {
-            if (!ok || !data.success) throw new Error(data.msg || 'Không thể lưu luật giá.');
-            bootstrap.Modal.getOrCreateInstance(document.getElementById('ruleModal')).hide();
-            showPriceFeedback(data.msg || 'Đã lưu luật giá.');
-            loadData();
-        })
-        .catch(error => showRuleFormStatus(error.message))
-        .finally(() => {
-            priceRuleSubmitting = false;
-            setRuleSubmitBusy(false);
+    try {
+        const data = await requestPriceJson(api('/api/prices/save-rule'), {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload),
         });
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('ruleModal')).hide();
+        showPriceFeedback(data.msg || 'Đã lưu luật giá.');
+        await loadData();
+    } catch (error) {
+        showRuleFormStatus(priceErrorMessage(error));
+    } finally {
+        priceRuleSubmitting = false;
+        setRuleSubmitBusy(false);
+    }
 }
 
-function deleteRule(id) {
-    if (!confirm('Xóa luật giá này?')) return;
-    fetch(api(`/api/prices/delete-rule/${id}`), {method: 'DELETE'})
-        .then(response => {
-            if (!response.ok) throw new Error('Không thể xóa luật giá.');
-            return response.json();
-        })
-        .then(data => {
-            showPriceFeedback(data.msg, data.success ? 'success' : 'danger');
-            if (data.success) loadData();
-        })
-        .catch(error => showPriceFeedback(error.message, 'danger'));
+async function deleteRule(id) {
+    const rule = allRules.find(item => item.id === id);
+    const name = rule?.name || 'luật giá này';
+    if (!window.confirm(`Xóa ${name}?`)) return;
+    try {
+        const data = await requestPriceJson(
+            api(`/api/prices/delete-rule/${id}`),
+            {method: 'DELETE'}
+        );
+        showPriceFeedback(data.msg || 'Đã xóa luật giá.');
+        await loadData();
+    } catch (error) {
+        showPriceFeedback(priceErrorMessage(error), 'danger');
+    }
+}
+
+async function requestPriceJson(url, options = {}) {
+    const response = await fetch(url, options);
+    let data = {};
+    try {
+        data = await response.json();
+    } catch (_error) {
+        data = {};
+    }
+    if (!response.ok || data.success === false) {
+        const error = new Error(data.msg || 'Không thể hoàn tất thao tác.');
+        error.status = response.status;
+        error.data = data;
+        throw error;
+    }
+    return data;
+}
+
+function priceErrorMessage(error) {
+    if (error.status === 400) return error.message || 'Dữ liệu chưa hợp lệ.';
+    if (error.status === 403) return 'Bạn không có quyền thực hiện thao tác này.';
+    if (error.status === 404) return 'Không tìm thấy luật giá.';
+    if (error instanceof TypeError) return 'Không thể kết nối máy chủ. Vui lòng thử lại.';
+    return error.message || 'Không thể hoàn tất thao tác.';
 }
 
 function formatCurrency(amount) {
     const value = Number(amount);
-    return Number.isFinite(value) ? new Intl.NumberFormat('vi-VN').format(value) : '0';
+    return Number.isFinite(value)
+        ? new Intl.NumberFormat('vi-VN').format(value)
+        : '0';
 }
