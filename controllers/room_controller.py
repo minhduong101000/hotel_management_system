@@ -24,6 +24,7 @@ from services.room_configuration_service import (
     RoomConfigurationValidationError,
     room_audit_snapshot,
     serialize_room_settings,
+    validate_room_maintenance_payload,
     validate_room_update_payload,
     validate_room_create_payload,
 )
@@ -130,11 +131,24 @@ def create_room_setting():
     }), 201
 
 
+def _room_booking_activity(room_id):
+    statuses = [
+        status
+        for (status,) in tenant_query(BookingRoom).with_entities(
+            BookingRoom.status
+        ).filter(
+            BookingRoom.room_id == room_id,
+            BookingRoom.status.in_(['booked', 'checked_in']),
+        ).all()
+    ]
+    return {
+        'active_booking_count': len(statuses),
+        'has_checked_in': 'checked_in' in statuses,
+    }
+
+
 def _active_booking_count(room_id):
-    return tenant_query(BookingRoom).filter(
-        BookingRoom.room_id == room_id,
-        BookingRoom.status.in_(['booked', 'checked_in']),
-    ).count()
+    return _room_booking_activity(room_id)['active_booking_count']
 
 
 @room_bp.route('/api/settings/<int:room_id>', methods=['PUT'])
@@ -184,6 +198,68 @@ def update_room_setting(room_id):
     return jsonify({
         'success': True,
         'room': serialize_room_settings(room, _active_booking_count(room.id)),
+    })
+
+
+@room_bp.route('/api/settings/<int:room_id>/maintenance', methods=['PATCH'])
+@login_required
+@room_structure_required
+def set_room_maintenance(room_id):
+    room = tenant_get_or_404(Room, room_id)
+    try:
+        maintenance = validate_room_maintenance_payload(
+            request.get_json(silent=True)
+        )
+    except RoomConfigurationValidationError as exc:
+        return jsonify({
+            'success': False,
+            'error_code': 'validation_error',
+            'errors': exc.errors,
+        }), 400
+
+    activity = _room_booking_activity(room.id)
+    room_is_in_maintenance = room.status == 'maintenance'
+    if room_is_in_maintenance != maintenance:
+        before_data = room_audit_snapshot(room)
+        try:
+            if maintenance:
+                room.status = 'maintenance'
+                action = 'set_room_maintenance'
+            else:
+                room.status = (
+                    'occupied' if activity['has_checked_in'] else 'available'
+                )
+                action = 'clear_room_maintenance'
+
+            db.session.flush()
+            audit_service.record_event(
+                hotel_id=room.hotel_id,
+                actor_user_id=current_user.id,
+                action=action,
+                entity_type='room',
+                entity_id=room.id,
+                before_data=before_data,
+                after_data=room_audit_snapshot(room),
+            )
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            raise
+
+    warning = activity['active_booking_count'] > 0
+    msg = (
+        'Phòng còn booking đang hoạt động. Hệ thống không tự hủy hoặc dời booking.'
+        if warning
+        else 'Đã cập nhật trạng thái bảo trì.'
+    )
+    return jsonify({
+        'success': True,
+        'room': serialize_room_settings(
+            room, activity['active_booking_count']
+        ),
+        'active_booking_count': activity['active_booking_count'],
+        'warning': warning,
+        'msg': msg,
     })
 
 

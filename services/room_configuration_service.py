@@ -118,6 +118,16 @@ def validate_room_update_payload(data):
     return values
 
 
+def validate_room_maintenance_payload(data):
+    _require_json_object(data)
+    maintenance = data.get('maintenance')
+    if not isinstance(maintenance, bool):
+        raise RoomConfigurationValidationError({
+            'maintenance': 'Trạng thái bảo trì phải là true hoặc false.',
+        })
+    return maintenance
+
+
 def _value_with_legacy_alias(data, canonical_key, legacy_key):
     if canonical_key in data:
         return data[canonical_key]
