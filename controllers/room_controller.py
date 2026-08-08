@@ -3,6 +3,7 @@ from flask import Blueprint, render_template, jsonify, request
 from flask_login import login_required, current_user
 from extensions import db
 from sqlalchemy.orm import joinedload
+from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timedelta
 from sqlalchemy import and_, func, or_
 
@@ -19,6 +20,13 @@ from models.booking_room import BookingRoom
 # ====================================================
 from services.pricing_service import get_effective_room_prices_bulk
 from services import audit_service, booking_quote_service
+from services.room_configuration_service import (
+    RoomConfigurationValidationError,
+    room_audit_snapshot,
+    serialize_room_settings,
+    validate_room_create_payload,
+)
+from decorators import room_structure_required
 
 room_bp = Blueprint('room', __name__)
 
@@ -58,18 +66,7 @@ def get_room_settings():
     ).all()
 
     rooms = [
-        {
-            'id': room.id,
-            'room_number': room.room_number,
-            'room_type': room.room_type,
-            'price_per_night': float(room.price_per_night or 0),
-            'price_initial_block': float(room.price_initial_block or 0),
-            'initial_hours': int(room.initial_hours or 0),
-            'price_next_hour': float(room.price_next_hour or 0),
-            'status': room.status,
-            'clean_status': room.clean_status,
-            'active_booking_count': int(active_booking_count or 0),
-        }
+        serialize_room_settings(room, active_booking_count)
         for room, active_booking_count in room_rows
     ]
 
@@ -77,6 +74,59 @@ def get_room_settings():
         'rooms': rooms,
         'room_types': sorted({room['room_type'] for room in rooms}),
     })
+
+
+@room_bp.route('/api/settings', methods=['POST'])
+@login_required
+@room_structure_required
+def create_room_setting():
+    try:
+        values = validate_room_create_payload(request.get_json(silent=True))
+    except RoomConfigurationValidationError as exc:
+        return jsonify({
+            'success': False,
+            'error_code': 'validation_error',
+            'errors': exc.errors,
+        }), 400
+
+    try:
+        room = Room(
+            hotel_id=current_hotel_id(),
+            room_number=values['room_number'],
+            room_type=values['room_type'],
+            price_per_night=values['price_per_night'],
+            price_initial_block=values['price_initial_block'],
+            initial_hours=values['initial_hours'],
+            price_next_hour=values['price_next_hour'],
+            status='maintenance' if values['maintenance'] else 'available',
+            clean_status='cleaned',
+        )
+        db.session.add(room)
+        db.session.flush()
+        audit_service.record_event(
+            hotel_id=room.hotel_id,
+            actor_user_id=current_user.id,
+            action='create_room',
+            entity_type='room',
+            entity_id=room.id,
+            after_data=room_audit_snapshot(room),
+        )
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error_code': 'room_number_conflict',
+            'msg': 'Số phòng đã tồn tại trong khách sạn này.',
+        }), 409
+    except Exception:
+        db.session.rollback()
+        raise
+
+    return jsonify({
+        'success': True,
+        'room': serialize_room_settings(room),
+    }), 201
 
 
 @room_bp.route('/api/rooms')

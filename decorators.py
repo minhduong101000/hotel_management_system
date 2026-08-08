@@ -42,3 +42,23 @@ def booking_reschedule_required(f):
         return f(*args, **kwargs)
 
     return decorated_function
+
+
+def room_structure_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        can_manage_room_structure = (
+            current_user.is_authenticated
+            and (current_user.role == "admin" or current_user.is_super_admin)
+        )
+        if not can_manage_room_structure:
+            return jsonify(
+                {
+                    "success": False,
+                    "error_code": "forbidden",
+                    "msg": "Bạn không có quyền quản lý cấu trúc phòng.",
+                }
+            ), 403
+        return f(*args, **kwargs)
+
+    return decorated_function
