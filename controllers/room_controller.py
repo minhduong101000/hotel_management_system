@@ -24,6 +24,7 @@ from services.room_configuration_service import (
     RoomConfigurationValidationError,
     room_audit_snapshot,
     serialize_room_settings,
+    validate_room_update_payload,
     validate_room_create_payload,
 )
 from decorators import room_structure_required
@@ -127,6 +128,63 @@ def create_room_setting():
         'success': True,
         'room': serialize_room_settings(room),
     }), 201
+
+
+def _active_booking_count(room_id):
+    return tenant_query(BookingRoom).filter(
+        BookingRoom.room_id == room_id,
+        BookingRoom.status.in_(['booked', 'checked_in']),
+    ).count()
+
+
+@room_bp.route('/api/settings/<int:room_id>', methods=['PUT'])
+@login_required
+@room_structure_required
+def update_room_setting(room_id):
+    room = tenant_get_or_404(Room, room_id)
+    try:
+        values = validate_room_update_payload(request.get_json(silent=True))
+    except RoomConfigurationValidationError as exc:
+        return jsonify({
+            'success': False,
+            'error_code': 'validation_error',
+            'errors': exc.errors,
+        }), 400
+
+    before_data = room_audit_snapshot(room)
+    try:
+        room.room_number = values['room_number']
+        room.room_type = values['room_type']
+        room.price_per_night = values['price_per_night']
+        room.price_initial_block = values['price_initial_block']
+        room.initial_hours = values['initial_hours']
+        room.price_next_hour = values['price_next_hour']
+        db.session.flush()
+        audit_service.record_event(
+            hotel_id=room.hotel_id,
+            actor_user_id=current_user.id,
+            action='update_room',
+            entity_type='room',
+            entity_id=room.id,
+            before_data=before_data,
+            after_data=room_audit_snapshot(room),
+        )
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error_code': 'room_number_conflict',
+            'msg': 'Số phòng đã tồn tại trong khách sạn này.',
+        }), 409
+    except Exception:
+        db.session.rollback()
+        raise
+
+    return jsonify({
+        'success': True,
+        'room': serialize_room_settings(room, _active_booking_count(room.id)),
+    })
 
 
 @room_bp.route('/api/rooms')

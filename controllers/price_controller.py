@@ -6,6 +6,10 @@ from models.room import Room
 from models.price_rule import PriceRule
 from datetime import datetime
 from services import audit_service
+from services.room_configuration_service import (
+    RoomConfigurationValidationError,
+    validate_default_rate_update_payload,
+)
 
 price_bp = Blueprint('price', __name__)
 
@@ -79,50 +83,71 @@ def get_all_data():
 @price_bp.route('/api/prices/update-base', methods=['POST'])
 @login_required
 def update_base_price():
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({
+            'success': False,
+            'error_code': 'validation_error',
+            'errors': {'request': 'Dữ liệu gửi lên phải là một đối tượng JSON.'},
+        }), 400
+
     try:
-        data = request.get_json()
-        room = tenant_query(Room).filter_by(id=int(data.get('id'))).first()
-        
-        if room:
-            before_data = {
+        room_id = int(data.get('id'))
+    except (TypeError, ValueError):
+        return jsonify({
+            'success': False,
+            'error_code': 'validation_error',
+            'errors': {'id': 'ID phòng không hợp lệ.'},
+        }), 400
+
+    room = tenant_query(Room).filter_by(id=room_id).first()
+    if not room:
+        return jsonify({'success': False, 'msg': 'Không tìm thấy phòng'}), 404
+
+    try:
+        values = validate_default_rate_update_payload(data, room.initial_hours)
+    except RoomConfigurationValidationError as exc:
+        return jsonify({
+            'success': False,
+            'error_code': 'validation_error',
+            'errors': exc.errors,
+        }), 400
+
+    try:
+        before_data = {
+            'price_daily': float(room.price_per_night or 0),
+            'price_initial': float(room.price_initial_block or 0),
+            'price_next': float(room.price_next_hour or 0),
+            'initial_hours': int(room.initial_hours or 0),
+        }
+
+        room.price_per_night = values['price_per_night']
+        room.price_initial_block = values['price_initial_block']
+        room.initial_hours = values['initial_hours']
+        room.price_next_hour = values['price_next_hour']
+
+        audit_service.record_event(
+            hotel_id=room.hotel_id,
+            actor_user_id=current_user.id,
+            action='update_base_price',
+            entity_type='room',
+            entity_id=room.id,
+            before_data=before_data,
+            after_data={
                 'price_daily': float(room.price_per_night or 0),
                 'price_initial': float(room.price_initial_block or 0),
                 'price_next': float(room.price_next_hour or 0),
-            }
-            # 1. Cập nhật giá ngày
-            room.price_per_night = float(data.get('price_daily', 0))
-            
-            # 2. Cập nhật giá giờ (Mapping key từ JS sang cột DB của bạn)
-            # JS gửi 'price_initial' -> Lưu vào 'price_initial_block'
-            room.price_initial_block = float(data.get('price_initial', 0))
-            
-            # JS gửi 'price_next' -> Lưu vào 'price_next_hour'
-            room.price_next_hour = float(data.get('price_next', 0))
-            
-            # (Tùy chọn) Nếu muốn update luôn initial_hours (nếu JS có gửi)
-            # room.initial_hours = int(data.get('initial_hours', 1))
-            
-            audit_service.record_event(
-                hotel_id=room.hotel_id,
-                actor_user_id=current_user.id,
-                action='update_base_price',
-                entity_type='room',
-                entity_id=room.id,
-                before_data=before_data,
-                after_data={
-                    'price_daily': float(room.price_per_night or 0),
-                    'price_initial': float(room.price_initial_block or 0),
-                    'price_next': float(room.price_next_hour or 0),
-                },
-            )
-            db.session.commit()
-            return jsonify({'success': True, 'msg': 'Đã cập nhật giá phòng!'})
-        
-        return jsonify({'success': False, 'msg': 'Không tìm thấy phòng'})
-    except Exception as e:
+                'initial_hours': int(room.initial_hours or 0),
+                'price_per_night': float(room.price_per_night or 0),
+                'price_initial_block': float(room.price_initial_block or 0),
+                'price_next_hour': float(room.price_next_hour or 0),
+            },
+        )
+        db.session.commit()
+        return jsonify({'success': True, 'msg': 'Đã cập nhật giá phòng!'})
+    except Exception:
         db.session.rollback()
-        print(f"Error updating base price: {e}")
-        return jsonify({'success': False, 'msg': str(e)})
+        raise
 
 # ========================================================
 # API 3: LƯU LUẬT GIÁ

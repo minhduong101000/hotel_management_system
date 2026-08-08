@@ -7,6 +7,13 @@ class RoomConfigurationValidationError(Exception):
         self.errors = errors
 
 
+def _require_json_object(data):
+    if not isinstance(data, dict):
+        raise RoomConfigurationValidationError(
+            {'request': 'Dữ liệu gửi lên phải là một đối tượng JSON.'}
+        )
+
+
 def _required_text(data, field, maximum_length, errors):
     value = data.get(field)
     if not isinstance(value, str):
@@ -60,16 +67,8 @@ def _required_positive_integer(data, field, errors):
     return int(value)
 
 
-def validate_room_create_payload(data):
-    if not isinstance(data, dict):
-        raise RoomConfigurationValidationError(
-            {'request': 'Dữ liệu gửi lên phải là một đối tượng JSON.'}
-        )
-
-    errors = {}
-    values = {
-        'room_number': _required_text(data, 'room_number', 10, errors),
-        'room_type': _required_text(data, 'room_type', 20, errors),
+def _validated_rates(data, errors):
+    return {
         'price_per_night': _required_positive_amount(data, 'price_per_night', errors),
         'price_initial_block': _required_positive_amount(
             data, 'price_initial_block', errors
@@ -78,15 +77,71 @@ def validate_room_create_payload(data):
         'price_next_hour': _required_positive_amount(data, 'price_next_hour', errors),
     }
 
+
+def _validated_room_structure(data, errors):
+    return {
+        'room_number': _required_text(data, 'room_number', 10, errors),
+        'room_type': _required_text(data, 'room_type', 20, errors),
+    }
+
+
+def _raise_if_invalid(errors):
+    if errors:
+        raise RoomConfigurationValidationError(errors)
+
+
+def validate_room_create_payload(data):
+    _require_json_object(data)
+
+    errors = {}
+    values = _validated_room_structure(data, errors)
+    values.update(_validated_rates(data, errors))
+
     maintenance = data.get('maintenance', False)
     if not isinstance(maintenance, bool):
         errors['maintenance'] = 'Trạng thái bảo trì phải là true hoặc false.'
     else:
         values['maintenance'] = maintenance
 
-    if errors:
-        raise RoomConfigurationValidationError(errors)
+    _raise_if_invalid(errors)
 
+    return values
+
+
+def validate_room_update_payload(data):
+    _require_json_object(data)
+
+    errors = {}
+    values = _validated_room_structure(data, errors)
+    values.update(_validated_rates(data, errors))
+    _raise_if_invalid(errors)
+    return values
+
+
+def _value_with_legacy_alias(data, canonical_key, legacy_key):
+    if canonical_key in data:
+        return data[canonical_key]
+    return data.get(legacy_key)
+
+
+def validate_default_rate_update_payload(data, current_initial_hours):
+    _require_json_object(data)
+
+    normalized = {
+        'price_per_night': _value_with_legacy_alias(
+            data, 'price_per_night', 'price_daily'
+        ),
+        'price_initial_block': _value_with_legacy_alias(
+            data, 'price_initial_block', 'price_initial'
+        ),
+        'initial_hours': data.get('initial_hours', current_initial_hours),
+        'price_next_hour': _value_with_legacy_alias(
+            data, 'price_next_hour', 'price_next'
+        ),
+    }
+    errors = {}
+    values = _validated_rates(normalized, errors)
+    _raise_if_invalid(errors)
     return values
 
 
