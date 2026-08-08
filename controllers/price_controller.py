@@ -1,4 +1,4 @@
-from services.tenant_service import tenant_query, tenant_get_or_404
+from services.tenant_service import current_hotel_id, tenant_query
 from flask import Blueprint, render_template, jsonify, request
 from flask_login import login_required, current_user
 from extensions import db
@@ -12,6 +12,21 @@ from services.room_configuration_service import (
 )
 
 price_bp = Blueprint('price', __name__)
+
+
+def _serialize_price_rule(rule):
+    return {
+        'id': rule.id,
+        'name': rule.name,
+        'room_type': rule.room_type,
+        'priority': rule.priority,
+        'start_date': rule.start_date.isoformat() if rule.start_date else None,
+        'end_date': rule.end_date.isoformat() if rule.end_date else None,
+        'days_of_week': rule.days_of_week or None,
+        'is_active': bool(rule.is_active),
+        'price_daily': float(rule.price_daily or 0),
+    }
+
 
 # --- VIEW ---
 @price_bp.route('/admin/price-manager')
@@ -76,6 +91,26 @@ def get_all_data():
     except Exception as e:
         print(f"Error fetching price data: {e}")
         return jsonify({'error': str(e)}), 500
+
+
+@price_bp.route('/api/prices/rules')
+@login_required
+def get_price_rules():
+    rules = tenant_query(PriceRule).order_by(
+        PriceRule.priority.desc(),
+        PriceRule.id.asc(),
+    ).all()
+    room_types = [
+        room_type
+        for (room_type,) in tenant_query(Room).with_entities(
+            Room.room_type
+        ).distinct().order_by(Room.room_type.asc()).all()
+    ]
+    return jsonify({
+        'rules': [_serialize_price_rule(rule) for rule in rules],
+        'room_types': room_types,
+    })
+
 
 # ========================================================
 # API 2: CẬP NHẬT GIÁ BASE (Mapping từ JSON Frontend -> DB)
@@ -177,7 +212,8 @@ def save_rule():
         if rule_id:
             # === UPDATE ===
             rule = tenant_query(PriceRule).filter_by(id=rule_id).first()
-            if not rule: return jsonify({'success': False, 'msg': 'Lỗi ID'})
+            if not rule:
+                return jsonify({'success': False, 'msg': 'Không tìm thấy luật giá'}), 404
             before_data = {'name': rule.name, 'price_daily': float(rule.price_daily or 0)}
             
             rule.name = data['name']
@@ -198,6 +234,7 @@ def save_rule():
         else:
             # === CREATE ===
             new_rule = PriceRule(
+                hotel_id=current_hotel_id(),
                 name=data['name'],
                 room_type=data['room_type'],
                 priority=int(data['priority']),
@@ -257,6 +294,6 @@ def delete_rule(id):
             db.session.delete(rule)
             db.session.commit()
             return jsonify({'success': True, 'msg': 'Đã xóa luật!'})
-        return jsonify({'success': False, 'msg': 'ID không tồn tại'})
+        return jsonify({'success': False, 'msg': 'ID không tồn tại'}), 404
     except Exception as e:
         return jsonify({'success': False, 'msg': str(e)})
