@@ -7,6 +7,7 @@ SETTINGS_TEMPLATE = ROOT / "templates/rooms/settings.html"
 PRICE_TEMPLATE = ROOT / "templates/admin/price_manager.html"
 SETTINGS_SCRIPT = ROOT / "static/js/room_settings.js"
 PRICE_SCRIPT = ROOT / "static/js/price_manager.js"
+MAIN_SCRIPT = ROOT / "static/js/main.js"
 
 
 def test_room_settings_view_is_available_to_staff_admin_and_master(
@@ -181,6 +182,12 @@ def test_room_settings_script_uses_safe_dom_and_handles_mutation_errors():
     assert "roomSettingsSubmitting" in source
     assert "maintenance" in source
     assert "window.confirm" in source
+
+
+def test_api_helper_routes_room_settings_requests_to_room_blueprint():
+    source = MAIN_SCRIPT.read_text(encoding="utf-8")
+
+    assert "'/api/settings': `/${slug}/rooms`" in source
 
 
 def test_special_price_script_uses_new_rule_contract_without_hourly_fields():

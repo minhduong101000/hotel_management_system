@@ -56,6 +56,7 @@ function api(path) {
     const prefixMap = {
         '/api/reports/cashier': `/${slug}/cashier`,
         '/api/rooms': `/${slug}/rooms`,
+        '/api/settings': `/${slug}/rooms`,
         '/api/bookings': `/${slug}/bookings`,
         '/api/booking': `/${slug}/bookings`,
         '/api/customers': `/${slug}/customers`,
