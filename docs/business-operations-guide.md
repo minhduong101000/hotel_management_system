@@ -1,7 +1,7 @@
 # Sổ tay nghiệp vụ hiện có của Hotel POS Pro
 
-**Cập nhật theo mã nguồn:** 14-08-2026  
-**Phạm vi:** Chức năng đã được đăng ký trong ứng dụng hiện tại trên nhánh `dev`.  
+**Cập nhật theo mã nguồn:** 14-08-2026
+**Phạm vi:** Chức năng đã được đăng ký trong ứng dụng hiện tại trên nhánh `dev`.
 **Cách đọc:** “Có” nghĩa là đã có route/controller tương ứng. Các mục “Cần chỉnh” nêu rõ phần đã phát hiện lệch nghiệp vụ hoặc không nhất quán, không khẳng định đó là tính năng đã hoàn thành.
 
 ## 1. Mô hình vận hành tổng quát
@@ -53,7 +53,7 @@ Lưu ý: bảng trên là **ý nghĩa vận hành mong muốn và menu đang hi�
 
 ### 3.1. Đăng nhập tenant
 
-**URL:** `/<hotel_slug>/login`  
+**URL:** `/<hotel_slug>/login`
 **Dành cho:** Staff, Admin khách sạn và Master Admin khi vào tenant.
 
 - Đăng nhập bằng tài khoản thuộc đúng khách sạn; Master Admin cũng có thể vào tenant.
@@ -63,8 +63,8 @@ Lưu ý: bảng trên là **ý nghĩa vận hành mong muốn và menu đang hi�
 
 ### 3.2. Sơ đồ phòng
 
-**URL:** `/<hotel_slug>/rooms/dashboard/room-map`  
-**Dành cho:** người dùng đã đăng nhập.  
+**URL:** `/<hotel_slug>/rooms/dashboard/room-map`
+**Dành cho:** người dùng đã đăng nhập.
 **Mục đích:** màn hình lễ tân vận hành tức thời.
 
 | Thao tác | Công dụng/qui tắc hiện có |
@@ -80,8 +80,8 @@ Lưu ý: bảng trên là **ý nghĩa vận hành mong muốn và menu đang hi�
 
 ### 3.3. Timeline đặt phòng
 
-**URL:** `/<hotel_slug>/rooms/timeline-view`  
-**Dành cho:** người dùng đã đăng nhập.  
+**URL:** `/<hotel_slug>/rooms/timeline-view`
+**Dành cho:** người dùng đã đăng nhập.
 **Mục đích:** xem lịch phòng theo trục thời gian và thao tác booking chi tiết.
 
 - Xem booking theo từng phòng, theo trạng thái và khoảng thời gian.
@@ -93,7 +93,7 @@ Lưu ý: bảng trên là **ý nghĩa vận hành mong muốn và menu đang hi�
 
 ### 3.4. Khách hàng
 
-**URL:** `/<hotel_slug>/customers/customers`  
+**URL:** `/<hotel_slug>/customers/customers`
 **Dành cho:** người dùng đã đăng nhập.
 
 - Tìm tối đa 100 khách theo tên, số điện thoại hoặc CCCD.
@@ -103,7 +103,7 @@ Lưu ý: bảng trên là **ý nghĩa vận hành mong muốn và menu đang hi�
 
 ### 3.5. Hóa đơn cũ
 
-**URL:** `/<hotel_slug>/billing/billing`  
+**URL:** `/<hotel_slug>/billing/billing`
 **Dành cho:** người dùng đã đăng nhập.
 
 - Lọc và xem danh sách booking/phòng đã có dữ liệu billing.
@@ -113,7 +113,7 @@ Lưu ý: bảng trên là **ý nghĩa vận hành mong muốn và menu đang hi�
 
 ### 3.6. Cấu hình phòng và giá mặc định
 
-**URL:** `/<hotel_slug>/rooms/settings`  
+**URL:** `/<hotel_slug>/rooms/settings`
 **Dành cho:** mọi người dùng đã đăng nhập để xem; Admin/Master Admin để sửa cấu trúc.
 
 - Xem danh sách phòng, loại phòng, trạng thái vận hành, số booking còn hiệu lực và bộ giá mặc định.
@@ -124,7 +124,7 @@ Lưu ý: bảng trên là **ý nghĩa vận hành mong muốn và menu đang hi�
 
 ### 3.7. Giá đặc biệt qua đêm
 
-**URL:** `/<hotel_slug>/prices/admin/price-manager`  
+**URL:** `/<hotel_slug>/prices/admin/price-manager`
 **Dành cho:** người dùng đã đăng nhập trong hiện trạng code.
 
 - Tạo, sửa, xóa luật giá theo tên sự kiện, loại phòng, khoảng ngày, thứ trong tuần và độ ưu tiên.
@@ -134,7 +134,7 @@ Lưu ý: bảng trên là **ý nghĩa vận hành mong muốn và menu đang hi�
 
 ### 3.8. Danh mục dịch vụ và minibar
 
-**URL:** `/<hotel_slug>/services/services`  
+**URL:** `/<hotel_slug>/services/services`
 **Dành cho:** menu chỉ hiển thị Admin; controller hiện yêu cầu đăng nhập.
 
 - Quản lý tên và đơn giá dịch vụ/minibar.
@@ -143,7 +143,7 @@ Lưu ý: bảng trên là **ý nghĩa vận hành mong muốn và menu đang hi�
 
 ### 3.9. Kho hàng theo lô
 
-**URL:** `/<hotel_slug>/warehouse/warehouse`  
+**URL:** `/<hotel_slug>/warehouse/warehouse`
 **Dành cho:** tất cả người dùng xem; Admin thay đổi dữ liệu.
 
 | Thao tác | Công dụng |
@@ -159,7 +159,7 @@ Khi dịch vụ có liên kết vật tư, hệ thống ưu tiên xuất theo FE
 
 ### 3.10. Chi phí
 
-**URL:** `/<hotel_slug>/expenses/expenses`  
+**URL:** `/<hotel_slug>/expenses/expenses`
 **Dành cho:** Admin.
 
 - Thêm, lọc theo ngày/nhóm chi phí và xem tổng chi không gồm khoản void.
@@ -170,7 +170,7 @@ Khi dịch vụ có liên kết vật tư, hệ thống ưu tiên xuất theo FE
 
 ### 3.11. Báo cáo doanh thu
 
-**URL:** `/<hotel_slug>/reports/reports/revenue`  
+**URL:** `/<hotel_slug>/reports/reports/revenue`
 **Dành cho:** Admin.
 
 - Chọn hôm nay, tuần, tháng hoặc khoảng tùy chỉnh.
@@ -181,7 +181,7 @@ Khi dịch vụ có liên kết vật tư, hệ thống ưu tiên xuất theo FE
 
 ### 3.12. Thu ngân / Sổ quỹ
 
-**URL:** `/<hotel_slug>/cashier/reports/cashier`  
+**URL:** `/<hotel_slug>/cashier/reports/cashier`
 **Dành cho:** Admin.
 
 - Đối soát theo hôm nay/tuần/tháng hoặc khoảng ngày.
@@ -191,7 +191,7 @@ Khi dịch vụ có liên kết vật tư, hệ thống ưu tiên xuất theo FE
 
 ### 3.13. Cấu hình và nhân sự
 
-**URL:** `/<hotel_slug>/staff/`  
+**URL:** `/<hotel_slug>/staff/`
 **Dành cho:** Admin.
 
 - Tạo tài khoản Staff hoặc Admin trong tenant hiện tại.
@@ -201,7 +201,7 @@ Khi dịch vụ có liên kết vật tư, hệ thống ưu tiên xuất theo FE
 
 ### 3.14. Nhật ký hoạt động
 
-**URL:** `/<hotel_slug>/activity-log/`  
+**URL:** `/<hotel_slug>/activity-log/`
 **Dành cho:** Admin.
 
 - Theo dõi hành động vận hành: phòng, booking, dịch vụ, kho, giá, chi phí và nhân sự.
@@ -211,7 +211,7 @@ Khi dịch vụ có liên kết vật tư, hệ thống ưu tiên xuất theo FE
 
 ### 3.15. Master Console
 
-**URL:** `/master/login`, `/master`  
+**URL:** `/master/login`, `/master`
 **Dành cho:** Master Admin.
 
 - Đăng nhập khu vực toàn hệ thống riêng với tenant.
