@@ -39,15 +39,72 @@ Mọi thao tác tenant phải giới hạn theo `hotel_id`. Master Admin có khu
 | Thanh toán | Cọc, tiền phòng, tiền dịch vụ, thuế, thanh toán gộp, phí hủy và hoàn tiền được lưu thành `Payment`. |
 | Lô kho | Lô còn dùng được, đã hết, quá hạn; khi khách gọi dịch vụ, tồn được phân bổ theo lô. |
 
-## 2. Quyền hiện tại
+## 2. Chức năng theo từng role
 
-| Vai trò | Khu vực/chức năng chính |
-|---|---|
-| Staff | Lễ tân: Sơ đồ phòng, Timeline, khách hàng, hóa đơn; xem cấu hình phòng/giá, xem kho. Có thể thực hiện booking, check-in, gọi dịch vụ và checkout qua các luồng lễ tân. |
-| Admin khách sạn | Toàn bộ chức năng Staff, cộng thêm doanh thu, chi phí, sổ quỹ, nhật ký, nhân sự; tạo/sửa phòng, bảo trì phòng, thay đổi kho. |
-| Master Admin | Đăng nhập Master Console, tạo tenant và Admin đầu tiên, bật/tắt tenant, vào chế độ hỗ trợ tenant. |
+Trong code hiện có, quyền được quyết định bằng hai thuộc tính riêng:
 
-Lưu ý: bảng trên là **ý nghĩa vận hành mong muốn và menu đang hiển thị**. Một số API hiện chỉ kiểm tra đăng nhập mà chưa kiểm tra đúng vai trò; các lệch này được liệt kê tại [mục 5](#5-các-điểm-cần-chỉnh-theo-hiện-trạng-mã-nguồn).
+- `role`: `staff` hoặc `admin`.
+- `is_super_admin`: cờ quyền toàn hệ thống của Master Admin.
+
+`admin_required` chỉ chấp nhận `role == admin`; trong khi `room_structure_required` và `booking_reschedule_required` chấp nhận cả Admin lẫn Master Admin. Vì vậy quyền của Master khi vào tenant không hoàn toàn giống quyền Admin. Bảng dưới mô tả **quyền backend thực tế**, không chỉ menu.
+
+| Nhóm chức năng | Staff | Admin khách sạn | Master Admin |
+|---|---|---|---|
+| Đăng nhập vào tenant, xem Sơ đồ phòng/Timeline/Hóa đơn | Có | Có | Có khi vào tenant hỗ trợ |
+| Tạo booking lẻ/đoàn, check-in, gọi/sửa dịch vụ trong booking, checkout lẻ/đoàn, dọn phòng | Có | Có | Có khi vào tenant hỗ trợ |
+| Khách hàng: tìm, thêm, sửa, xóa | Có | Có | Có khi vào tenant hỗ trợ |
+| Timeline: tạo, sửa trực tiếp, kéo-thả, hủy booking | Có trong hiện trạng API | Có | Có khi vào tenant hỗ trợ |
+| Dời lịch có kiểm tra phòng trống và lý do | Không, trả `403` | Có | Có |
+| Xem cấu hình phòng và giá mặc định | Có | Có | Có |
+| Thêm/sửa phòng, bật/tắt bảo trì | Không, trả `403` | Có | Có |
+| Giá đặc biệt qua đêm: xem/thêm/sửa/xóa | Có trong hiện trạng API | Có | Có khi vào tenant hỗ trợ |
+| Dịch vụ/minibar: xem/thêm/sửa/xóa | Có trong hiện trạng API, dù menu bị ẩn | Có | Có khi vào tenant hỗ trợ |
+| Kho: xem vật tư/lô/lịch sử | Có | Có | Có khi vào tenant hỗ trợ |
+| Kho: tạo/sửa/xóa vật tư, nhập, hủy hàng, điều chỉnh | Không | Có | Chỉ có nếu tài khoản Master đồng thời có `role=admin` |
+| Chi phí, doanh thu, sổ quỹ, nhật ký hoạt động, nhân sự | Không | Có | Chỉ có nếu tài khoản Master đồng thời có `role=admin` |
+| Master Console: tạo tenant, tạo Admin đầu tiên, bật/tắt tenant, vào hỗ trợ | Không | Không | Có |
+
+Các dòng “Có trong hiện trạng API” là **quyền đang bị nới quá rộng**, không phải khuyến nghị nghiệp vụ. Cần chốt và áp dụng server-side theo [mục 5](#5-các-điểm-cần-chỉnh-theo-hiện-trạng-mã-nguồn).
+
+### 2.1. Staff lễ tân
+
+Staff là vai trò vận hành ca trực. Các thao tác nên sử dụng trong ca:
+
+1. Xem phòng trống/đang ở/cần dọn trên **Sơ đồ phòng** và xem lịch trên **Timeline**.
+2. Tạo booking lẻ hoặc đoàn, nhận cọc đúng mức 50%/100%, sau đó check-in khách đến.
+3. Cập nhật hồ sơ khách, gọi minibar/dịch vụ và điều chỉnh số lượng trước checkout.
+4. Xem quote checkout, xác nhận thanh toán, in/xem hóa đơn cũ và đánh dấu đã dọn phòng.
+5. Xem tồn, lô và lịch sử kho để phục vụ vận hành, nhưng không tự nhập/hủy/điều chỉnh kho.
+6. Xem cấu hình phòng/giá để tư vấn khách, nhưng không thay đổi cấu trúc phòng.
+
+Staff không được dùng khu vực chi phí, báo cáo doanh thu, sổ quỹ, nhật ký hoạt động hay quản trị nhân sự. Theo nghiệp vụ cần chốt, Staff cũng không nên có quyền sửa danh mục dịch vụ/giá, hủy booking tùy ý hoặc kéo-thả lịch trực tiếp; backend hiện chưa chặn triệt để các thao tác này.
+
+### 2.2. Admin khách sạn
+
+Admin chịu trách nhiệm vận hành và kiểm soát dữ liệu trong **một tenant**:
+
+1. Có toàn bộ tác vụ lễ tân của Staff.
+2. Quản lý cấu trúc phòng: thêm/sửa phòng, giá mặc định theo giờ/ngày, bật/tắt bảo trì.
+3. Quản lý danh mục dịch vụ/minibar, giá đặc biệt qua đêm và kiểm tra các ảnh hưởng trước khi áp dụng.
+4. Quản lý kho: vật tư, lô nhập, hạn dùng, hủy hàng và điều chỉnh tồn có lý do.
+5. Ghi nhận/hủy ghi nhận chi phí; đồng bộ chi phí sang kho và dịch vụ khi cần.
+6. Xem báo cáo doanh thu, sổ quỹ, hóa đơn và nhật ký để đối soát ca/ngày.
+7. Tạo, đặt lại mật khẩu và xóa tài khoản trong tenant; không thể xóa chính mình hoặc Admin cuối cùng.
+8. Dời lịch booking với lý do, kiểm tra phòng trống và lựa chọn giữ giá/áp giá mới.
+
+Admin không quản lý tenant khác và không có quyền tạo/tạm dừng khách sạn ở Master Console.
+
+### 2.3. Master Admin
+
+Master Admin chịu trách nhiệm cấp hệ thống:
+
+1. Đăng nhập **Master Console** để xem số lượng khách sạn/phòng/booking toàn hệ thống.
+2. Tạo tenant mới kèm tài khoản Admin đầu tiên.
+3. Bật hoặc tạm ngưng hoạt động tenant.
+4. Vào một tenant ở chế độ hỗ trợ; banner giao diện thông báo đang hỗ trợ khách sạn nào.
+5. Trong tenant, có thể dùng các route chỉ cần đăng nhập, quản lý cấu trúc phòng và dời lịch vì hai decorator này chấp nhận `is_super_admin`.
+
+Điểm cần chốt: các khu vực dùng `admin_required` như **kho thay đổi dữ liệu, chi phí, doanh thu, sổ quỹ, audit và nhân sự** không tự chấp nhận `is_super_admin`. Master chỉ vào được nếu bản ghi user của Master đồng thời có `role = admin`. Đây là sự không nhất quán cần sửa trước khi coi Master có toàn quyền vận hành tenant.
 
 ## 3. Bản đồ màn hình và thao tác
 
