@@ -131,33 +131,6 @@ def _service_mutation_booking_room(data):
     return booking_room, None
 
 # =======================================================
-# 1. LẤY THÔNG TIN BOOKING SẮP TỚI (Dùng cho Timeline)
-# =======================================================
-@booking_bp.route('/api/bookings/upcoming/<int:room_id>')
-@login_required
-def get_upcoming_booking(room_id):
-    booking_room = tenant_query(BookingRoom).filter(
-        BookingRoom.room_id == room_id,
-        BookingRoom.status == 'booked'
-    ).order_by(BookingRoom.check_in_expected.asc()).first()
-    
-    if booking_room:
-        parent_booking = booking_room.booking
-        customer_name = "Khách lẻ"
-        if parent_booking and parent_booking.customer:
-            customer_name = parent_booking.customer.name
-
-        return jsonify({
-            'has_booking': True,
-            'booking_id': parent_booking.id if parent_booking else None,
-            'booking_room_id': booking_room.id,
-            'customer_name': customer_name,
-            'check_in_time': booking_room.check_in_expected.strftime('%H:%M %d/%m'),
-            'rental_type': booking_room.rental_type
-        })
-    return jsonify({'has_booking': False})
-
-# =======================================================
 # 2. CHECK-IN 
 # =======================================================
 @booking_bp.route('/api/rooms/checkin', methods=['POST'])
