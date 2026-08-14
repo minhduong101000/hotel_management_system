@@ -269,3 +269,91 @@ def create_refund(
         },
     )
     return payment
+
+
+def reverse_refund(
+    *,
+    payment: Payment,
+    reason: str,
+    actor_user_id: int,
+    client_key: str,
+) -> Payment:
+    """Bút toán đảo một dòng hoàn tiền nhập sai.
+
+    Không sửa/xóa dòng cũ; tạo dòng dương nối về dòng sai. Một dòng refund
+    chỉ đảo được đúng một lần (unique constraint + kiểm tra service).
+    Idempotent theo (payment, client_key).
+    """
+    reason = (reason or "").strip()
+    if not reason:
+        raise RefundError("Cần nhập lý do điều chỉnh.")
+    client_key = str(client_key or "").strip()
+    if not client_key:
+        raise RefundError("Thiếu client_key cho idempotency.")
+    if payment.payment_type != "refund":
+        raise RefundError("Chỉ đảo được dòng hoàn tiền.")
+    already = Payment.query.filter_by(reverses_payment_id=payment.id).first()
+    if already is not None:
+        raise RefundError("Dòng hoàn tiền này đã được điều chỉnh trước đó.")
+
+    operation_key = f"refund_reversal:{payment.id}:{client_key}"
+    existing = BusinessOperation.query.filter_by(
+        hotel_id=payment.hotel_id,
+        operation_key=operation_key,
+    ).first()
+    if existing is not None:
+        return Payment.query.filter_by(
+            business_operation_id=existing.id,
+            component_key="refund_reversal",
+        ).one()
+
+    operation = BusinessOperation(
+        hotel_id=payment.hotel_id,
+        operation_key=operation_key,
+        action="reverse_refund",
+        entity_type="payment",
+        entity_id=payment.id,
+        request_fingerprint=business_operation_service.request_fingerprint(
+            {"payment_id": payment.id, "reason": reason}
+        ),
+    )
+    db.session.add(operation)
+    db.session.flush()
+
+    amount = abs(Decimal(str(payment.amount)))
+    reversal = payment_service.record_refund_reversal(
+        booking_id=payment.booking_id,
+        amount=amount,
+        note=f"Điều chỉnh hoàn sai (dòng #{payment.id}): {reason}",
+        reverses_payment_id=payment.id,
+        payment_method=payment.payment_method,
+        business_operation=operation,
+        component_key="refund_reversal",
+        flush=True,
+    )
+
+    result = {
+        "success": True,
+        "payment_id": reversal.id,
+        "reverses_payment_id": payment.id,
+        "amount": format(amount, ".2f"),
+    }
+    business_operation_service.complete_operation(operation, result)
+    audit_service.record_event(
+        hotel_id=payment.hotel_id,
+        actor_user_id=actor_user_id,
+        action="reverse_refund",
+        entity_type="payment",
+        entity_id=payment.id,
+        operation_key=operation_key,
+        before_data={
+            "refund_amount": format(Decimal(str(payment.amount)), ".2f"),
+            "note": payment.note,
+        },
+        after_data={
+            "reversal_payment_id": reversal.id,
+            "amount": format(amount, ".2f"),
+            "reason": reason,
+        },
+    )
+    return reversal

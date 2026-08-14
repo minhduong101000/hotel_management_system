@@ -8,6 +8,8 @@ from models.payment import Payment
 from services.reporting_service import resolve_report_period
 from services.tenant_service import tenant_query
 
+from extensions import db
+
 cashier_bp = Blueprint('cashier', __name__)
 
 @cashier_bp.route('/reports/cashier')
@@ -50,6 +52,17 @@ def get_cashier_data():
         total_expense = 0
         records = []
 
+        # Đánh dấu các dòng refund đã bị đảo (sổ nội bộ giữ đủ, chỉ gắn nhãn)
+        payment_ids = [p.id for p in payments_query]
+        reversed_ids = set()
+        if payment_ids:
+            reversed_ids = {
+                row[0]
+                for row in db.session.query(Payment.reverses_payment_id)
+                .filter(Payment.reverses_payment_id.in_(payment_ids))
+                .all()
+            }
+
         # Xử lý Payment
         for p in payments_query:
             amt = float(p.amount)
@@ -82,8 +95,11 @@ def get_cashier_data():
                 type_label = 'Phí hủy phòng'
                 badge_color = 'danger'
             elif p.payment_type == 'refund':
-                type_label = 'Hoàn tiền cọc'
+                type_label = 'Hoàn tiền'
                 badge_color = 'secondary'
+            elif p.payment_type == 'refund_reversal':
+                type_label = 'Điều chỉnh hoàn tiền'
+                badge_color = 'dark'
             else:
                 type_label = 'Khác'
             
@@ -99,6 +115,8 @@ def get_cashier_data():
                 'type_raw': p.payment_type,
                 'type_label': type_label,
                 'badge_color': badge_color,
+                'is_reversed': p.id in reversed_ids,
+                'reverses_payment_id': p.reverses_payment_id,
                 'note': p.note or ''
             })
 

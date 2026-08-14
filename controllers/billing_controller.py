@@ -9,6 +9,8 @@ from models.payment import Payment
 from sqlalchemy import desc
 import re
 
+from services import payment_service
+
 billing_bp = Blueprint('billing', __name__)
 
 @billing_bp.route('/billing')
@@ -283,7 +285,20 @@ def get_billing_detail(entry_id):
         calculated_total = total_rooms + total_services
         cash_received = sum(float(p.amount or 0) for p in booking.payments)
         tax_amount = sum(float(p.amount or 0) for p in booking.payments if p.payment_type == 'tax_payment')
-        
+
+        # Hóa đơn khách chỉ hiển thị các dòng hoàn còn hiệu lực —
+        # cặp hoàn-sai/bút-toán-đảo đã triệt tiêu không in ra (sổ quỹ nội bộ vẫn giữ đủ).
+        refunds_data = [
+            {
+                'amount': abs(float(p.amount or 0)),
+                'method': p.payment_method,
+                'time': p.created_at.strftime('%d/%m/%Y %H:%M') if p.created_at else '',
+                'note': p.note or '',
+            }
+            for p in payment_service.effective_payments(booking)
+            if p.payment_type == 'refund'
+        ]
+
         return jsonify({
             'success': True,
             'data': {
@@ -296,6 +311,7 @@ def get_billing_detail(entry_id):
                 'total_amount': calculated_total, # Dùng giá trị tính toán thay vì booking.total_amount (để sửa lỗi HĐ cũ)
                 'prepaid_amount': max(calculated_total - cash_received, 0),
                 'final_payment': cash_received,
+                'refunds': refunds_data,
                 'note': booking.note or ''
             }
         })

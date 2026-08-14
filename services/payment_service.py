@@ -32,6 +32,7 @@ def _create_payment(
     flush: bool = False,
     business_operation: Optional[BusinessOperation] = None,
     component_key: Optional[str] = None,
+    reverses_payment_id: Optional[int] = None,
 ) -> Payment:
     booking = db.session.get(Booking, booking_id)
     if booking is None:
@@ -54,6 +55,7 @@ def _create_payment(
         booking_id=booking_id,
         business_operation=business_operation,
         component_key=component_key,
+        reverses_payment_id=reverses_payment_id,
         amount=_to_decimal_amount(amount),
         payment_method=payment_method,
         payment_type=payment_type,
@@ -195,3 +197,48 @@ def record_group_settlement(
         business_operation=business_operation,
         component_key=component_key,
     )
+
+
+def record_refund_reversal(
+    *,
+    booking_id: int,
+    amount,
+    note: str,
+    reverses_payment_id: int,
+    payment_method: str = "cash",
+    created_at: Optional[datetime] = None,
+    flush: bool = False,
+    business_operation: Optional[BusinessOperation] = None,
+    component_key: Optional[str] = None,
+) -> Payment:
+    """Bút toán đảo một dòng refund: dòng dương cùng số tiền, nối về dòng sai."""
+    amt = abs(_to_decimal_amount(amount))
+    return _create_payment(
+        booking_id=booking_id,
+        amount=amt,
+        payment_method=payment_method,
+        payment_type="refund_reversal",
+        note=note,
+        created_at=created_at,
+        flush=flush,
+        business_operation=business_operation,
+        component_key=component_key,
+        reverses_payment_id=reverses_payment_id,
+    )
+
+
+def effective_payments(booking) -> list:
+    """Các dòng còn hiệu lực cho hóa đơn khách.
+
+    Loại bỏ cặp đã triệt tiêu: dòng refund bị đảo và mọi dòng refund_reversal.
+    Sổ quỹ/audit nội bộ KHÔNG dùng hàm này — nội bộ luôn xem đủ mọi dòng.
+    """
+    reversed_ids = {
+        p.reverses_payment_id for p in booking.payments if p.reverses_payment_id
+    }
+    return [
+        p
+        for p in booking.payments
+        if p.payment_type != "refund_reversal"
+        and not (p.payment_type == "refund" and p.id in reversed_ids)
+    ]
