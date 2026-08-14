@@ -221,7 +221,7 @@ def test_group_checkout_keeps_finalized_rooms_and_replays_without_duplicates(
     assert AuditEvent.query.filter_by(action="group_checkout").count() == 1
 
 
-def test_group_checkout_excess_deposit_creates_one_refund(
+def test_group_checkout_excess_deposit_returns_credit_without_refund(
     client,
     seed_hotels,
     login_as,
@@ -243,11 +243,11 @@ def test_group_checkout_excess_deposit_creates_one_refund(
     )
 
     assert response.status_code == 200
-    payment = Payment.query.one()
-    assert payment.payment_type == "refund"
-    assert payment.component_key == "refund"
-    assert payment.amount == Decimal("-100000.00")
-    assert booking.payment_status == "paid"
+    data = response.json["data"]
+    assert Decimal(str(data["unrefunded_credit"])) == Decimal("100000.00")
+    assert Payment.query.filter_by(payment_type="refund").count() == 0
+    assert Payment.query.count() == 0
+    assert booking_room.status == "checked_out"
 
 
 def test_group_checkout_failure_rolls_back_every_room(

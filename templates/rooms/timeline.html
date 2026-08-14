@@ -146,34 +146,17 @@
                 </div>
 
                 <div id="refund-section" class="bg-danger bg-opacity-10 p-3 rounded border border-danger" style="display: none;">
-                    <h6 class="text-danger fw-bold mb-2">XỬ LÝ HOÀN CỌC</h6>
-                    
-                    <div class="form-check mb-2">
-                        <input class="form-check-input" type="checkbox" id="chk-force-majeure" onchange="calculateRefund()">
-                        <label class="form-check-label fw-bold text-danger" for="chk-force-majeure">
-                            Lý do Bất khả kháng (Thiên tai/Dịch bệnh)
-                        </label>
-                    </div>
+                    <h6 class="text-danger fw-bold mb-2">XÁC NHẬN HỦY PHÒNG</h6>
 
                     <div class="mb-2">
-                        <label for="refund-percent">Mức hoàn tiền:</label>
-                        <select class="form-select form-select-sm" id="refund-percent" onchange="calculateRefund()">
-                            <option value="0" selected>0% (Không hoàn)</option>
-                            <option value="30">30%</option>
-                            <option value="50">50%</option>
-                            <option value="70">70%</option>
-                            <option value="100">100% (Hoàn tất cả)</option>
-                        </select>
-                    </div>
-                    <div class="mb-2">
-                        <label for="refund-reason" class="form-label small fw-bold text-danger">Lý do hủy/hoàn tiền <span aria-hidden="true">*</span></label>
+                        <label for="refund-reason" class="form-label small fw-bold text-danger">Lý do hủy <span aria-hidden="true">*</span></label>
                         <textarea id="refund-reason" class="form-control form-control-sm" rows="2" required placeholder="Nhập lý do để đối soát..."></textarea>
                     </div>
-                    <div class="d-flex justify-content-between align-items-center border-top border-danger pt-2">
-                        <span class="fw-bold text-danger">TRẢ LẠI KHÁCH:</span>
-                        <span id="refund-final-text" class="fs-4 fw-bold text-dark">0 đ</span>
-                    </div>
-                    <input type="hidden" id="refund-amount-value" value="0">
+                    <p class="small mb-0 text-muted">
+                        <i class="fas fa-info-circle me-1" aria-hidden="true"></i>
+                        Không phát sinh hoàn tiền tự động — nếu cần trả khách, dùng nút
+                        <strong>Hoàn tiền</strong> sau khi hủy.
+                    </p>
                 </div>
                 </div>
             <div class="modal-footer bg-light border-top shadow-sm d-flex justify-content-between p-2">

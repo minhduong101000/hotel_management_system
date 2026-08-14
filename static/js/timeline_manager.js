@@ -381,10 +381,6 @@ function openEditModal(bookingRoomId, bookingId) {
         if(cccdEl) cccdEl.value = data.customer_cccd || '';
         if(addrEl) addrEl.value = data.customer_address || '';
         
-        // Reset giao diện hoàn tiền
-        const chkForce = document.getElementById('chk-force-majeure');
-        if(chkForce) chkForce.checked = false;
-        
         toggleRefundSection();
 
         const btnCheckIn = document.getElementById('btn-checkin-timeline');
@@ -434,12 +430,9 @@ function saveBookingChanges() {
     if (status === 'cancelled') {
         if (!confirm("Bạn có chắc chắn muốn HỦY đơn đặt phòng này không?")) return;
 
-        const chkForce = document.getElementById('chk-force-majeure');
-        const isForceMajeure = chkForce ? chkForce.checked : false;
-        const refundPercent = document.getElementById('refund-percent').value || 0;
         const refundReason = document.getElementById('refund-reason')?.value.trim() || '';
         if (!refundReason) {
-            alert('Vui lòng nhập lý do hủy/hoàn tiền.');
+            alert('Vui lòng nhập lý do hủy.');
             document.getElementById('refund-reason')?.focus();
             return;
         }
@@ -449,9 +442,7 @@ function saveBookingChanges() {
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
                 booking_room_id: parseInt(bookingRoomId),
-                booking_id: parseInt(bookingId),          
-                is_force_majeure: isForceMajeure,
-                refund_percent: refundPercent,
+                booking_id: parseInt(bookingId),
                 reason: refundReason
             })
         })
@@ -1411,35 +1402,8 @@ function addRoomToExistingBooking() {
 function toggleRefundSection() {
     const status = document.getElementById('edit-status').value;
     const section = document.getElementById('refund-section');
-    
-    if (status === 'cancelled') {
-        section.style.display = 'block';
-        calculateRefund(); 
-    } else {
-        section.style.display = 'none';
-        document.getElementById('refund-amount-value').value = 0;
-    }
-}
-
-function calculateRefund() {
-    const depositVal = document.getElementById('edit-deposit').value || 0;
-    const deposit = parseFloat(depositVal);
-    const chkForce = document.getElementById('chk-force-majeure');
-    const selPercent = document.getElementById('refund-percent');
-    
-    let percent = 0;
-    if (chkForce && chkForce.checked) {
-        percent = 100;
-        selPercent.value = "100";
-        selPercent.disabled = true;
-    } else {
-        percent = parseInt(selPercent.value);
-        selPercent.disabled = false;
-    }
-
-    const refund = deposit * (percent / 100);
-    document.getElementById('refund-final-text').innerText = refund.toLocaleString('vi-VN') + ' đ';
-    document.getElementById('refund-amount-value').value = refund;
+    if (!section) return;
+    section.style.display = (status === 'cancelled') ? 'block' : 'none';
 }
 
 // ========================================================

@@ -864,14 +864,11 @@ def cancel_booking():
         data = request.get_json(silent=True) or {}
         booking_id_raw = data.get('booking_id')
         booking_room_id_raw = data.get('booking_room_id')
-        is_force_majeure = data.get('is_force_majeure', False)
+        # Chính sách 14-08-2026: client không còn quyết định tỷ lệ hoàn hay cờ
+        # bất khả kháng. Hủy luôn hoàn 0; muốn hoàn dùng form hoàn tiền riêng.
         cancellation_reason = str(data.get('reason', '')).strip()
         if not cancellation_reason:
-            return jsonify({'success': False, 'msg': 'Cần nhập lý do hủy/hoàn tiền.'}), 400
-        try:
-            refund_percent_input = float(data.get('refund_percent', 0))
-        except (TypeError, ValueError):
-            return jsonify({'success': False, 'msg': 'Tỷ lệ hoàn tiền không hợp lệ.'}), 400
+            return jsonify({'success': False, 'msg': 'Cần nhập lý do hủy.'}), 400
 
         # 1. Tìm đơn tương ứng (ưu tiên chi tiết phòng nếu có)
         booking = None
@@ -1000,15 +997,11 @@ def cancel_booking():
         allocated_deposit = round(sum(allocated_by_room.values()), 2)
 
         if allocated_deposit > 0:
-            if is_force_majeure:
-                refund_percent_effective = 100.0
-                reason = "Hủy phòng (Bất khả kháng - Hoàn 100% cọc phân bổ)"
-            else:
-                refund_percent_effective = max(0.0, min(100.0, refund_percent_input))
-                reason = f"Hủy {cancelling_count} phòng (Hoàn {refund_percent_effective:.0f}% cọc phân bổ theo giá phòng)"
-
-            refund_amount = round(allocated_deposit * (refund_percent_effective / 100), 2)
-            fee_percent_effective = max(0.0, 100.0 - refund_percent_effective)
+            fee_percent_effective = 100.0
+            reason = (
+                f"Hủy {cancelling_count} phòng (giữ toàn bộ cọc phân bổ; "
+                "hoàn tiền nếu có sẽ nhập qua form hoàn tiền)"
+            )
         else:
             reason = f"Hủy {cancelling_count} phòng (Không có cọc để xử lý)"
 
@@ -1053,23 +1046,8 @@ def cancel_booking():
         new_note_content = f"{current_note} | [HỦY: {cancel_detail}]".strip()
         booking.note = new_note_content[:990] # Cắt bớt để tránh lỗi DataTooLong (Database limit)
 
-        # --- LOGIC MỚI: Ghi nhận vào Sổ Quỹ ---
-        # 1. Nếu có HOÀN TIỀN thực tế -> Ghi một dòng âm vào Payment
-        if refund_amount > 0:
-            payment_service.record_refund(
-                booking_id=booking.id,
-                refund_amount=refund_amount,
-                payment_method='cash',
-                note=(
-                    f"Hoàn cọc khi hủy phòng {room_labels} đơn {booking.code} "
-                    f"(Cọc phân bổ {allocated_str} đ, hoàn {refund_percent_effective:.0f}%)"
-                ),
-                created_at=datetime.now(),
-                business_operation=operation,
-                component_key='refund',
-            )
-
-        # 2. Nếu có GIỮ LẠI một phần tiền cọc (Phí hủy)
+        # Không ghi refund tại đây — hoàn tiền là thao tác riêng qua form hoàn tiền.
+        # Ghi nhận phí hủy (tiền cọc giữ lại) để sổ quỹ có vết:
         if cancellation_fee > 0:
             payment_service.record_cancellation_fee(
                 booking_id=booking.id,
@@ -1114,15 +1092,13 @@ def cancel_booking():
                 f'Hủy phòng thành công.\n'
                 f'Lý do: {reason}\n'
                 f'Cọc phân bổ cho phòng hủy: {allocated_str} đ\n'
-                f'Tỷ lệ hoàn: {refund_percent_effective:.0f}%\n'
-                f'Tỷ lệ phí hủy: {fee_percent_effective:.0f}%\n'
-                f'Hoàn cọc: {refund_str} đ'
+                'Không phát sinh hoàn tiền tự động — dùng nút Hoàn tiền nếu cần trả khách.'
             ),
             'data': {
-                'refund_percent': refund_percent_effective,
                 'fee_percent': fee_percent_effective,
                 'refund_amount': refund_amount,
                 'allocated_deposit': allocated_deposit,
+                'unrefunded_credit': allocated_deposit,
                 'deposit': deposit,
                 'is_final_cancellation': is_final_cancellation
             }

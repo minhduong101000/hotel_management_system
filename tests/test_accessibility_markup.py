@@ -359,7 +359,7 @@ def test_group_booking_and_timeline_editor_keep_labels_linked_to_controls():
         "edit-checkin",
         "edit-checkout",
         "edit-deposit",
-        "refund-percent",
+        "refund-reason",
     ):
         _assert_label_for(timeline, control_id)
 

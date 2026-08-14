@@ -120,13 +120,13 @@ def test_cancel_booking_requires_a_reason_and_records_audit_event(
     assert event.entity_type == "booking_room"
     assert event.entity_id == booking_room.id
     assert event.after_data["reason"] == "Khách thay đổi kế hoạch"
-def test_repeated_cancellation_does_not_duplicate_refund_or_operation(client, seed_hotels, login_as):
+def test_repeated_cancellation_is_idempotent_without_refund(client, seed_hotels, login_as):
     hotel, _, user, _, booking_room, _ = seed_hotels
     booking_room.booking.prepaid_amount = 100000
     booking_room.room_deposit_amount = 100000
     booking_room.room_deposit_original = 100000
     login_as(client, user)
-    payload = {"booking_room_id": booking_room.id, "refund_percent": 50, "reason": "Khách đổi kế hoạch"}
+    payload = {"booking_room_id": booking_room.id, "reason": "Khách đổi kế hoạch"}
 
     first_response = client.post(f"/{hotel.slug}/timeline/api/bookings/cancel", json=payload)
     second_response = client.post(f"/{hotel.slug}/timeline/api/bookings/cancel", json=payload)
@@ -134,14 +134,39 @@ def test_repeated_cancellation_does_not_duplicate_refund_or_operation(client, se
     assert first_response.status_code == 200
     assert second_response.status_code == 200
     assert second_response.json == first_response.json
-    assert Payment.query.filter_by(booking_id=booking_room.booking_id, payment_type="refund").count() == 1
+    assert Payment.query.filter_by(booking_id=booking_room.booking_id, payment_type="refund").count() == 0
     operation = BusinessOperation.query.one()
     assert operation.operation_key == f"cancel:booking_room:{booking_room.id}"
     assert operation.status == "completed"
     assert operation.result_snapshot == first_response.json
-    payment = Payment.query.filter_by(payment_type="refund").one()
-    assert payment.business_operation_id == operation.id
-    assert payment.component_key == "refund"
+
+
+def test_cancel_booking_ignores_client_refund_parameters(client, seed_hotels, login_as):
+    hotel, _, user, _, booking_room, _ = seed_hotels
+    booking_room.booking.prepaid_amount = 100000
+    booking_room.room_deposit_amount = 100000
+    booking_room.room_deposit_original = 100000
+    login_as(client, user)
+
+    response = client.post(
+        f"/{hotel.slug}/timeline/api/bookings/cancel",
+        json={
+            "booking_room_id": booking_room.id,
+            "reason": "Bão lớn",
+            "refund_percent": 100,
+            "is_force_majeure": True,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json["success"] is True
+    data = response.json["data"]
+    assert float(data["refund_amount"]) == 0
+    assert "refund_percent" not in data
+    assert float(data["unrefunded_credit"]) == 100000.0
+    assert Payment.query.filter_by(payment_type="refund").count() == 0
+    assert booking_room.status == "cancelled"
+    assert float(booking_room.cancellation_refund_percent or 0) == 0
 
 
 def test_cancelling_last_booked_room_completes_booking_with_checked_out_room(

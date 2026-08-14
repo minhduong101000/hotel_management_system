@@ -119,16 +119,9 @@ def settle_group_checkout(
                 business_operation=operation,
                 component_key=component_key,
             )
-    elif balance < 0:
-        payment_service.record_refund(
-            booking_id=booking.id,
-            refund_amount=abs(balance),
-            payment_method=method,
-            note=f"Hoàn cọc thừa cho đoàn {booking.code}",
-            created_at=checkout_at,
-            business_operation=operation,
-            component_key="refund",
-        )
+    # Cọc thừa (balance < 0) KHÔNG tự hoàn — chính sách 14-08-2026: hoàn tiền
+    # luôn là thao tác chủ động qua form hoàn tiền, có lưới an toàn riêng.
+    unrefunded_credit = _money(abs(balance)) if balance < 0 else _money(0)
 
     before_data = {
         "status": booking.status,
@@ -158,6 +151,7 @@ def settle_group_checkout(
             "tax_amount": quote["tax"],
             "group_deposit": quote["deposit"],
             "final_amount_to_pay": quote["balance"],
+            "unrefunded_credit": format(unrefunded_credit, ".2f"),
         },
     }
     business_operation_service.complete_operation(operation, result)
@@ -178,6 +172,7 @@ def settle_group_checkout(
             "tax_amount": quote["tax"],
             "deposit_applied": quote["deposit"],
             "final_amount_to_pay": quote["balance"],
+            "unrefunded_credit": format(unrefunded_credit, ".2f"),
         },
     )
     return result
