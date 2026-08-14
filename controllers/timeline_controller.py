@@ -589,6 +589,7 @@ def create_booking():
                 note=f"Tiền cọc đặt phòng {room.room_number}",
                 created_at=datetime.now(),
                 flush=True,
+                created_by=current_user.id,
             )
 
         # 4. Tạo BookingRoom (Chi tiết phòng)
@@ -1146,6 +1147,7 @@ def cancel_booking():
                 created_at=datetime.now(),
                 business_operation=operation,
                 component_key='cancellation_fee',
+                created_by=current_user.id,
             )
 
         # Đã xử lý xong nhóm phòng hủy -> cọc còn lại = tổng cọc của các phòng chưa hủy.
@@ -1268,6 +1270,7 @@ def update_booking():
                     payment_method='cash',
                     note=f"Nộp thêm cọc cho phòng {br.room.room_number if br.room else br.room_id} (Cập nhật đơn)",
                     created_at=datetime.now(),
+                    created_by=current_user.id,
                 )
 
             br.room_deposit_amount = room_deposit

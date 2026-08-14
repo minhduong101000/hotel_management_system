@@ -54,6 +54,16 @@ def get_cashier_data():
         total_expense = 0
         records = []
 
+        # Map nhân viên thu tiền để hiển thị đối soát
+        from models import User as _User
+        collector_ids = {p.created_by for p in payments_query if p.created_by}
+        collector_names = {}
+        if collector_ids:
+            collector_names = {
+                u.id: u.username
+                for u in _User.query.filter(_User.id.in_(collector_ids)).all()
+            }
+
         # Đánh dấu các dòng refund đã bị đảo (sổ nội bộ giữ đủ, chỉ gắn nhãn)
         payment_ids = [p.id for p in payments_query]
         reversed_ids = set()
@@ -119,6 +129,7 @@ def get_cashier_data():
                 'badge_color': badge_color,
                 'is_reversed': p.id in reversed_ids,
                 'reverses_payment_id': p.reverses_payment_id,
+                'collected_by': collector_names.get(p.created_by, ''),
                 'note': p.note or ''
             })
 

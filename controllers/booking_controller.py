@@ -883,6 +883,7 @@ def create_group_booking():
                 note=f"Nhận cọc đặt đoàn {booking_code} ({len(room_ids)} phòng)",
                 created_at=datetime.now(),
                 flush=True,
+                created_by=current_user.id,
             )
 
         success_count = 0

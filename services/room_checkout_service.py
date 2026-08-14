@@ -101,6 +101,7 @@ def settle_room_checkout(
                 created_at=checkout_at,
                 business_operation=operation,
                 component_key=component_key,
+                created_by=actor_user_id,
             )
     # Cọc thừa KHÔNG tự hoàn (chính sách 14-08) — trả unrefunded_credit,
     # hoàn tiền là thao tác chủ động qua form hoàn tiền có lưới an toàn.

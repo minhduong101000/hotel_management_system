@@ -36,6 +36,7 @@ def _create_payment(
     business_operation: Optional[BusinessOperation] = None,
     component_key: Optional[str] = None,
     reverses_payment_id: Optional[int] = None,
+    created_by: Optional[int] = None,
 ) -> Payment:
     booking = db.session.get(Booking, booking_id)
     if booking is None:
@@ -59,6 +60,7 @@ def _create_payment(
         business_operation=business_operation,
         component_key=component_key,
         reverses_payment_id=reverses_payment_id,
+        created_by=created_by,
         amount=_to_decimal_amount(amount),
         payment_method=payment_method,
         payment_type=payment_type,
@@ -81,6 +83,7 @@ def record_deposit(
     flush: bool = False,
     business_operation: Optional[BusinessOperation] = None,
     component_key: Optional[str] = None,
+    created_by: Optional[int] = None,
 ) -> Payment:
     return _create_payment(
         booking_id=booking_id,
@@ -92,6 +95,7 @@ def record_deposit(
         flush=flush,
         business_operation=business_operation,
         component_key=component_key,
+        created_by=created_by,
     )
 
 
@@ -106,6 +110,7 @@ def record_room_payment(
     payment_type: str = "room_payment",
     business_operation: Optional[BusinessOperation] = None,
     component_key: Optional[str] = None,
+    created_by: Optional[int] = None,
 ) -> Payment:
     """Record a payment line for room/service settlement.
 
@@ -121,6 +126,7 @@ def record_room_payment(
         flush=flush,
         business_operation=business_operation,
         component_key=component_key,
+        created_by=created_by,
     )
 
 
@@ -134,6 +140,7 @@ def record_refund(
     flush: bool = False,
     business_operation: Optional[BusinessOperation] = None,
     component_key: Optional[str] = None,
+    created_by: Optional[int] = None,
 ) -> Payment:
     """Record a refund as a negative amount in Payment (cashflow semantics)."""
     amt = abs(_to_decimal_amount(refund_amount))
@@ -147,6 +154,7 @@ def record_refund(
         flush=flush,
         business_operation=business_operation,
         component_key=component_key,
+        created_by=created_by,
     )
 
 
@@ -160,6 +168,7 @@ def record_cancellation_fee(
     flush: bool = False,
     business_operation: Optional[BusinessOperation] = None,
     component_key: Optional[str] = None,
+    created_by: Optional[int] = None,
 ) -> Payment:
     """Record a cancellation fee note.
 
@@ -175,6 +184,7 @@ def record_cancellation_fee(
         flush=flush,
         business_operation=business_operation,
         component_key=component_key,
+        created_by=created_by,
     )
 
 
@@ -188,6 +198,7 @@ def record_group_settlement(
     flush: bool = False,
     business_operation: Optional[BusinessOperation] = None,
     component_key: Optional[str] = None,
+    created_by: Optional[int] = None,
 ) -> Payment:
     return _create_payment(
         booking_id=booking_id,
@@ -199,6 +210,7 @@ def record_group_settlement(
         flush=flush,
         business_operation=business_operation,
         component_key=component_key,
+        created_by=created_by,
     )
 
 
@@ -213,6 +225,7 @@ def record_refund_reversal(
     flush: bool = False,
     business_operation: Optional[BusinessOperation] = None,
     component_key: Optional[str] = None,
+    created_by: Optional[int] = None,
 ) -> Payment:
     """Bút toán đảo một dòng refund: dòng dương cùng số tiền, nối về dòng sai."""
     amt = abs(_to_decimal_amount(amount))
@@ -227,6 +240,7 @@ def record_refund_reversal(
         business_operation=business_operation,
         component_key=component_key,
         reverses_payment_id=reverses_payment_id,
+        created_by=created_by,
     )
 
 

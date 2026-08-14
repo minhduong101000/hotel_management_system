@@ -31,7 +31,8 @@ class Payment(db.Model):
         db.ForeignKey('payments.id'),
         nullable=True,
     )
-    # created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True) # Bật nếu cần track nhân viên
+    # Nhân viên thao tác dòng tiền (truy vết + đối soát theo ca)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     
     amount = db.Column(db.Numeric(15, 2), nullable=False)
     payment_method = db.Column(db.String(50), default='cash')
@@ -55,5 +56,6 @@ class Payment(db.Model):
             'time': self.created_at.strftime('%d/%m/%Y %H:%M'),
             'note': self.note,
             'business_operation_id': self.business_operation_id,
+            'created_by': self.created_by,
             'component_key': self.component_key,
         }

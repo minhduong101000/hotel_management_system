@@ -241,6 +241,7 @@ def create_refund(
         note=f"Hoàn tiền đơn {booking.code}: {reason}",
         business_operation=operation,
         component_key="refund",
+        created_by=actor_user_id,
         flush=True,
     )
 
@@ -333,6 +334,7 @@ def reverse_refund(
         payment_method=payment.payment_method,
         business_operation=operation,
         component_key="refund_reversal",
+        created_by=actor_user_id,
         flush=True,
     )
 

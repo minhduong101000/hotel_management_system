@@ -118,6 +118,7 @@ def settle_group_checkout(
                 created_at=checkout_at,
                 business_operation=operation,
                 component_key=component_key,
+                created_by=actor_user_id,
             )
     # Cọc thừa (balance < 0) KHÔNG tự hoàn — chính sách 14-08-2026: hoàn tiền
     # luôn là thao tác chủ động qua form hoàn tiền, có lưới an toàn riêng.
