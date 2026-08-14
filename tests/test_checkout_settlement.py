@@ -63,11 +63,12 @@ def test_checkout_ignores_client_amount_and_settles_server_quote(
     assert booking_room.booking.prepaid_amount == 0
 
 
-def test_excess_deposit_creates_refund_instead_of_negative_room_payment(
+def test_excess_deposit_returns_credit_without_refund(
     client,
     seed_hotels,
     login_as,
 ):
+    """Chinh sach 14-08: checkout LE cung khong tu hoan — tra unrefunded_credit."""
     hotel, _, user, _, booking_room, _ = seed_hotels
     booking_room.booking.prepaid_amount = 600000
     booking_room.room_deposit_amount = 600000
@@ -86,12 +87,9 @@ def test_excess_deposit_creates_refund_instead_of_negative_room_payment(
     )
 
     assert response.status_code == 200
-    payment = Payment.query.one()
-    assert payment.payment_type == "refund"
-    assert payment.component_key == "refund"
-    assert payment.amount == Decimal("-100000.00")
-    assert Payment.query.filter_by(payment_type="room_payment").count() == 0
-    assert booking_room.booking.payment_status == "paid"
+    assert Decimal(str(response.json["unrefunded_credit"])) == Decimal("100000.00")
+    assert Payment.query.count() == 0
+    assert booking_room.status == "checked_out"
 
 
 def test_deposit_equal_to_total_completes_without_new_cash_payment(

@@ -102,16 +102,8 @@ def settle_room_checkout(
                 business_operation=operation,
                 component_key=component_key,
             )
-    elif balance < 0:
-        payment_service.record_refund(
-            booking_id=booking.id,
-            refund_amount=abs(balance),
-            payment_method=method,
-            note=f"Hoàn tiền thừa khi trả phòng {room_number}",
-            created_at=checkout_at,
-            business_operation=operation,
-            component_key="refund",
-        )
+    # Cọc thừa KHÔNG tự hoàn (chính sách 14-08) — trả unrefunded_credit,
+    # hoàn tiền là thao tác chủ động qua form hoàn tiền có lưới an toàn.
 
     if quote.get("apply_deposit"):
         booking.prepaid_amount = Decimal("0")
@@ -129,7 +121,8 @@ def settle_room_checkout(
         "msg": f"Trả phòng {room_number} thành công!",
         "operation_key": operation.operation_key,
         "settled_amount": format(max(balance, Decimal("0")), ".2f"),
-        "refund_amount": format(abs(min(balance, Decimal("0"))), ".2f"),
+        "refund_amount": "0.00",
+        "unrefunded_credit": format(abs(min(balance, Decimal("0"))), ".2f"),
         "balance_remaining": "0.00",
     }
     business_operation_service.complete_operation(operation, result)
