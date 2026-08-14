@@ -1,0 +1,12 @@
+venv/
+.git/
+.codegraph/
+.vscode/
+__pycache__/
+*.pyc
+.env
+docs/
+instance/
+tests/
+*.log
+*.db
