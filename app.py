@@ -1,5 +1,5 @@
 from flask import Flask, redirect, url_for
-from extensions import db, login_manager
+from extensions import db, login_manager, migrate
 from werkzeug.security import generate_password_hash
 from models import User
 
@@ -25,6 +25,7 @@ app.config.from_object(get_config())
 # 1. Init Extensions
 db.init_app(app)
 login_manager.init_app(app)
+migrate.init_app(app, db)
 
 # 2. Register Blueprints (Controllers)
 app.register_blueprint(auth_bp)

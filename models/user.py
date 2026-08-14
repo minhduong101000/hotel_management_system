@@ -3,7 +3,7 @@ from werkzeug.security import check_password_hash
 from extensions import db, login_manager # <--- 1. Bổ sung import login_manager
 
 class User(UserMixin, db.Model):
-    __tablename__ = 'Users'
+    __tablename__ = 'users'
     
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)

@@ -3,7 +3,7 @@ from datetime import datetime
 
 
 class BookingService(db.Model):
-    __tablename__ = 'booking_services'
+    __tablename__ = 'service_orders'
 
     id = db.Column(db.Integer, primary_key=True)
     
