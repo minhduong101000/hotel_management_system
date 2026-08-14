@@ -144,7 +144,7 @@ Master Admin chịu trách nhiệm cấp hệ thống:
 - Xem booking theo từng phòng, theo trạng thái và khoảng thời gian.
 - Tạo booking từ vị trí trên timeline; có thuê ngày/giờ, thông tin khách, tiền cọc và báo giá.
 - Mở chi tiết để sửa thông tin khách, thời gian, phòng, ghi chú và dịch vụ.
-- Kéo/thả hoặc kéo giãn booking có API cập nhật lịch; thao tác dời lịch chính thức có bước kiểm tra phòng trống, lý do, tùy chọn giữ giá/áp dụng giá mới và chỉ Admin/Master Admin được gọi.
+- API cập nhật lịch kéo-thả (`update_timeline`) đã sẵn sàng phía server nhưng UI chưa nối (ghi nhận 14-08 — dự kiến làm cùng đợt room-move); thao tác dời lịch chính thức có bước kiểm tra phòng trống, lý do, tùy chọn giữ giá/áp dụng giá mới và chỉ Admin/Master Admin được gọi.
 - Check-in, xem/in billing đoàn, gọi dịch vụ và checkout đoàn từ chi tiết booking.
 - Hủy chỉ áp dụng với phòng `booked`; hủy luôn hoàn 0 đ và không còn nhận tỷ lệ hoàn từ client (14-08).
 - **Hoàn tiền** là thao tác riêng từ chi tiết hóa đơn: nhập % theo *phần chưa sử dụng* hoặc *toàn bộ hóa đơn* (hoặc số tiền), server hiển thị Đã thu / Giá trị cơ sở / Đã hoàn và chặn cứng không vượt tiền đang giữ; nhập sai sửa bằng **bút toán đảo** — bill khách chỉ hiện dòng hiệu lực, sổ quỹ giữ đủ.
