@@ -1622,7 +1622,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (phone.length < 4) return;
 
             debounceTimer = setTimeout(() => {
-                fetch(`/api/customers?q=${phone}`)
+                fetch(api(`/api/customers?q=${phone}`))
                     .then(res => res.json())
                     .then(data => {
                         const exactMatch = data.find(c => c.phone === phone);

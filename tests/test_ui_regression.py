@@ -49,3 +49,14 @@ def test_refreshed_admin_pages_keep_the_application_landmarks(
     assert b'id="app-content"' in response.data
     assert b'class="app-topbar"' in response.data
     assert b'class="app-sidebar"' in response.data
+
+
+def test_api_helper_maps_addroom_and_no_bare_customer_fetch():
+    from pathlib import Path
+    main_js = Path("static/js/main.js").read_text(encoding="utf-8")
+    timeline_js = Path("static/js/timeline_manager.js").read_text(encoding="utf-8")
+    # add-room phải đi qua timeline blueprint (bug 14-08: rơi vào prefix bookings -> 404)
+    timeline_block = main_js.split("TIMELINE SPECIALS")[1].split("prefixMap")[0]
+    assert "'/api/bookings/add-room'" in timeline_block
+    # Không còn fetch trần thiếu prefix tenant
+    assert "fetch(`/api/customers" not in timeline_js

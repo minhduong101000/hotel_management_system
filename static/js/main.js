@@ -39,6 +39,7 @@ function api(path) {
         '/api/bookings/timeline',
         '/api/bookings/services-catalog',
         '/api/bookings/create',
+        '/api/bookings/add-room',
         '/api/bookings/update_timeline',
         '/api/bookings/cancel',
         '/api/bookings/update',
