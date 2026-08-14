@@ -8,7 +8,8 @@ def test_revenue_top_rooms_joins_booking_room_to_its_actual_room(
 ):
     hotel, user, _, booking_room = booked_room
     booking_room.status = "checked_out"
-    booking_room.check_out_actual = datetime.now()
+    from services import time_service
+    booking_room.check_out_actual = time_service.utc_now_naive()
     booking_room.final_amount = 200000
     db.session.commit()
     login_as(client, user)

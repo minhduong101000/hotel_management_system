@@ -9,7 +9,9 @@ def test_cashier_scopes_tenant_and_excludes_voided_expense(
     client, seed_hotels, login_as
 ):
     hotel_a, hotel_b, admin_a, _, room_stay_a, room_stay_b = seed_hotels
-    now = datetime.now()
+    from services import time_service
+
+    now = time_service.utc_now_naive()
     db.session.add_all(
         [
             Payment(
@@ -37,7 +39,7 @@ def test_cashier_scopes_tenant_and_excludes_voided_expense(
                 category="Khác",
                 description="Chi tiền hợp lệ",
                 amount=30_000,
-                expense_date=date.today(),
+                expense_date=time_service.business_today(),
                 created_at=now,
             ),
             Expense(
@@ -45,7 +47,7 @@ def test_cashier_scopes_tenant_and_excludes_voided_expense(
                 category="Khác",
                 description="Chi tiền đã void",
                 amount=400_000,
-                expense_date=date.today(),
+                expense_date=time_service.business_today(),
                 created_at=now,
                 is_voided=True,
             ),
@@ -54,7 +56,7 @@ def test_cashier_scopes_tenant_and_excludes_voided_expense(
                 category="Khác",
                 description="Chi tenant khác",
                 amount=700_000,
-                expense_date=date.today(),
+                expense_date=time_service.business_today(),
                 created_at=now,
             ),
         ]
