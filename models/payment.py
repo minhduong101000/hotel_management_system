@@ -11,6 +11,8 @@ class Payment(db.Model):
             'component_key',
             name='uq_payments_operation_component',
         ),
+        # Một dòng refund chỉ được đảo đúng một lần
+        db.UniqueConstraint('reverses_payment_id', name='uq_payments_reverses_once'),
     )
 
     id = db.Column(db.Integer, primary_key=True)
@@ -23,6 +25,12 @@ class Payment(db.Model):
         nullable=True,
     )
     component_key = db.Column(db.String(120), nullable=True)
+    # Bút toán đảo: dòng refund_reversal trỏ về dòng refund bị đảo
+    reverses_payment_id = db.Column(
+        db.Integer,
+        db.ForeignKey('payments.id'),
+        nullable=True,
+    )
     # created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True) # Bật nếu cần track nhân viên
     
     amount = db.Column(db.Numeric(15, 2), nullable=False)
