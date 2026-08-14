@@ -24,7 +24,7 @@ def _items_for_service(hotel_id: int, service_id: int, lock=False):
     return query.all()
 
 
-def validate_inventory(hotel_id: int, requirements: dict[int, int]) -> None:
+def validate_inventory(hotel_id: int, requirements: dict[int, int], as_of_date=None) -> None:
     """Validate all positive deductions before mutating any inventory record.
 
     Services without an InventoryItem remain billable because they are not
@@ -40,15 +40,29 @@ def validate_inventory(hotel_id: int, requirements: dict[int, int]) -> None:
         if not items:
             continue
 
-        available = sum(inventory_batch_service.available_quantity(item) for item in items)
+        available = sum(
+            inventory_batch_service.available_quantity(item, on_date=as_of_date)
+            for item in items
+        )
         if available < quantity:
             raise InsufficientInventoryError(
                 f"Dịch vụ {service_id} không đủ tồn kho (còn {available}, cần {quantity})."
             )
 
 
-def deduct_inventory(hotel_id: int, service_id: int, quantity: int, booking_service=None) -> None:
-    """Deduct already-validated stock for one service within one hotel."""
+def deduct_inventory(
+    hotel_id: int,
+    service_id: int,
+    quantity: int,
+    booking_service=None,
+    as_of_date=None,
+) -> None:
+    """Deduct already-validated stock for one service within one hotel.
+
+    as_of_date: ngày nghiệp vụ dùng để loại lô hết hạn (FEFO); mặc định
+    lấy từ time_service. Thiếu tồn -> raise TRƯỚC khi ghi bất kỳ thứ gì,
+    không bao giờ để lại partial movement/allocation.
+    """
     quantity = int(quantity or 0)
     if quantity <= 0:
         return
@@ -56,6 +70,23 @@ def deduct_inventory(hotel_id: int, service_id: int, quantity: int, booking_serv
     items = _items_for_service(hotel_id, service_id, lock=True)
     if not items:
         return
+
+    # Validate đủ tồn còn dùng được TRƯỚC khi mutate (no partial write)
+    total_available = 0
+    for item in items:
+        if not item.batches:
+            total_available += max(0, int(item.quantity or 0))
+        else:
+            total_available += sum(
+                int(batch.quantity_available or 0)
+                for batch in inventory_batch_service.batches_for_consumption(
+                    item, on_date=as_of_date
+                )
+            )
+    if total_available < quantity:
+        raise InsufficientInventoryError(
+            "Tồn kho đã thay đổi trước khi ghi nhận dịch vụ."
+        )
 
     remaining = quantity
     for item in items:
@@ -68,6 +99,7 @@ def deduct_inventory(hotel_id: int, service_id: int, quantity: int, booking_serv
             continue
         for batch in inventory_batch_service.batches_for_consumption(
             item,
+            on_date=as_of_date,
             lock=True,
         ):
             deducted = min(int(batch.quantity_available or 0), remaining)

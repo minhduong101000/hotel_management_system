@@ -2,6 +2,7 @@ from datetime import date
 from decimal import Decimal
 
 from extensions import db
+from services import time_service
 from models.inventory_batch import InventoryBatch
 from models.inventory_movement import InventoryMovement
 
@@ -118,7 +119,7 @@ def backfill_opening_batch(item, actor_user_id=None):
 
 
 def available_quantity(item, on_date=None):
-    on_date = on_date or date.today()
+    on_date = on_date or time_service.business_today()
     batches = InventoryBatch.query.filter_by(inventory_item_id=item.id).all()
     if not batches:
         return int(item.quantity or 0)
@@ -130,7 +131,7 @@ def available_quantity(item, on_date=None):
 
 
 def batches_for_consumption(item, on_date=None, lock=False):
-    on_date = on_date or date.today()
+    on_date = on_date or time_service.business_today()
     query = InventoryBatch.query.filter_by(
         inventory_item_id=item.id,
         status='active',
