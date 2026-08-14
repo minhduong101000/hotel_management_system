@@ -201,19 +201,28 @@ def test_update_room_reuses_validation_contract_without_audit(
     ).count() == 0
 
 
-def test_staff_can_update_only_default_rates_with_canonical_fields(
+def test_admin_updates_default_rates_with_canonical_fields_staff_forbidden(
     client,
     seed_hotels,
     login_as,
 ):
-    hotel, _, _, _, booking_room, _ = seed_hotels
+    hotel, _, admin, _, booking_room, _ = seed_hotels
     room = booking_room.room
     staff = User(username="rate_update_staff", role="staff", hotel_id=hotel.id)
     staff.set_password("correct-password")
     db.session.add(staff)
     db.session.commit()
-    login_as(client, staff)
 
+    # Staff khong duoc sua gia (chinh sach 14-08)
+    login_as(client, staff)
+    staff_response = client.post(
+        f"/{hotel.slug}/prices/api/prices/update-base",
+        json={"id": room.id, "price_per_night": 1},
+    )
+    assert staff_response.status_code == 403
+    client.get(f"/{hotel.slug}/logout")
+
+    login_as(client, admin)
     response = client.post(
         f"/{hotel.slug}/prices/api/prices/update-base",
         json={
@@ -261,12 +270,8 @@ def test_price_only_update_reuses_validation_contract(
     login_as,
     invalid_price,
 ):
-    hotel, _, _, _, booking_room, _ = seed_hotels
-    staff = User(username="invalid_rate_update_staff", role="staff", hotel_id=hotel.id)
-    staff.set_password("correct-password")
-    db.session.add(staff)
-    db.session.commit()
-    login_as(client, staff)
+    hotel, _, admin, _, booking_room, _ = seed_hotels
+    login_as(client, admin)
 
     response = client.post(
         f"/{hotel.slug}/prices/api/prices/update-base",

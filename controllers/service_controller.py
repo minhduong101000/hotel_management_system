@@ -1,6 +1,7 @@
 from services.tenant_service import tenant_query, tenant_get_or_404
 from flask import Blueprint, render_template, jsonify, request
 from flask_login import login_required, current_user
+from decorators import admin_required
 from extensions import db
 from models.service import Service
 from services import audit_service
@@ -23,6 +24,7 @@ def get_services():
 # 3. API: THÊM MỚI
 @service_bp.route('/api/services', methods=['POST'])
 @login_required
+@admin_required
 def add_service():
     data = request.get_json()
     try:
@@ -51,6 +53,7 @@ def add_service():
 # 4. API: CẬP NHẬT (SỬA)
 @service_bp.route('/api/services/<int:id>', methods=['PUT'])
 @login_required
+@admin_required
 def update_service(id):
     data = request.get_json()
     service = tenant_query(Service).filter_by(id=id).first()
@@ -74,6 +77,7 @@ def update_service(id):
 # 5. API: XÓA
 @service_bp.route('/api/services/<int:id>', methods=['DELETE'])
 @login_required
+@admin_required
 def delete_service(id):
     service = tenant_query(Service).filter_by(id=id).first()
     if service:

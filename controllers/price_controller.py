@@ -1,6 +1,7 @@
 from services.tenant_service import current_hotel_id, tenant_query
 from flask import Blueprint, render_template, jsonify, request
-from flask_login import login_required, current_user
+from flask_login import login_required
+from decorators import admin_required, current_user
 from extensions import db
 from models.room import Room
 from models.price_rule import PriceRule
@@ -117,6 +118,7 @@ def get_price_rules():
 # ========================================================
 @price_bp.route('/api/prices/update-base', methods=['POST'])
 @login_required
+@admin_required
 def update_base_price():
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
@@ -189,6 +191,7 @@ def update_base_price():
 # ========================================================
 @price_bp.route('/api/prices/save-rule', methods=['POST'])
 @login_required
+@admin_required
 def save_rule():
     try:
         data = request.get_json()
@@ -274,6 +277,7 @@ def save_rule():
 # ========================================================
 @price_bp.route('/api/prices/delete-rule/<int:id>', methods=['DELETE'])
 @login_required
+@admin_required
 def delete_rule(id):
     try:
         rule = tenant_query(PriceRule).filter_by(id=id).first()
