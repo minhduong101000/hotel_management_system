@@ -670,6 +670,92 @@ def create_booking():
 
 
 # =======================================================
+# 3b. THÊM PHÒNG VÀO ĐƠN CÓ SẴN (14-08-2026 — nút Timeline đã chờ sẵn)
+# =======================================================
+@timeline_bp.route('/api/bookings/add-room', methods=['POST'])
+@login_required
+def add_room_to_booking():
+    try:
+        data = request.get_json(silent=True) or {}
+        try:
+            booking_id = int(data.get('booking_id'))
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'msg': 'Mã đơn không hợp lệ.'}), 400
+
+        booking = tenant_query(Booking).filter_by(id=booking_id).first()
+        if not booking:
+            return jsonify({'success': False, 'msg': 'Không tìm thấy đơn đặt phòng.'}), 404
+        if booking.status in ('cancelled', 'completed'):
+            return jsonify({
+                'success': False,
+                'msg': 'Đơn đã kết thúc — tạo booking mới thay vì thêm phòng.',
+            }), 409
+
+        room_number = str(data.get('room_number', '')).strip()
+        room = tenant_query(Room).filter_by(room_number=room_number).with_for_update().first()
+        if not room:
+            return jsonify({'success': False, 'msg': 'Phòng không tồn tại.'}), 404
+        if room.status == 'maintenance':
+            return jsonify({'success': False, 'msg': f'Phòng {room.room_number} đang bảo trì.'}), 409
+
+        try:
+            check_in_dt = datetime.strptime(str(data.get('check_in')), '%Y-%m-%dT%H:%M')
+            check_out_dt = datetime.strptime(str(data.get('check_out')), '%Y-%m-%dT%H:%M')
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'msg': 'Định dạng thời gian không hợp lệ.'}), 400
+        if check_in_dt >= check_out_dt:
+            return jsonify({'success': False, 'msg': 'Giờ check-out phải sau giờ check-in.'}), 400
+
+        if _has_active_booking_conflict(room.id, check_in_dt, check_out_dt):
+            return jsonify({
+                'success': False,
+                'msg': f'Phòng {room.room_number} đã có lịch trong khoảng thời gian này.',
+            }), 409
+
+        new_br = BookingRoom(
+            hotel_id=booking.hotel_id,
+            booking_id=booking.id,
+            room_id=room.id,
+            rental_type='daily',
+            price_snapshot=room.price_per_night or 0,
+            room_deposit_amount=0,   # phòng thêm không thu cọc qua luồng này
+            room_deposit_original=0,
+            status='booked',
+            check_in_expected=check_in_dt,
+            check_out_expected=check_out_dt,
+        )
+        new_br.price_breakdown_snapshot = [
+            {'business_date': line['business_date'].isoformat(), 'amount': float(line['amount'])}
+            for line in get_nightly_price_breakdown(room, check_in_dt, check_out_dt)
+        ]
+        db.session.add(new_br)
+        db.session.flush()
+        booking_state_service.aggregate_booking_state(booking)
+        audit_service.record_event(
+            hotel_id=booking.hotel_id,
+            actor_user_id=current_user.id,
+            action='add_room_to_booking',
+            entity_type='booking_room',
+            entity_id=new_br.id,
+            after_data={
+                'booking_code': booking.code,
+                'room_number': room.room_number,
+                'check_in_expected': check_in_dt.isoformat(),
+                'check_out_expected': check_out_dt.isoformat(),
+            },
+        )
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'msg': f'Đã thêm phòng {room.room_number} vào đơn {booking.code}.',
+        })
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error add room to booking: {e}")
+        return jsonify({'success': False, 'msg': str(e)}), 500
+
+
+# =======================================================
 # 4. CẬP NHẬT (Kéo thả trên Timeline hoặc Sửa Modal)
 # =======================================================
 @timeline_bp.route('/api/bookings/update_timeline', methods=['POST'])
