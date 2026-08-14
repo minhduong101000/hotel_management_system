@@ -18,7 +18,10 @@ def _to_decimal_amount(amount) -> Decimal:
 
 
 def _now(dt: Optional[datetime]) -> datetime:
-    return dt if dt is not None else datetime.now()
+    # Hợp đồng thời gian 14-08-2026: dòng tiền ghi UTC-naive qua time_service
+    from services import time_service
+
+    return dt if dt is not None else time_service.utc_now_naive()
 
 
 def _create_payment(

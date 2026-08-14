@@ -15,6 +15,8 @@ from services.reporting_service import calculate_occupancy, resolve_report_perio
 from services.tenant_service import current_hotel_id, tenant_query
 
 
+from services import time_service
+
 report_bp = Blueprint("report", __name__)
 
 
@@ -30,15 +32,17 @@ def revenue():
 @admin_required
 def get_revenue_data():
     try:
-        now = datetime.now()
+        # Kỳ báo cáo chọn theo NGÀY Bangkok, truy vấn theo cửa sổ UTC tương ứng
+        now_utc = time_service.utc_now_naive()
         report_period = resolve_report_period(
             request.args.get("period", "today"),
             request.args.get("start"),
             request.args.get("end"),
-            now,
+            time_service.business_now().replace(tzinfo=None),
         )
-        start_at = report_period.start
-        end_exclusive = report_period.end_exclusive
+        start_at, end_exclusive = time_service.business_period_to_utc(
+            report_period.start_date, report_period.end_date
+        )
         hotel_id = current_hotel_id()
         finalized_time = func.coalesce(
             BookingRoom.check_out_actual,
@@ -80,10 +84,12 @@ def get_revenue_data():
             .scalar()
         )
 
+        # Đếm theo mốc hoàn tất nghiệp vụ, không dùng updated_at (mốc kỹ thuật)
         completed_bookings = tenant_query(Booking).filter(
             Booking.status == "completed",
-            Booking.updated_at >= start_at,
-            Booking.updated_at < end_exclusive,
+            Booking.completed_at.isnot(None),
+            Booking.completed_at >= start_at,
+            Booking.completed_at < end_exclusive,
         ).count()
 
         expense_filters = (
@@ -98,10 +104,12 @@ def get_revenue_data():
             .scalar()
         )
 
-        daily_revenue = (
+        # Không dùng func.date() theo timezone của dialect — lấy mốc thô rồi
+        # gom theo NGÀY Bangkok trong Python (SQLite trả UTC, MySQL theo server)
+        finalized_rows = (
             db.session.query(
-                func.date(finalized_time).label("date"),
-                func.sum(BookingRoom.final_amount).label("revenue"),
+                finalized_time.label("finalized_at"),
+                BookingRoom.final_amount.label("revenue"),
             )
             .select_from(BookingRoom)
             .join(Booking, Booking.id == BookingRoom.booking_id)
@@ -112,9 +120,15 @@ def get_revenue_data():
                 finalized_time >= start_at,
                 finalized_time < end_exclusive,
             )
-            .group_by(func.date(finalized_time))
             .all()
         )
+        revenue_by_business_date = {}
+        for row in finalized_rows:
+            business_date = time_service.to_business_date(row.finalized_at)
+            revenue_by_business_date[business_date] = (
+                revenue_by_business_date.get(business_date, 0.0)
+                + float(row.revenue or 0)
+            )
         daily_expenses = (
             db.session.query(
                 Expense.expense_date.label("date"),
@@ -130,13 +144,13 @@ def get_revenue_data():
             BookingRoom.status.in_(["checked_in", "checked_out"]),
             BookingRoom.check_in_actual.isnot(None),
             BookingRoom.check_in_actual < end_exclusive,
-            func.coalesce(BookingRoom.check_out_actual, now) > start_at,
+            func.coalesce(BookingRoom.check_out_actual, now_utc) > start_at,
         ).all()
         occupancy_rate, daily_occupancy = calculate_occupancy(
             stays,
             room_count,
             report_period,
-            now,
+            now_utc,
         )
 
         chart_map = {
@@ -155,10 +169,9 @@ def get_revenue_data():
                 return value.date()
             return value
 
-        for row in daily_revenue:
-            business_date = as_date(row.date)
+        for business_date, revenue in revenue_by_business_date.items():
             if business_date in chart_map:
-                chart_map[business_date]["revenue"] = float(row.revenue or 0)
+                chart_map[business_date]["revenue"] = revenue
         for row in daily_expenses:
             business_date = as_date(row.date)
             if business_date in chart_map:

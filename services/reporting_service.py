@@ -48,12 +48,14 @@ def resolve_report_period(period, start_value=None, end_value=None, now=None):
 
 
 def calculate_occupancy(stays, room_count, report_period, now=None):
-    now = now or datetime.now()
+    from services import time_service
+
+    now = now or time_service.utc_now_naive()
     daily_occupied_rooms = {}
 
     for business_date in report_period.dates():
-        day_start = datetime.combine(business_date, time.min)
-        day_end = day_start + timedelta(days=1)
+        # Biên NGÀY nghiệp vụ đổi sang cửa sổ UTC để so với mốc UTC trong DB
+        day_start, day_end = time_service.business_day_utc_bounds(business_date)
         occupied_room_ids = {
             stay.room_id
             for stay in stays

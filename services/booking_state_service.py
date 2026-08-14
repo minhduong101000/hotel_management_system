@@ -1,5 +1,7 @@
 from decimal import Decimal
 
+from services import time_service
+
 
 class InvalidBookingTransition(ValueError):
     """Trạng thái hiện tại không cho phép thực hiện chuyển trạng thái."""
@@ -40,6 +42,9 @@ def aggregate_booking_state(booking, *, changed_at=None):
 
     if booking.status == "completed":
         booking.payment_status = "paid"
+        # Mốc hoàn tất nghiệp vụ: set đúng một lần, không trôi khi sửa metadata
+        if booking.completed_at is None:
+            booking.completed_at = time_service.utc_now_naive()
     elif booking.status == "checked_in":
         booking.payment_status = "partial"
 

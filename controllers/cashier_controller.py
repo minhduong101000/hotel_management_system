@@ -24,15 +24,17 @@ def cashier():
 def get_cashier_data():
     try:
         from models.expense import Expense
-        now = datetime.now()
+        from services import time_service
+
         report_period = resolve_report_period(
             request.args.get('period', 'today'),
             request.args.get('start'),
             request.args.get('end'),
-            now,
+            time_service.business_now().replace(tzinfo=None),
         )
-        start_date = report_period.start
-        end_exclusive = report_period.end_exclusive
+        start_date, end_exclusive = time_service.business_period_to_utc(
+            report_period.start_date, report_period.end_date
+        )
 
         # 1. Lấy các khoản thu/hoàn tiền từ Payment
         payments_query = tenant_query(Payment).filter(

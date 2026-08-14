@@ -26,6 +26,8 @@ class Booking(db.Model):
     
     created_at = db.Column(db.DateTime, default=db.func.now())
     updated_at = db.Column(db.DateTime, default=db.func.now(), onupdate=db.func.now())
+    # Mốc hoàn tất nghiệp vụ (UTC-naive); chỉ booking_state_service được set
+    completed_at = db.Column(db.DateTime, nullable=True)
 
     # --- RELATIONSHIPS (ĐỊNH NGHĨA RÕ RÀNG) ---
     customer = db.relationship('Customer', back_populates='bookings')

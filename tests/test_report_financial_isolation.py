@@ -10,15 +10,19 @@ def test_revenue_report_scopes_every_financial_metric_and_excludes_voided_expens
     client, seed_hotels, login_as
 ):
     hotel_a, hotel_b, admin_a, _, room_stay_a, room_stay_b = seed_hotels
-    now = datetime.now()
+    from services import time_service
+
+    now = time_service.utc_now_naive()
     room_stay_a.status = "checked_out"
     room_stay_a.check_out_actual = now
     room_stay_a.final_amount = 100_000
     room_stay_a.booking.status = "completed"
+    room_stay_a.booking.completed_at = now
     room_stay_b.status = "checked_out"
     room_stay_b.check_out_actual = now
     room_stay_b.final_amount = 900_000
     room_stay_b.booking.status = "completed"
+    room_stay_b.booking.completed_at = now
     db.session.add_all(
         [
             Payment(

@@ -66,16 +66,20 @@ def test_allocation_migration_merges_duplicates_before_unique_constraint(
         )
         db.session.add_all([customer, service, room, item])
         db.session.flush()
-        booking = Booking(
-            hotel_id=hotel.id,
-            code="MIGRATION",
-            customer_id=customer.id,
-        )
-        db.session.add(booking)
-        db.session.flush()
+        # Schema lịch sử (f1a2b3c4d5e6) chưa có các cột thêm sau này
+        # (vd completed_at) — chèn raw SQL để test không gãy mỗi lần model mở rộng.
+        booking_id = db.session.execute(
+            db.text(
+                "INSERT INTO bookings (hotel_id, code, customer_id, total_amount, "
+                "prepaid_amount, payment_status, status, source, created_at, updated_at) "
+                "VALUES (:hotel_id, 'MIGRATION', :customer_id, 0, 0, 'partial', "
+                "'pending', 'walk_in', now(), now())"
+            ),
+            {"hotel_id": hotel.id, "customer_id": customer.id},
+        ).lastrowid
         line = BookingService(
             hotel_id=hotel.id,
-            booking_id=booking.id,
+            booking_id=booking_id,
             room_id=room.id,
             service_id=service.id,
             quantity=3,
