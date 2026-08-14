@@ -1,7 +1,7 @@
 # Spec: Chuẩn hóa ma trận quyền và thêm phòng vào đơn
 
 **Ngày:** 14-08-2026
-**Trạng thái:** Đã chốt nghiệp vụ (chủ dự án, 14-08): staff KHÔNG được sửa dịch vụ/luật giá; nút "thêm phòng vào đơn" làm thật.
+**Trạng thái:** ĐÃ TRIỂN KHAI 14-08 (commit 211c055, a0e1705, 2975cc0). Nghiệp vụ đã chốt: staff KHÔNG được sửa dịch vụ/luật giá; nút "thêm phòng vào đơn" làm thật.
 **Phạm vi:** 4 lỗ quyền trong sổ tay nghiệp vụ mục 5 + endpoint add-room còn thiếu ruột + `load_dotenv`.
 **Không bao gồm:** đổi quyền các thao tác vận hành quầy (tạo booking, check-in/out, hủy có lý do, dịch vụ trong đơn — staff giữ nguyên quyền); ngưỡng phê duyệt; công nợ.
 

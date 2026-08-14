@@ -1,7 +1,7 @@
 # Spec: Hoàn tiền nhập trực tiếp có kiểm soát, thời gian báo cáo và kiểm thử kho
 
 **Ngày:** 14-08-2026
-**Trạng thái:** Đã review nghiệp vụ 14-08-2026 — thiết kế hoàn tiền đổi từ "luồng phê duyệt bất khả kháng" (bản nháp sáng 14-08) sang "nhập trực tiếp có lưới an toàn" theo quyết định của chủ dự án. Phần thời gian báo cáo và kho giữ nguyên bản nháp.
+**Trạng thái:** ĐÃ TRIỂN KHAI 14-08-2026 (7 commit, 1208cc2..6d3bf31) — thiết kế hoàn tiền đổi từ "luồng phê duyệt bất khả kháng" (bản nháp sáng 14-08) sang "nhập trực tiếp có lưới an toàn" theo quyết định của chủ dự án. Phần thời gian báo cáo và kho giữ nguyên bản nháp.
 **Phạm vi:** Hoàn tiền khi hủy/trả phòng sớm, sửa sai bút toán, hóa đơn khách vs sổ nội bộ, báo cáo doanh thu theo múi giờ, kiểm thử phân bổ kho theo lô.
 **Không bao gồm:** Công nợ khách hàng, tích hợp cổng thanh toán, ngưỡng phê duyệt theo hạn mức (có thể thêm sau nếu vận hành cần), đính kèm tệp chứng cứ, thay đổi chính sách giá phòng.
 

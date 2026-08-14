@@ -104,7 +104,7 @@ Master Admin chịu trách nhiệm cấp hệ thống:
 4. Vào một tenant ở chế độ hỗ trợ; banner giao diện thông báo đang hỗ trợ khách sạn nào.
 5. Trong tenant, có thể dùng các route chỉ cần đăng nhập, quản lý cấu trúc phòng và dời lịch vì hai decorator này chấp nhận `is_super_admin`.
 
-Điểm cần chốt: các khu vực dùng `admin_required` như **kho thay đổi dữ liệu, chi phí, doanh thu, sổ quỹ, audit và nhân sự** không tự chấp nhận `is_super_admin`. Master chỉ vào được nếu bản ghi user của Master đồng thời có `role = admin`. Đây là sự không nhất quán cần sửa trước khi coi Master có toàn quyền vận hành tenant.
+Đã xử lý 14-08: `admin_required` chấp nhận cả `is_super_admin` — Master vào tenant hỗ trợ dùng được đầy đủ kho, chi phí, doanh thu, sổ quỹ, audit và nhân sự mà không cần kiêm `role = admin`.
 
 ## 3. Bản đồ màn hình và thao tác
 
@@ -317,9 +317,9 @@ Khi dịch vụ có liên kết vật tư, hệ thống ưu tiên xuất theo FE
 | Ưu tiên | Phát hiện | Tác động/nghiệp vụ cần chốt |
 |---|---|---|
 | ~~P0~~ ĐÃ XỬ LÝ 14-08 | ~~Checkout đoàn tự tạo refund; hủy phòng cho client gửi `refund_percent`~~ | Đã thay bằng luồng hoàn tiền nhập trực tiếp có lưới an toàn (form Hoàn tiền, trần cứng server-side, bút toán đảo). Xem [spec remediation](superpowers/specs/2026-08-14-financial-time-and-inventory-remediation-design.md). |
-| P0 | API tạo/sửa/xóa **dịch vụ** và tạo/sửa/xóa **luật giá** hiện chỉ yêu cầu đăng nhập, trong khi menu Dịch vụ bị ẩn với Staff. | Cần quyết định Staff có quyền sửa giá/dịch vụ hay không; nếu không, phải thêm kiểm tra server-side, không chỉ ẩn menu. |
-| P1 | Timeline có nút/JS gọi `/api/bookings/add-room`, nhưng route này không xuất hiện trong URL map Flask. | Luồng thêm một phòng vào booking đã có hiện chưa hoạt động; cần hoặc triển khai endpoint + TDD, hoặc bỏ nút để tránh thao tác 404. |
-| P1 | Cập nhật trực tiếp booking/timeline và hủy hiện chỉ kiểm tra đăng nhập, trong khi dời lịch có kiểm tra Admin/Master Admin riêng. | Cần thống nhất ma trận quyền cho sửa booking, kéo-thả timeline và hủy phòng. |
+| ~~P0~~ ĐÃ XỬ LÝ 14-08 | ~~API sửa dịch vụ/luật giá chỉ cần đăng nhập~~ | Đã chốt: Staff XEM được giá/dịch vụ (tư vấn khách) nhưng mọi thao tác thêm/sửa/xóa là Admin-only, chặn server-side (`admin_required`, 403 JSON). |
+| ~~P1~~ ĐÃ XỬ LÝ 14-08 | ~~Nút add-room gọi route không tồn tại~~ | Endpoint `/api/bookings/add-room` đã triển khai thật (chống trùng lịch, snapshot giá, audit); nút Timeline hoạt động. |
+| ~~P1~~ ĐÃ CHỐT 14-08 | ~~Ma trận quyền booking chưa thống nhất~~ | Nguyên tắc đã chốt: **vận hành quầy = Staff** (tạo/sửa booking, kéo-thả, hủy có lý do, hoàn tiền), **cấu hình = Admin** (giá, dịch vụ, cấu trúc phòng); dời lịch giữ Admin/Master như thiết kế. API hết phiên trả 401 JSON. |
 | ~~P1~~ ĐÃ XỬ LÝ 14-08 | ~~Báo cáo dùng `updated_at` + trộn UTC/giờ ứng dụng~~ | Đã có `Booking.completed_at` + time service (UTC + ngày nghiệp vụ Asia/Bangkok); báo cáo/sổ quỹ lọc theo cửa sổ UTC của kỳ Bangkok. |
 | ~~P2~~ ĐÃ XỬ LÝ 14-08 | ~~Test FEFO đỏ theo lịch~~ | `deduct/validate_inventory` nhận `as_of_date` inject được; thiếu tồn không ghi partial; regression lô hết hạn/không hạn bổ sung. |
 

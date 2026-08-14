@@ -1,5 +1,12 @@
 import os
 
+from dotenv import load_dotenv
+
+# Nạp .env cho MỌI cách chạy (python app.py, script trần) — trước đây chỉ
+# Flask CLI tự nạp, khiến app rơi nhầm về SQLite khi thiếu biến môi trường.
+load_dotenv()
+
+
 
 DEVELOPMENT_SECRET = "development-only-secret-do-not-use-in-production"
 DEVELOPMENT_DATABASE_URL = "sqlite:///hotel_management_development.db"
