@@ -46,13 +46,21 @@ def get_billing_list():
         )
         
         from datetime import datetime
+        from services import time_service
+        # Loc theo NGAY nghiep vu (gio VN) doi sang cua so UTC — dong nhat voi
+        # bao cao/so quy sau chuan hoa thoi gian 14-08.
         if start_str and end_str:
-            start_date = datetime.strptime(start_str, '%Y-%m-%d').replace(hour=0, minute=0, second=0)
-            end_date = datetime.strptime(end_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
-            query = query.filter(finalized_time >= start_date, finalized_time <= end_date)
+            start_utc, end_utc = time_service.business_period_to_utc(
+                datetime.strptime(start_str, '%Y-%m-%d').date(),
+                datetime.strptime(end_str, '%Y-%m-%d').date(),
+            )
+            query = query.filter(finalized_time >= start_utc, finalized_time < end_utc)
         elif start_str:
-            start_date = datetime.strptime(start_str, '%Y-%m-%d').replace(hour=0, minute=0, second=0)
-            query = query.filter(finalized_time >= start_date)
+            start_utc, _ = time_service.business_period_to_utc(
+                datetime.strptime(start_str, '%Y-%m-%d').date(),
+                datetime.strptime(start_str, '%Y-%m-%d').date(),
+            )
+            query = query.filter(finalized_time >= start_utc)
             
         finalized_rooms = query.order_by(desc(finalized_time)).all()
         

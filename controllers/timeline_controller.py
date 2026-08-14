@@ -569,11 +569,16 @@ def create_booking():
 
         # 3. Tạo Booking (Đơn tổng)
         code = generate_booking_code()
+        allowed_sources = {'walk_in', 'phone', 'ota', 'other'}
+        source = str(data.get('source') or 'walk_in').strip().lower()
+        if source not in allowed_sources:
+            source = 'walk_in'
         new_booking = Booking(
             code=code,
             customer_id=customer_id,
             total_amount=0, # Sẽ tính sau
             prepaid_amount=deposit_amount,
+            source=source,
             note=data.get('note'),
             created_at=datetime.now()
         )
