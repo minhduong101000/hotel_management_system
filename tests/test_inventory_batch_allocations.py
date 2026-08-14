@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 from extensions import db
 from models.booking_service import BookingService
@@ -16,8 +16,11 @@ def test_consumption_and_restore_use_the_same_batches(app, seed_hotels):
         item = InventoryItem(hotel_id=hotel.id, code='WATER-LOT', name='Nước', quantity=0, service=service)
         db.session.add_all([service, item])
         db.session.flush()
-        early = inventory_batch_service.create_receipt_batch(item=item, quantity=2, received_at=date(2026, 1, 1), expires_at=date(2026, 8, 1))
-        later = inventory_batch_service.create_receipt_batch(item=item, quantity=3, received_at=date(2026, 1, 1), expires_at=date(2026, 9, 1))
+        # Ngày tương đối để test không tự đỏ khi lịch vượt qua một mốc hardcode:
+        # lô "early" hết hạn trước lô "later", cả hai còn hạn tại thời điểm chạy.
+        received = date.today() - timedelta(days=30)
+        early = inventory_batch_service.create_receipt_batch(item=item, quantity=2, received_at=received, expires_at=date.today() + timedelta(days=30))
+        later = inventory_batch_service.create_receipt_batch(item=item, quantity=3, received_at=received, expires_at=date.today() + timedelta(days=60))
         line = BookingService(hotel_id=hotel.id, booking_id=booking_room.booking_id, room_id=booking_room.room_id, service_id=service.id, quantity=3, price_at_booking=10000)
         db.session.add(line)
         db.session.flush()
@@ -70,8 +73,8 @@ def test_incremental_consumption_merges_allocation_for_the_same_batch(
         batch = inventory_batch_service.create_receipt_batch(
             item=item,
             quantity=5,
-            received_at=date(2026, 1, 1),
-            expires_at=date(2026, 12, 1),
+            received_at=date.today() - timedelta(days=30),
+            expires_at=date.today() + timedelta(days=120),
         )
         line = BookingService(
             hotel_id=hotel.id,

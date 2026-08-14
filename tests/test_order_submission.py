@@ -1,5 +1,5 @@
 from extensions import db
-from datetime import date
+from datetime import date, timedelta
 
 from models import BookingService, Service
 from models.booking_service_batch_allocation import BookingServiceBatchAllocation
@@ -264,8 +264,8 @@ def test_update_services_preserves_line_and_restores_original_batch(
     batch = inventory_batch_service.create_receipt_batch(
         item=item,
         quantity=5,
-        received_at=date(2026, 1, 1),
-        expires_at=date(2026, 12, 1),
+        received_at=date.today() - timedelta(days=30),
+        expires_at=date.today() + timedelta(days=60),
     )
     line = BookingService(
         hotel_id=hotel.id,
@@ -430,8 +430,8 @@ def test_order_failure_rolls_back_batch_allocation_and_movement(
     batch = inventory_batch_service.create_receipt_batch(
         item=item,
         quantity=2,
-        received_at=date(2026, 1, 1),
-        expires_at=date(2026, 12, 1),
+        received_at=date.today() - timedelta(days=30),
+        expires_at=date.today() + timedelta(days=60),
     )
     db.session.commit()
     receipt_movement_count = InventoryMovement.query.count()
