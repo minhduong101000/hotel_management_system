@@ -46,16 +46,23 @@ app.register_blueprint(booking_bp)
 def index():
     return redirect(url_for('room.map_view')) # Chú ý: 'room.' là tên blueprint
 
-@app.route('/init-db')
-def init_db():
+@app.cli.command('seed-admin')
+def seed_admin():
+    """Tạo tài khoản admin đầu tiên từ ADMIN_USERNAME / ADMIN_PASSWORD trong env."""
+    import os
+    username = os.environ.get('ADMIN_USERNAME', 'admin')
+    password = os.environ.get('ADMIN_PASSWORD')
+    if not password:
+        raise SystemExit('ADMIN_PASSWORD chưa được đặt trong env')
     with app.app_context():
-        db.create_all()
-        # Tạo admin mặc định nếu chưa có
-        if not User.query.filter_by(username='admin').first():
-            u = User(username='admin', password_hash=generate_password_hash('123456'), role='admin')
-            db.session.add(u)
-            db.session.commit()
-    return "Đã khởi tạo Database thành công!"
+        if User.query.filter_by(username=username).first():
+            print(f'User "{username}" đã tồn tại — bỏ qua.')
+            return
+        db.session.add(User(username=username,
+                            password_hash=generate_password_hash(password),
+                            role='admin'))
+        db.session.commit()
+        print(f'Đã tạo admin "{username}".')
 
 if __name__ == '__main__':
     app.run(debug=True)

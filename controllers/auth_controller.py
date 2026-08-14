@@ -15,13 +15,7 @@ def login():
         if user and user.check_password(password):
             login_user(user)
             return redirect(url_for('room.map_view')) # Trỏ về blueprint room
-            
-        # Demo login nhanh (nếu chưa có DB thật)
-        if username == 'admin' and password == '123456':
-            dummy_user = User(id=1, username='admin', role='admin')
-            login_user(dummy_user)
-            return redirect(url_for('room.map_view'))
-            
+
     return render_template('auth/login.html')
 
 @auth_bp.route('/logout')
