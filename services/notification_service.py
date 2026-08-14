@@ -19,24 +19,34 @@ def send_booking_notification(booking, hotel):
         print(f"Hotel {hotel.name} has no email configured. Skipping notification.")
         return
 
-    subject = f"🔔 [HOTEL] Booking mới: {hotel.name} - #{booking.id}"
-    
-    # Render template đơn giản (nếu chưa có file template, dùng chuỗi text)
-    # Vì chưa tạo file template .html riêng, ta sẽ dùng body text thuần cho nhanh và ổn định
+    subject = f"🔔 [HOTEL] Booking mới: {hotel.name} - {booking.code}"
+
+    # Thời gian/loại thuê là thuộc tính TỪNG PHÒNG (BookingRoom), không nằm
+    # trên Booking — liệt kê theo phòng để đơn đoàn cũng hiển thị đúng.
+    active_rooms = [r for r in booking.rooms if r.status != 'cancelled'] or list(booking.rooms)
+    room_lines = []
+    for br in active_rooms:
+        room_number = br.room.room_number if br.room else 'N/A'
+        rental_label = 'Theo ngày' if br.rental_type == 'daily' else 'Theo giờ'
+        check_in = br.check_in_expected.strftime('%H:%M %d/%m/%Y') if br.check_in_expected else 'Chưa xác định'
+        check_out = br.check_out_expected.strftime('%H:%M %d/%m/%Y') if br.check_out_expected else 'Chưa xác định'
+        room_lines.append(
+            f"    - Phòng {room_number} ({rental_label}): vào {check_in}, ra dự kiến {check_out}"
+        )
+
     body = f"""
     Xin chào chủ khách sạn {hotel.name},
 
     Bạn vừa có một yêu cầu đặt phòng mới từ hệ thống:
 
-    - Mã đặt phòng: #{booking.id}
+    - Mã đặt phòng: {booking.code}
     - Khách hàng: {booking.customer.name if booking.customer else 'Khách lẻ'}
-    - Loại thuê: {'Theo ngày' if booking.rental_type == 'daily' else 'Theo giờ'}
-    - Thời gian vào: {booking.check_in_time.strftime('%H:%M %d/%m/%Y')}
-    - Thời gian ra (dự kiến): {booking.check_out_expected.strftime('%H:%M %d/%m/%Y') if booking.check_out_expected else 'Chưa xác định'}
-    - Tiền cọc: {booking.deposit_amount:,.0f} VNĐ
+    - Số phòng trong đơn: {len(active_rooms)}
+{chr(10).join(room_lines)}
+    - Tiền cọc: {float(booking.prepaid_amount or 0):,.0f} VNĐ
 
     Vui lòng truy cập hệ thống quản lý để xem chi tiết.
-    
+
     ---
     Hotel POS Pro System
     """
