@@ -13,6 +13,20 @@ from services import payment_service
 
 billing_bp = Blueprint('billing', __name__)
 
+
+def _effective_refunds_data(booking):
+    """Cac dong hoan con hieu luc cho hoa don khach (cap sai/dao da triet tieu)."""
+    return [
+        {
+            'amount': abs(float(p.amount or 0)),
+            'method': p.payment_method,
+            'time': p.created_at.strftime('%d/%m/%Y %H:%M') if p.created_at else '',
+            'note': p.note or '',
+        }
+        for p in payment_service.effective_payments(booking)
+        if p.payment_type == 'refund'
+    ]
+
 @billing_bp.route('/billing')
 @login_required
 def index():
@@ -151,7 +165,9 @@ def get_billing_detail(entry_id):
                     return jsonify({
                         'success': True,
                         'data': {
-                            'code': f"{booking.code}-R{room_number}",
+                            'booking_id': booking.id,
+                            'booking_id': booking.id,
+                    'code': f"{booking.code}-R{room_number}",
                             'customer': booking.customer.name if booking.customer else 'Khách vãng lai',
                             'rooms': rooms_data,
                             'services': services_data,
@@ -161,6 +177,7 @@ def get_billing_detail(entry_id):
                             'prepaid_amount': float(cancellation_detail.get('original_deposit', 0) or 0),
                             'final_payment': -float(cancellation_detail.get('refund_amount', 0) or 0),
                             'note': booking.note or '',
+                            'refunds': _effective_refunds_data(booking),
                             'cancellation_detail': cancellation_detail
                         }
                     })
@@ -246,6 +263,7 @@ def get_billing_detail(entry_id):
                     'prepaid_amount': float(cancellation_detail.get('original_deposit', 0) or 0) if br.status == 'cancelled' else max(total_amount - cash_received, 0),
                     'final_payment': -float(cancellation_detail.get('refund_amount', 0) or 0) if br.status == 'cancelled' else cash_received,
                     'note': booking.note or '',
+                    'refunds': _effective_refunds_data(booking),
                     'cancellation_detail': cancellation_detail
                 }
             })
@@ -286,22 +304,12 @@ def get_billing_detail(entry_id):
         cash_received = sum(float(p.amount or 0) for p in booking.payments)
         tax_amount = sum(float(p.amount or 0) for p in booking.payments if p.payment_type == 'tax_payment')
 
-        # Hóa đơn khách chỉ hiển thị các dòng hoàn còn hiệu lực —
-        # cặp hoàn-sai/bút-toán-đảo đã triệt tiêu không in ra (sổ quỹ nội bộ vẫn giữ đủ).
-        refunds_data = [
-            {
-                'amount': abs(float(p.amount or 0)),
-                'method': p.payment_method,
-                'time': p.created_at.strftime('%d/%m/%Y %H:%M') if p.created_at else '',
-                'note': p.note or '',
-            }
-            for p in payment_service.effective_payments(booking)
-            if p.payment_type == 'refund'
-        ]
+        refunds_data = _effective_refunds_data(booking)
 
         return jsonify({
             'success': True,
             'data': {
+                'booking_id': booking.id,
                 'code': booking.code,
                 'customer': booking.customer.name if booking.customer else 'Khách vãng lai',
                 'rooms': rooms_data,

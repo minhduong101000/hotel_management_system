@@ -26,6 +26,10 @@ class RefundError(ValueError):
     """Yêu cầu hoàn tiền không hợp lệ; không có mutation nào được ghi."""
 
 
+class RefundCapExceeded(RefundError):
+    """Số tiền hoàn vượt trần cứng (tiền ròng đang giữ của booking)."""
+
+
 def _money(value) -> Decimal:
     return Decimal(str(value or 0)).quantize(MONEY_QUANTUM, rounding=ROUND_HALF_UP)
 
@@ -206,7 +210,7 @@ def create_refund(
     if refund_amount <= 0:
         raise RefundError("Số tiền hoàn phải lớn hơn 0.")
     if refund_amount > quote["cap"]:
-        raise RefundError(
+        raise RefundCapExceeded(
             "Số tiền hoàn vượt quá tiền đang giữ của đơn "
             f"(tối đa {quote['cap']:,.0f} đ)."
         )

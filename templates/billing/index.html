@@ -153,8 +153,13 @@
                     <div class="center muted">{{ config.HOTEL_NAME }}</div>
                 </div>
             </div>
+            <div id="md-refunds-section" class="px-3 pb-2" style="display:none;">
+                <h6 class="fw-bold small mb-1">Hoàn tiền</h6>
+                <table class="table table-sm mb-0"><tbody id="md-refunds-body"></tbody></table>
+            </div>
             <div class="modal-footer bg-light">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-outline-danger" id="btn-open-refund" onclick="openRefundModal()"><i class="fas fa-rotate-left me-2" aria-hidden="true"></i>Hoàn tiền</button>
                 <button type="button" class="btn btn-outline-primary" onclick="window.print()"><i class="fas fa-print me-2"></i>In Hóa Đơn</button>
             </div>
         </div>
@@ -338,6 +343,8 @@ function viewDetail(id) {
         .then(data => {
             if (!data.success) { alert(data.msg); return; }
             fillModal(data.data);
+            window.currentRefundBooking = data.data.booking_id;
+            renderRefunds(data.data.refunds || []);
             bootstrap.Modal.getOrCreateInstance(document.getElementById('invoiceModal')).show();
         });
 }
@@ -521,4 +528,84 @@ function fillModal(info) {
     margin-top: 4px;
 }
 </style>
+
+<!-- ============ MODAL HOÀN TIỀN (chính sách 14-08-2026) ============ -->
+<div class="modal fade" id="refundModal" tabindex="-1" aria-labelledby="refundModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="refundModalLabel">Hoàn tiền cho khách</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row text-center mb-3 small">
+                    <div class="col-4">
+                        <div class="text-muted">Đã thu</div>
+                        <div class="fw-bold" id="refund-cap">—</div>
+                    </div>
+                    <div class="col-4">
+                        <div class="text-muted">Giá trị cơ sở</div>
+                        <div class="fw-bold" id="refund-base-value">—</div>
+                    </div>
+                    <div class="col-4">
+                        <div class="text-muted">Đã hoàn trước đó</div>
+                        <div class="fw-bold" id="refund-already">—</div>
+                    </div>
+                </div>
+
+                <fieldset class="mb-3">
+                    <legend class="form-label small fw-bold mb-1">Cơ sở tính</legend>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="refund-base" id="refund-base-unused" value="unused" checked>
+                        <label class="form-check-label" for="refund-base-unused">Phần chưa sử dụng (số đêm còn lại)</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="refund-base" id="refund-base-total" value="total">
+                        <label class="form-check-label" for="refund-base-total">Toàn bộ hóa đơn</label>
+                    </div>
+                </fieldset>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <label class="form-label small fw-bold" for="refund-percent-input">Phần trăm hoàn (%)</label>
+                        <input type="number" min="1" max="100" class="form-control" id="refund-percent-input" placeholder="VD: 50">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small fw-bold" for="refund-amount-input">Hoặc số tiền (đ)</label>
+                        <input type="number" min="1" class="form-control" id="refund-amount-input" placeholder="VD: 350000">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small fw-bold" for="refund-method">Phương thức hoàn</label>
+                    <select class="form-select" id="refund-method">
+                        <option value="cash" selected>Tiền mặt</option>
+                        <option value="banking">Chuyển khoản</option>
+                        <option value="credit_card">Thẻ</option>
+                        <option value="qr_code">QR</option>
+                        <option value="other">Khác</option>
+                    </select>
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label small fw-bold" for="refund-reason-input">Lý do hoàn tiền <span aria-hidden="true">*</span></label>
+                    <textarea class="form-control" id="refund-reason-input" rows="2" required placeholder="Nhập lý do để đối soát..."></textarea>
+                </div>
+
+                <div id="refund-error" role="alert" aria-live="assertive" class="text-danger small mb-2"></div>
+
+                <p class="mb-0 small text-muted">Sẽ hoàn: <strong id="refund-preview-amount">—</strong>.
+                Server sẽ tính lại và chặn nếu vượt số tiền đang giữ của đơn.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy bỏ</button>
+                <button type="button" class="btn btn-danger" id="btn-confirm-refund" onclick="submitRefund()">
+                    Xác nhận hoàn <span id="refund-confirm-amount"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/refund.js') }}"></script>
 {% endblock %}
