@@ -40,8 +40,23 @@ def create_app(test_config=None, environment=None):
     register_commands(app)
 
     # --- [QUAN TRỌNG] CẤU HÌNH LOGIN MANAGER ---
-    login_manager.login_view = 'auth.login' 
+    login_manager.login_view = 'auth.login'
     login_manager.login_message = "Vui lòng đăng nhập để tiếp tục."
+
+    @login_manager.unauthorized_handler
+    def handle_unauthorized():
+        # API hết phiên phải nhận JSON 401 để JS xử lý được — 302 HTML từng
+        # khiến nút bấm "chết im lặng" khi session hết hạn (chính sách 14-08).
+        if '/api/' in request.path or request.is_json:
+            return jsonify(
+                success=False,
+                error_code='unauthenticated',
+                msg='Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+            ), 401
+        hotel_slug = getattr(g, 'hotel_slug', None)
+        if hotel_slug:
+            return redirect(url_for('auth.login', hotel_slug=hotel_slug, next=request.path))
+        return redirect(url_for('auth.login', hotel_slug='central', next=request.path))
 
     @login_manager.user_loader
     def load_user(user_uniquifier):

@@ -88,3 +88,15 @@ def test_staff_html_admin_page_still_redirects(app, seed_hotels, client, login_a
         login_as(client, staff)
         page = client.get(f"/{hotel.slug}/expenses/expenses")
         assert page.status_code == 302  # hành vi HTML giữ nguyên: flash + redirect
+
+
+def test_unauthenticated_api_gets_401_json(app, seed_hotels, client):
+    hotel, _, _, _, _, _ = seed_hotels
+    with app.app_context():
+        api_response = client.get(f"/{hotel.slug}/rooms/api/rooms")
+        assert api_response.status_code == 401
+        assert api_response.json["error_code"] == "unauthenticated"
+
+        html_response = client.get(f"/{hotel.slug}/billing/billing")
+        assert html_response.status_code == 302
+        assert "/login" in html_response.headers["Location"]
