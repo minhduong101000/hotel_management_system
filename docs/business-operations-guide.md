@@ -146,7 +146,8 @@ Master Admin chịu trách nhiệm cấp hệ thống:
 - Mở chi tiết để sửa thông tin khách, thời gian, phòng, ghi chú và dịch vụ.
 - Kéo/thả hoặc kéo giãn booking có API cập nhật lịch; thao tác dời lịch chính thức có bước kiểm tra phòng trống, lý do, tùy chọn giữ giá/áp dụng giá mới và chỉ Admin/Master Admin được gọi.
 - Check-in, xem/in billing đoàn, gọi dịch vụ và checkout đoàn từ chi tiết booking.
-- Hủy chỉ áp dụng với phòng `booked`; UI/API cũ hiện có tỷ lệ hoàn và cờ bất khả kháng, nhưng nghiệp vụ này sẽ được thay thế theo [spec xử lý bất khả kháng](superpowers/specs/2026-08-14-financial-time-and-inventory-remediation-design.md).
+- Hủy chỉ áp dụng với phòng `booked`; hủy luôn hoàn 0 đ và không còn nhận tỷ lệ hoàn từ client (14-08).
+- **Hoàn tiền** là thao tác riêng từ chi tiết hóa đơn: nhập % theo *phần chưa sử dụng* hoặc *toàn bộ hóa đơn* (hoặc số tiền), server hiển thị Đã thu / Giá trị cơ sở / Đã hoàn và chặn cứng không vượt tiền đang giữ; nhập sai sửa bằng **bút toán đảo** — bill khách chỉ hiện dòng hiệu lực, sổ quỹ giữ đủ.
 
 ### 3.4. Khách hàng
 
@@ -234,7 +235,7 @@ Khi dịch vụ có liên kết vật tư, hệ thống ưu tiên xuất theo FE
 - Xem doanh thu hóa đơn phòng, thực thu ròng, tổng chi không gồm void và lợi nhuận dự tính.
 - Biểu đồ doanh thu/chi phí, tỷ lệ lấp đầy theo ngày, top phòng theo doanh thu và số booking hoàn tất.
 - Báo cáo chỉ lấy dữ liệu tenant hiện tại.
-- Quy ước thời gian của báo cáo hiện cần chuẩn hóa theo UTC/Bangkok; hạng mục này nằm trong [spec remediation](superpowers/specs/2026-08-14-financial-time-and-inventory-remediation-design.md).
+- Kỳ báo cáo chọn theo ngày Việt Nam (Asia/Bangkok) và truy vấn theo cửa sổ UTC tương ứng; số booking hoàn tất đếm theo `completed_at` (14-08).
 
 ### 3.12. Thu ngân / Sổ quỹ
 
@@ -315,12 +316,12 @@ Khi dịch vụ có liên kết vật tư, hệ thống ưu tiên xuất theo FE
 
 | Ưu tiên | Phát hiện | Tác động/nghiệp vụ cần chốt |
 |---|---|---|
-| P0 | Checkout đoàn hiện tự tạo refund khi cọc lớn hơn hóa đơn (`balance < 0`). Hủy phòng cũ cho client gửi trực tiếp `is_force_majeure` và `refund_percent`. | Không phù hợp chính sách đã thống nhất. Chỉ hoàn tiền qua case bất khả kháng được phê duyệt, có thể xảy ra sau khi khách đã ở một phần kỳ. Xem [spec remediation](superpowers/specs/2026-08-14-financial-time-and-inventory-remediation-design.md). |
+| ~~P0~~ ĐÃ XỬ LÝ 14-08 | ~~Checkout đoàn tự tạo refund; hủy phòng cho client gửi `refund_percent`~~ | Đã thay bằng luồng hoàn tiền nhập trực tiếp có lưới an toàn (form Hoàn tiền, trần cứng server-side, bút toán đảo). Xem [spec remediation](superpowers/specs/2026-08-14-financial-time-and-inventory-remediation-design.md). |
 | P0 | API tạo/sửa/xóa **dịch vụ** và tạo/sửa/xóa **luật giá** hiện chỉ yêu cầu đăng nhập, trong khi menu Dịch vụ bị ẩn với Staff. | Cần quyết định Staff có quyền sửa giá/dịch vụ hay không; nếu không, phải thêm kiểm tra server-side, không chỉ ẩn menu. |
 | P1 | Timeline có nút/JS gọi `/api/bookings/add-room`, nhưng route này không xuất hiện trong URL map Flask. | Luồng thêm một phòng vào booking đã có hiện chưa hoạt động; cần hoặc triển khai endpoint + TDD, hoặc bỏ nút để tránh thao tác 404. |
 | P1 | Cập nhật trực tiếp booking/timeline và hủy hiện chỉ kiểm tra đăng nhập, trong khi dời lịch có kiểm tra Admin/Master Admin riêng. | Cần thống nhất ma trận quyền cho sửa booking, kéo-thả timeline và hủy phòng. |
-| P1 | Báo cáo dùng `Booking.updated_at` làm mốc completed và đang trộn mốc UTC từ database với giờ Bangkok của ứng dụng. | Có thể sai số booking hoàn tất quanh biên ngày. Spec remediation đề xuất `completed_at` và kỳ báo cáo chuyển sang UTC. |
-| P2 | Test FEFO dùng hạn đã qua so với ngày chạy nên đỏ không ổn định. | Không đổi quy tắc FEFO; cần inject/fix ngày nghiệp vụ trong test để kiểm thử lô còn hạn/quá hạn xác định. |
+| ~~P1~~ ĐÃ XỬ LÝ 14-08 | ~~Báo cáo dùng `updated_at` + trộn UTC/giờ ứng dụng~~ | Đã có `Booking.completed_at` + time service (UTC + ngày nghiệp vụ Asia/Bangkok); báo cáo/sổ quỹ lọc theo cửa sổ UTC của kỳ Bangkok. |
+| ~~P2~~ ĐÃ XỬ LÝ 14-08 | ~~Test FEFO đỏ theo lịch~~ | `deduct/validate_inventory` nhận `as_of_date` inject được; thiếu tồn không ghi partial; regression lô hết hạn/không hạn bổ sung. |
 
 ## 6. Ngoài phạm vi hiện tại
 
