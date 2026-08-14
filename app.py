@@ -17,10 +17,10 @@ from controllers.setting_controller import setting_bp
 from controllers.price_controller import price_bp
 from controllers.booking_controller import booking_bp
 
+from config import get_config
+
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'luxury-secret-key'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:123456@localhost/Hotel_Management_System'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config.from_object(get_config())
 
 # 1. Init Extensions
 db.init_app(app)
