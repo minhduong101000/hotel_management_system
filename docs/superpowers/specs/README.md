@@ -22,7 +22,7 @@ File điều phối toàn bộ đợt refactor. **Mọi việc cần làm đều
 | # | Spec | Phạm vi | Ước tính | Phụ thuộc | Trạng thái |
 |---|------|---------|----------|-----------|------------|
 | P0 | [Đóng băng hiện trạng](2026-08-14-p0-freeze-baseline-design.md) | Pin deps, tag git, checklist smoke thủ công · [plan](../plans/2026-08-14-p0-freeze-baseline.md) | 0,5 ngày | — | ✅ Xong 14/08/2026 |
-| P1 | [Config + Docker + Vá bảo mật](2026-08-14-p1-config-docker-security-design.md) | Config class, `.env`, compose, migration đầu (đổi tên bảng), 4 vá bảo mật | 2 ngày | P0 | ⬜ Chưa làm |
+| P1 | [Config + Docker + Vá bảo mật](2026-08-14-p1-config-docker-security-design.md) | Config class, `.env`, compose, migration đầu (đổi tên bảng), 4 vá bảo mật | 2 ngày | P0 | ✅ Xong 14/08/2026 |
 | P2 | [Application Factory + Smoke test](2026-08-14-p2-app-factory-design.md) | `create_app()`, export đủ model, smoke test url_map | 1 ngày + 2h | P1 | ⬜ Chưa làm |
 | P3 | [Tổ chức lại thư mục](2026-08-14-p3-folder-restructure-design.md) | Package `app/`, tách api/views/services, handler 401, errors tập trung | 2 ngày | P2 | ⬜ Chưa làm |
 | P4 | [Bộ khung test](2026-08-14-p4-test-harness-design.md) | pytest, fixture, test pricing + luồng booking | 2 ngày | P3 | ⬜ Chưa làm |

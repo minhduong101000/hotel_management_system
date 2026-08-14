@@ -48,7 +48,7 @@ Tất cả xác minh ngày 14/08/2026 trên baseline (live = chạy thật; code
 | B2 | Sau checkout: tiền biến mất | live: `payments` 0 dòng, `total_amount=0.00`, booking kẹt `checked_in` sau khi đã trả phòng | không ghi sổ + gán vào thuộc tính không phải cột (SDD 6.4, Spec P5 lát 1) |
 | B3 | Sửa dịch vụ 1 phòng trong đoàn xóa dịch vụ mọi phòng cùng đơn | code: `update_services` xóa theo `booking_id` (booking_controller.py:434); `update_service_quantity` cũng thiếu `room_id` | thiếu lọc `room_id` (SDD 6.5) |
 | B4 | PriceRule không điền ngày không bao giờ được áp | live: rule không ngày priority 10 giá 999.999 bị bỏ qua, search vẫn ra rule thường 600.000 | so sánh NULL (SDD 6.1) |
-| B5 | `/api/customers` gọi được KHÔNG cần đăng nhập | live: 200 không cookie | thiếu `@login_required` (Spec P1 vá) |
-| B6 | Backdoor đăng nhập `admin/123456` trong code | code: auth_controller.py:20–23 (runtime không phân biệt được vì admin seed trùng đúng mật khẩu này) | backdoor demo (Spec P1 vá) |
+| B5 | `/api/customers` gọi được KHÔNG cần đăng nhập | live: 200 không cookie | thiếu `@login_required` (Spec P1 vá) — **FIXED P1 (14/08/2026): nay trả 302** |
+| B6 | Backdoor đăng nhập `admin/123456` trong code | code: auth_controller.py:20–23 (runtime không phân biệt được vì admin seed trùng đúng mật khẩu này) | backdoor demo (Spec P1 vá) — **FIXED P1 (14/08/2026): đã xóa; admin/123456 bị từ chối trên DB mới** |
 | B7 | Hết session: nút gọi API im lặng, màn hình trống | live: `GET /api/rooms` sau logout → 302 HTML thay vì 401 JSON | login_view áp cho cả API (Spec P3 sửa) |
 | B8 | `/billing`, `/warehouse`, `/staff/shifts`, `/reports/revenue`, `/settings` | live: cả 5 trả 200 nhưng nội dung tĩnh | màn hình dữ liệu cứng (Backlog) |
