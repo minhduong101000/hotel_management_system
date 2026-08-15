@@ -165,7 +165,21 @@ function renderTimeline() {
     const options = {
         groupOrder: 'content', orientation: 'top', stack: true, zoomKey: 'ctrlKey', minHeight: '550px',
         start: range.start, end: range.end, locale: 'vi',
-        tooltip: { followMouse: true, overflowMethod: 'cap' }
+        tooltip: { followMouse: true, overflowMethod: 'cap' },
+        // vis 8.x mac dinh tước class/style khoi content HTML (XSS filter) —
+        // lam chet toan bo he chip (tl-name, badge, icon). Content do SERVER
+        // sinh; van giu filter, chi whitelist the + attr can cho chip design.
+        xss: {
+            disabled: false,
+            filterOptions: {
+                whiteList: {
+                    i: ['class'],
+                    span: ['class', 'title'],
+                    strong: ['class'],
+                    br: [],
+                },
+            },
+        },
     };
 
     if (timeline) timeline.destroy();

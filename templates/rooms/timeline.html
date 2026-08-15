@@ -1,7 +1,7 @@
 {% extends "layouts/base.html" %}
 
 {% block content %}
-<link href="https://unpkg.com/vis-timeline/styles/vis-timeline-graph2d.min.css" rel="stylesheet" type="text/css" />
+<link href="https://unpkg.com/vis-timeline@8.5.4/styles/vis-timeline-graph2d.min.css" rel="stylesheet" type="text/css" />
 
 <div class="container-fluid p-4">
     <div class="timeline-header timeline-page-heading mb-3">
@@ -441,7 +441,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="https://unpkg.com/vis-timeline/standalone/umd/vis-timeline-graph2d.min.js"></script>
+<script src="https://unpkg.com/vis-timeline@8.5.4/standalone/umd/vis-timeline-graph2d.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 <script src="{{ url_for('static', filename='js/qr_scanner.js') }}"></script>
 <script src="{{ url_for('static', filename='js/timeline_manager.js') }}"></script>

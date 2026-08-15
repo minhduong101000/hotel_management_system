@@ -2275,3 +2275,85 @@ body.login-page {
 @media (max-width: 576px) {
     select.form-select, .form-select-sm { font-size: 16px; }
 }
+
+/* ================================================================
+   TIMELINE REDESIGN 15-08 — nhịp thở, trục thời gian, bóng cuối tuần
+   ================================================================ */
+
+/* Khung tổng: bo góc mềm, viền nhạt */
+.vis-timeline {
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 12px;
+    font-family: inherit;
+}
+
+/* Cột phòng bên trái: nền riêng, chữ có tầng bậc, kẻ phải rõ */
+.vis-panel.vis-left { border-right: 2px solid #e2e8f0 !important; }
+.vis-labelset .vis-label {
+    display: flex;
+    align-items: center;
+    padding-left: 14px;
+    border-bottom: 1px solid #eef2f7 !important;
+}
+.vis-labelset .vis-label .vis-inner { padding: 0; }
+.vis-labelset .vis-label strong { font-size: 15px; color: #0f172a; letter-spacing: .01em; }
+.vis-labelset .vis-label span { color: #94a3b8 !important; }
+
+/* Trục thời gian: ngày đậm - giờ nhạt, thoáng hơn */
+.vis-time-axis .vis-text.vis-major {
+    font-weight: 700;
+    color: #0f172a;
+    padding: 4px 0 2px 8px;
+    font-size: 12.5px;
+}
+.vis-time-axis .vis-text.vis-minor {
+    color: #94a3b8;
+    font-size: 11px;
+}
+
+/* Bóng cuối tuần: nhận biết T7/CN không cần đọc chữ */
+.vis-time-axis .vis-text.vis-saturday,
+.vis-time-axis .vis-text.vis-sunday { color: #b45309; font-weight: 600; }
+.vis-panel.vis-center .vis-grid.vis-saturday,
+.vis-panel.vis-center .vis-grid.vis-sunday { background: rgba(245, 158, 11, 0.055); }
+
+/* Hàng phòng cao hơn — bar không còn lép */
+.vis-itemset .vis-group { min-height: 56px; }
+.vis-item {
+    border-radius: 10px !important;
+    font-size: 12.5px;
+}
+.vis-item .vis-item-content { padding: 7px 12px; }
+
+/* Đường "bây giờ": đỏ có chấm đầu, dễ bắt mắt hơn sợi chỉ */
+.vis-current-time {
+    background: linear-gradient(180deg, #ef4444, rgba(239, 68, 68, .55)) !important;
+    box-shadow: 0 0 6px rgba(239, 68, 68, .35);
+}
+.vis-current-time::before {
+    content: '';
+    position: absolute;
+    top: -3px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #ef4444;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, .2);
+}
+
+/* Vùng chọn kéo tạo booking: xanh brand thay mặc định */
+.vis-timeline .vis-shadow { background: rgba(13, 148, 136, .12); }
+
+/* Chip: ten co gian dung chuan flex, badge khong de len ten */
+.vis-item .vis-item-content { min-width: 0; }
+.vis-item .tl-name { flex: 1 1 auto; min-width: 0; }
+.vis-item .tl-badge-danger { flex: none; animation: none; }
+.vis-item .tl-group-badge { flex: none; }
+
+/* CDN vis css load SAU style.css nen can !important cho layout chip */
+.vis-item .vis-item-content {
+    display: flex !important;
+    padding: 7px 12px !important;
+}
