@@ -109,6 +109,10 @@ jobs:
         env:
           BROWSER_BASE_URL: http://127.0.0.1:8000
           BROWSER_ADMIN_PASSWORD: ci-admin-password-12
+          # pytest tren runner import app -> khong duoc dinh .env production
+          # cua stack (os.environ thang load_dotenv)
+          APP_ENV: development
+          DATABASE_URL: "sqlite://"
         run: python -m pytest -m browser -q
 
       - name: Logs khi fail
