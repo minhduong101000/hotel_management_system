@@ -54,6 +54,9 @@ def guarded_page(page, base):
             bad_responses.append(f"{response.status} {response.url}")
 
     page.on("response", _on_response)
+    # Cho phep fixture seed reset guard sau giai doan chuan bi (retry 409 chu dich)
+    page.guard_console = console_errors
+    page.guard_responses = bad_responses
     yield page
     assert not console_errors, f"Lỗi console trong phiên: {console_errors}"
     assert not bad_responses, f"Request lỗi trong phiên: {bad_responses}"
@@ -199,6 +202,9 @@ def seeded(admin_page, base):
         for item in timeline["items"]
         if item["group"] == room_a_id and item["start"].startswith(check_in_date)
     )
+    # Seed xong: xoa vet retry/409 chu dich — guard chi cham diem hanh vi TEST
+    page.guard_console.clear()
+    page.guard_responses.clear()
     return {
         "booking_id": booking_id,
         "code": body["code"],
