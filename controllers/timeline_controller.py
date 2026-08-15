@@ -184,7 +184,12 @@ def get_timeline():
     for r in rooms:
         # Hiển thị số phòng và loại phòng bên cột trái
         content = f'<strong>{r.room_number}</strong> <br><span style="color:#888; font-size:11px">{r.room_type}</span>'
-        groups.append({'id': r.id, 'content': content, 'room_number': r.room_number})
+        groups.append({
+            'id': r.id,
+            'content': content,
+            'room_number': r.room_number,
+            'room_type': r.room_type,
+        })
 
     # B. ITEMS: Danh sách BookingRoom (Chi tiết xếp phòng)
     # Load kèm Booking và Customer để lấy tên hiển thị
@@ -230,6 +235,7 @@ def get_timeline():
         style = ''
         content = ''
         css_class = ''
+        is_overstay = False
         cus_name = b.customer.name if (b.customer) else "Khách lẻ"
         group_badge = f'<span class="tl-group-badge" title="Đoàn {room_count} phòng"><i class="fas fa-users"></i></span> ' if is_group else ''
         
@@ -300,7 +306,12 @@ def get_timeline():
             'is_group': is_group,
             'status': br.status,
             'booking_status': b.status,
-            'is_finalized': is_finalized
+            'is_finalized': is_finalized,
+            # Field cấu trúc cho lưới tự vẽ (spec 15-08) — không parse HTML content
+            'customer_name': cus_name,
+            'rental_type': br.rental_type or 'daily',
+            'room_count': room_count,
+            'is_overstay': is_overstay
         })
 
     return jsonify({'groups': groups, 'items': items})
