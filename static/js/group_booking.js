@@ -138,22 +138,20 @@ function renderRoomList(groupedData) {
             }
 
             // Xử lý hiển thị giá và màu sắc nếu là ngày lễ/cuối tuần
-            let priceDisplay = `<div class="small text-muted">${room.price}đ</div>`;
-            let cardClass = "border-secondary";
-            let bgClass = "";
+            let priceDisplay = `<div class="small pos-room-card__price">${room.price}đ</div>`;
+            let specialClass = "";
 
             if (room.is_special) {
-                priceDisplay = `<div class="small text-danger fw-bold">${room.price}đ <i class="fas fa-star" style="font-size: 8px;"></i></div>`;
-                cardClass = "border-warning"; 
-                bgClass = "bg-warning bg-opacity-10";
+                priceDisplay = `<div class="small text-danger fw-bold">${room.price}đ <i class="fas fa-star" style="font-size: 8px;" aria-hidden="true"></i></div>`;
+                specialClass = " pos-room-card--special";
             }
 
             // Thêm data-price="${rawPriceNum}" vào checkbox và onchange event
             html += `
                 <div class="col-6 col-md-4 col-lg-3">
                     <input type="checkbox" class="btn-check room-checkbox" id="gr_room_${room.id}" value="${room.id}" data-price="${rawPriceNum}" onchange="handleRoomSelectionChange()" autocomplete="off">
-                    <label class="btn btn-outline-secondary w-100 p-2 d-flex flex-column justify-content-center align-items-center h-100 ${cardClass} ${bgClass}" for="gr_room_${room.id}">
-                        <span class="fw-bold fs-5 text-dark">${room.number}</span>
+                    <label class="pos-room-card${specialClass}" for="gr_room_${room.id}">
+                        <span class="fw-bold" style="font-size: 15px;">${room.number}</span>
                         ${priceDisplay}
                     </label>
                 </div>
@@ -176,7 +174,17 @@ function handleRoomSelectionChange() {
     let selectedCheckboxes = document.querySelectorAll('.room-checkbox:checked');
     let hint = document.getElementById('group-deposit-hint');
     let depositInput = document.getElementById('group_total_deposit'); // ID ô input tiền cọc trong HTML của bạn
-    
+
+    // Dòng tóm tắt cạnh tiêu đề "Phòng trống" (thiết kế 15-08)
+    const summary = document.getElementById('group-selection-summary');
+    if (summary) {
+        const totalPrice = Array.from(selectedCheckboxes)
+            .reduce((sum, cb) => sum + (parseInt(cb.dataset.price, 10) || 0), 0);
+        summary.textContent = selectedCheckboxes.length
+            ? `Đã chọn ${selectedCheckboxes.length} phòng · ${totalPrice.toLocaleString('vi-VN')} đ/đêm`
+            : '';
+    }
+
     if (selectedCheckboxes.length > 0) {
         selectedGroupDepositRatio = null;
         currentGroupBookingQuote = null;

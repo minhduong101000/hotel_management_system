@@ -1,13 +1,13 @@
 <!-- Đọc QR CCCD: ưu tiên tải ảnh trên desktop, camera là phương án phụ. -->
 <div class="modal fade" id="qrScannerModal" tabindex="-1" data-bs-backdrop="static" aria-labelledby="qr-scanner-title" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered operation-modal">
+    <div class="modal-dialog modal-dialog-centered operation-modal pos-modal">
         <div class="modal-content">
-            <div class="modal-header bg-dark text-white">
+            <div class="modal-header">
                 <div>
-                    <h5 class="modal-title" id="qr-scanner-title"><i class="fas fa-id-card me-2"></i>Đọc QR CCCD</h5>
-                    <p class="mb-0 small text-white-50">Tải ảnh CCCD để điền nhanh thông tin khách.</p>
+                    <h5 class="modal-title" id="qr-scanner-title">Đọc QR CCCD</h5>
+                    <div class="pos-subtitle">Tải ảnh CCCD để điền nhanh thông tin khách</div>
                 </div>
-                <button type="button" class="btn-close btn-close-white" aria-label="Đóng" onclick="closeQRScanner()"></button>
+                <button type="button" class="btn-close" aria-label="Đóng" onclick="closeQRScanner()"></button>
             </div>
             <div class="modal-body qr-import-modal-body">
                 <input class="visually-hidden" type="file" id="qr-image-input" accept="image/png,image/jpeg,image/webp" onchange="handleQRImageUpload(this)">
