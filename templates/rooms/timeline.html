@@ -164,7 +164,11 @@
                     <button type="button" class="btn btn-sm btn-outline-dark fw-bold" onclick="openBookingDetailModal()" title="Xem chi tiết hóa đơn">
                         <i class="fas fa-clipboard-list"></i> Chi tiết
                     </button>
-                    
+
+                    <button type="button" id="btn-add-room" class="btn btn-sm btn-outline-success fw-bold" onclick="addRoomToExistingBooking()" title="Thêm một phòng nữa vào cùng đơn này">
+                        <i class="fas fa-plus" aria-hidden="true"></i> Thêm phòng vào đơn
+                    </button>
+
                     <button type="button" id="btn-checkin-timeline" class="btn btn-sm btn-primary fw-bold" style="display: none;" onclick="performCheckInFromTimeline()">
                         <i class="fas fa-sign-in-alt"></i> Nhận phòng
                     </button>
