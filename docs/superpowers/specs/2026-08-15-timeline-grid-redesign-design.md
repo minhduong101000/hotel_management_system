@@ -1,5 +1,9 @@
 # Spec: Redesign màn Timeline theo bản thiết kế 15-08-2026
 
+> **ĐÃ TRIỂN KHAI 15-08-2026** — nghiệm thu: 434 unit + 12 mysql + 4 browser
+> xanh; screenshot đối chiếu mockup khớp; bỏ hẳn phụ thuộc unpkg vis-timeline.
+> Bonus: sửa bug có sẵn /api/rooms/search (NameError) lộ ra khi nghiệm thu.
+
 **Nguồn thiết kế:** file "Thiết kế lại timeline.zip" của chủ khách sạn (mockup
 `Timeline phòng.dc.html`, 9 màn). **Nguyên tắc bất di bất dịch:** chỉ đổi lớp
 hiển thị — giữ nguyên toàn bộ logic, endpoint, luồng thao tác, ID phần tử và
