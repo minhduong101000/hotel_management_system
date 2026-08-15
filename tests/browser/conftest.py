@@ -18,6 +18,15 @@ BASE = os.environ.get("BROWSER_BASE_URL", "").rstrip("/")
 SLUG = os.environ.get("BROWSER_HOTEL_SLUG", "central")
 
 
+def pytest_ignore_collect(collection_path, config):
+    """Thiếu BROWSER_BASE_URL -> bỏ qua collect cả thư mục.
+
+    Nhờ đó job CI unit (không cài playwright) không lỗi thiếu fixture `page`,
+    và bộ test thường không tốn một mili giây nào cho browser suite.
+    """
+    return not BASE
+
+
 @pytest.fixture(scope="session")
 def base():
     if not BASE:

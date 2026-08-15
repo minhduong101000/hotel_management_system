@@ -47,3 +47,70 @@ jobs:
           # job này — không phải secret. Fixture cần user có quyền
           # CREATE/DROP DATABASE để sinh DB tạm hotel_test_<hex>.
           TEST_MYSQL_DATABASE_URL: mysql+pymysql://root:ci-testroot@127.0.0.1:3306/hotel_test
+
+  docker-smoke:
+    name: "Docker build + browser smoke"
+    runs-on: ubuntu-latest
+    env:
+      COMPOSE: docker compose -f docker-compose.yml -f docker-compose.ci.yml
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tạo .env cho CI (giá trị dùng một lần, không phải secrets thật)
+        run: |
+          cat > .env <<EOF
+          APP_ENV=production
+          SECRET_KEY=$(openssl rand -hex 32)
+          MYSQL_ROOT_PASSWORD=ci-root-pass
+          MYSQL_DATABASE=hotel
+          MYSQL_USER=hotel
+          MYSQL_PASSWORD=ci-db-pass
+          SESSION_COOKIE_SECURE=false
+          DOMAIN=
+          EOF
+
+      - name: Build image production
+        run: $COMPOSE build web
+
+      - name: Boot db + migrate + web
+        run: $COMPOSE up -d db migrate web
+
+      - name: Chờ web healthy (≤120s)
+        run: |
+          for i in $(seq 1 60); do
+            status=$($COMPOSE ps -q web | xargs docker inspect -f '{{.State.Health.Status}}' 2>/dev/null || echo none)
+            [ "$status" = "healthy" ] && exit 0
+            sleep 2
+          done
+          $COMPOSE logs migrate web --tail 100
+          exit 1
+
+      - name: Seed tài khoản smoke
+        run: |
+          $COMPOSE exec -T web flask create-hotel --name 'CI Hotel' --slug central || true
+          $COMPOSE exec -T -e APP_ENV=development web             flask seed-development --hotel-slug central               --admin-password ci-admin-password-12               --staff-password ci-staff-password-12
+
+      - name: Smoke HTTP
+        run: |
+          curl -fsS http://127.0.0.1:8000/healthz
+          curl -fsS -o /dev/null http://127.0.0.1:8000/central/login
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Cài phụ thuộc + chromium
+        run: |
+          pip install -r requirements.txt -r requirements-dev.txt
+          playwright install --with-deps chromium
+
+      - name: Browser smoke (4 kịch bản + guard console/404)
+        env:
+          BROWSER_BASE_URL: http://127.0.0.1:8000
+          BROWSER_ADMIN_PASSWORD: ci-admin-password-12
+        run: python -m pytest -m browser -q
+
+      - name: Logs khi fail
+        if: failure()
+        run: $COMPOSE logs --tail 150

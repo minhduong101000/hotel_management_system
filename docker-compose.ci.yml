@@ -1,0 +1,6 @@
+# Override cho CI: publish web ra localhost để chạy browser smoke.
+# Dùng kèm: docker compose -f docker-compose.yml -f docker-compose.ci.yml ...
+services:
+  web:
+    ports:
+      - "127.0.0.1:8000:8000"
