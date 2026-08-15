@@ -10,6 +10,7 @@ from sqlalchemy import desc
 import re
 
 from services import payment_service
+from services import time_service
 
 billing_bp = Blueprint('billing', __name__)
 
@@ -20,7 +21,7 @@ def _effective_refunds_data(booking):
         {
             'amount': abs(float(p.amount or 0)),
             'method': p.payment_method,
-            'time': p.created_at.strftime('%d/%m/%Y %H:%M') if p.created_at else '',
+            'time': time_service.format_business(p.created_at, '%d/%m/%Y %H:%M'),
             'note': p.note or '',
         }
         for p in payment_service.effective_payments(booking)
@@ -79,7 +80,7 @@ def get_billing_list():
                 'customer_name': booking.customer.name if booking.customer else 'Khách vãng lai',
                 'total_amount': float(br.final_amount or 0),
                 'prepaid_amount': 0,
-                'date': checkout_time.strftime('%d/%m/%Y %H:%M'),
+                'date': time_service.format_business(checkout_time, '%d/%m/%Y %H:%M'),
                 'status': br.status
             })
             
@@ -140,10 +141,10 @@ def get_billing_detail(entry_id):
             checkout_time = br.check_out_actual or booking.updated_at or booking.created_at
             rooms_data = [{
                 'room_number': room_number,
-                'check_in': br.check_in_actual.strftime('%d/%m/%Y %H:%M') if br.check_in_actual else (
+                'check_in': time_service.format_business(br.check_in_actual, '%d/%m/%Y %H:%M') if br.check_in_actual else (
                     br.check_in_expected.strftime('%d/%m/%Y %H:%M') if br.check_in_expected else 'N/A'
                 ),
-                'check_out': checkout_time.strftime('%d/%m/%Y %H:%M') if checkout_time else 'N/A',
+                'check_out': time_service.format_business(checkout_time, '%d/%m/%Y %H:%M') if checkout_time else 'N/A',
                 'rental_type': 'Theo giờ' if br.rental_type == 'hourly' else 'Theo ngày',
                 'price_snapshot': room_only_amount,
                 'amount': total_amount
@@ -289,8 +290,8 @@ def get_billing_detail(entry_id):
 
             rooms_data.append({
                 'room_number': br.room.room_number if br.room else 'N/A',
-                'check_in': br.check_in_actual.strftime('%d/%m/%Y %H:%M') if br.check_in_actual else 'N/A',
-                'check_out': br.check_out_actual.strftime('%d/%m/%Y %H:%M') if br.check_out_actual else 'N/A',
+                'check_in': time_service.format_business(br.check_in_actual, '%d/%m/%Y %H:%M') if br.check_in_actual else 'N/A',
+                'check_out': time_service.format_business(br.check_out_actual, '%d/%m/%Y %H:%M') if br.check_out_actual else 'N/A',
                 'rental_type': 'Theo giờ' if br.rental_type == 'hourly' else 'Theo ngày',
                 'price_snapshot': room_only_amount,
                 'amount': float(br.final_amount or 0)

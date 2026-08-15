@@ -13,6 +13,8 @@ def clear_production_environment(monkeypatch):
     monkeypatch.delenv("SECRET_KEY", raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.delenv("FLASK_DEBUG", raising=False)
+    # .env dev co the dat false (Safari/LAN); hop dong mac dinh van phai True
+    monkeypatch.delenv("SESSION_COOKIE_SECURE", raising=False)
 
 
 def test_production_requires_secret_key(monkeypatch):
@@ -84,9 +86,10 @@ def test_production_forces_safe_runtime_flags_and_headers(monkeypatch):
     assert app.config["SESSION_COOKIE_SAMESITE"] == "Lax"
     assert response.headers["X-Content-Type-Options"] == "nosniff"
     assert response.headers["Referrer-Policy"] == "same-origin"
-    assert "frame-ancestors 'self'" in response.headers[
-        "Content-Security-Policy-Report-Only"
-    ]
+    # 15-08: bo CSP report-only (khong report-to = vo dung + spam console
+    # Safari); chong clickjacking bang X-Frame-Options cho den khi co CSP that.
+    assert response.headers["X-Frame-Options"] == "SAMEORIGIN"
+    assert "Content-Security-Policy-Report-Only" not in response.headers
 
 
 def test_direct_startup_has_no_schema_backfill_or_default_accounts():

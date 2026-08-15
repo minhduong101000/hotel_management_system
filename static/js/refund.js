@@ -13,6 +13,9 @@ function openRefundModal(bookingId) {
         alert('Không xác định được đơn đặt phòng để hoàn tiền.');
         return;
     }
+    // PROMAX: khong modal long modal — dong hoa don truoc khi mo form hoan
+    const invoiceModal = document.getElementById('invoiceModal');
+    if (invoiceModal) bootstrap.Modal.getInstance(invoiceModal)?.hide();
     showRefundError('');
     document.getElementById('refund-reason-input').value = '';
     document.getElementById('refund-percent-input').value = '';

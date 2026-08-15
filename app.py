@@ -151,12 +151,11 @@ def create_app(test_config=None, environment=None):
     @app.after_request
     def add_production_security_headers(response):
         if app.config["APP_ENV"] == "production":
-            response.headers["Content-Security-Policy-Report-Only"] = (
-                "default-src 'self'; object-src 'none'; base-uri 'self'; "
-                "frame-ancestors 'self'"
-            )
+            # CSP report-only khong report-to = vo dung + spam console Safari.
+            # CSP that can ke hoach rieng (inline JS + CDN unpkg).
             response.headers["X-Content-Type-Options"] = "nosniff"
             response.headers["Referrer-Policy"] = "same-origin"
+            response.headers["X-Frame-Options"] = "SAMEORIGIN"
         return response
 
     @app.errorhandler(CSRFError)

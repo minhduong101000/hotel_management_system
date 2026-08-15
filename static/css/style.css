@@ -866,6 +866,10 @@ body:not(.login-page) {
 }
 
 .vis-item .vis-item-content {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
     padding: 5px 10px;
     white-space: nowrap;
     overflow: hidden;
@@ -1702,12 +1706,18 @@ body.login-page {
 
 .customer-search-bar {
     display: flex;
-    align-items: center;
+    /* stretch de nut cao dung bang o nhap — align center tung lech tren Safari */
+    align-items: stretch;
     gap: 10px;
 }
 
 .customer-search-bar__input { flex: 1 1 360px; }
-.customer-search-bar__button { flex: 0 0 auto; min-height: 44px; }
+.customer-search-bar__button {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
 
 .data-filter-bar {
     display: block;
@@ -2255,4 +2265,13 @@ body.login-page {
     .app-content .btn:hover:not(:disabled) {
         transform: none;
     }
+}
+
+
+/* Nut hanh dong tren card phong: khong ngat dong */
+.room-card-action, .room-card .btn, .room-card button { white-space: nowrap; }
+
+/* PROMAX: select tren mobile toi thieu 16px de iOS khong tu zoom */
+@media (max-width: 576px) {
+    select.form-select, .form-select-sm { font-size: 16px; }
 }

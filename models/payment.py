@@ -1,4 +1,5 @@
 from extensions import db
+from services.time_service import format_business as _format_business
 
 class Payment(db.Model):
     __tablename__ = 'payments'
@@ -53,7 +54,7 @@ class Payment(db.Model):
             'amount': float(self.amount or 0),
             'method': self.payment_method, # cash, banking...
             'type': self.payment_type,     # deposit, settlement...
-            'time': self.created_at.strftime('%d/%m/%Y %H:%M'),
+            'time': _format_business(self.created_at, '%d/%m/%Y %H:%M'),
             'note': self.note,
             'business_operation_id': self.business_operation_id,
             'created_by': self.created_by,

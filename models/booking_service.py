@@ -1,4 +1,5 @@
 from extensions import db
+from services.time_service import format_business as _format_business
 
 
 class BookingService(db.Model):
@@ -32,5 +33,5 @@ class BookingService(db.Model):
             'price': float(self.price_at_booking or 0),
             'total': float(self.price_at_booking or 0) * (self.quantity or 0),
             
-            'created_at': self.created_at.strftime('%H:%M %d/%m')
+            'created_at': _format_business(self.created_at, '%H:%M %d/%m')
         }

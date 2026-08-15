@@ -10,6 +10,8 @@ from services.tenant_service import tenant_query
 
 from extensions import db
 
+from services import time_service
+
 cashier_bp = Blueprint('cashier', __name__)
 
 @cashier_bp.route('/reports/cashier')
@@ -118,7 +120,7 @@ def get_cashier_data():
             records.append({
                 'id': f"p_{p.id}",
                 'time_dt': p.created_at,
-                'time': p.created_at.strftime('%H:%M %d/%m/%Y'),
+                'time': time_service.format_business(p.created_at),
                 'booking_id': p.booking_id,
                 'booking_code': code,
                 'customer_name': customer_name,

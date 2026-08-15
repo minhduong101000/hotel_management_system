@@ -69,3 +69,17 @@ def to_business_date(utc_dt: datetime) -> date:
     if utc_dt.tzinfo is None:
         utc_dt = utc_dt.replace(tzinfo=timezone.utc)
     return utc_dt.astimezone(_business_tz()).date()
+
+
+def format_business(utc_dt, fmt: str = "%H:%M %d/%m/%Y") -> str:
+    """Đổi mốc UTC (naive/aware) sang giờ nghiệp vụ Bangkok để HIỂN THỊ.
+
+    Chỉ dùng cho timestamp hệ thống ghi (created_at, *_actual). KHÔNG dùng
+    cho giờ dự kiến do người dùng nhập (check_in_expected...) — chúng vốn đã
+    là giờ nghiệp vụ.
+    """
+    if utc_dt is None:
+        return ""
+    if utc_dt.tzinfo is None:
+        utc_dt = utc_dt.replace(tzinfo=timezone.utc)
+    return utc_dt.astimezone(_business_tz()).strftime(fmt)

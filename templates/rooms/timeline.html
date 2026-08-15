@@ -320,6 +320,7 @@
                                 </div>
                                 <div class="input-group input-group-sm mb-2">
                                     <span class="input-group-text bg-white"><i class="fas fa-search"></i></span>
+                                    <label class="visually-hidden" for="bd-service-search">Tìm dịch vụ</label>
                                     <input type="text" class="form-control" id="bd-service-search" placeholder="Tìm theo tên dịch vụ" oninput="bdFilterServiceCatalog()">
                                 </div>
                                 <div id="bd-service-note" class="alert alert-warning py-2 px-2 small mb-2">
@@ -350,12 +351,14 @@
                             </div>
 
                             <div class="mb-2">
-                                <input type="text" class="form-control" id="bd-note" placeholder="Nhập ghi chú ...">
+                                <label class="visually-hidden" for="bd-note">Ghi chú booking</label>
+                                    <input type="text" class="form-control" id="bd-note" placeholder="Nhập ghi chú ...">
                             </div>
 
                             <div class="row g-2">
                                 <div class="col-md-2 col-6">
                                     <label class="form-label small text-muted mb-1">Hình thức</label>
+                                    <label class="visually-hidden" for="bd-rental-type">Loại thuê</label>
                                     <select class="form-select" id="bd-rental-type" disabled>
                                         <option value="daily">Ngày</option>
                                         <option value="hourly">Giờ</option>
@@ -363,6 +366,7 @@
                                 </div>
                                 <div class="col-md-2 col-6">
                                     <label class="form-label small text-muted mb-1">Phòng</label>
+                                    <label class="visually-hidden" for="bd-room-select">Chọn phòng</label>
                                     <select class="form-select" id="bd-room-select"></select>
                                 </div>
                                 <div class="col-md-3 col-6">
