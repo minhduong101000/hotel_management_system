@@ -1,7 +1,7 @@
 # Spec: CI hardening — Docker build và smoke trình duyệt
 
 **Ngày:** 15-08-2026
-**Trạng thái:** Chờ chủ dự án duyệt để thực thi
+**Trạng thái:** ĐÃ TRIỂN KHAI 15-08-2026 — 4/4 kịch bản xanh trên stack thật, RED-proof tái diễn bug 14-08 thành công
 **Bối cảnh:** 19 file JS chưa từng chạy trong kiểm thử — hai bug URL 14-08 (nút add-room gọi sai blueprint, autofill khách 404) đều lọt vì test chỉ đọc chuỗi HTML/JS tĩnh. CI hiện cũng không build Docker image nên Dockerfile hỏng chỉ phát hiện lúc deploy.
 
 ## 1. Mục tiêu
