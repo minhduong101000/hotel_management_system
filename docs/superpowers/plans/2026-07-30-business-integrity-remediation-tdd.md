@@ -2,7 +2,7 @@
 
 **Ngày:** 30-07-2026
 
-**Trạng thái:** Chờ phê duyệt để triển khai
+**Trạng thái:** ĐÃ TRIỂN KHAI (cập nhật trạng thái 15-08-2026 — tính năng đã vận hành, xem business-operations-guide.md)
 
 **Spec nguồn:** `docs/superpowers/specs/2026-07-30-business-integrity-remediation-design.md`
 

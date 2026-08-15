@@ -2,7 +2,7 @@
 
 **Ngày:** 30-07-2026
 
-**Trạng thái:** Chờ review
+**Trạng thái:** ĐÃ TRIỂN KHAI (cập nhật trạng thái 15-08-2026 — tính năng đã vận hành, xem business-operations-guide.md)
 
 **Phạm vi:** Bảo mật web, cấu hình runtime, migration/schema đa tenant, báo cáo tài chính, checkout lẻ/đoàn, tính giá và tiền cọc, trạng thái booking, dời/hủy lịch, dịch vụ, tồn kho theo lô, accessibility và hiệu năng dashboard.
 

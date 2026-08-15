@@ -1,7 +1,7 @@
 # Kế hoạch TDD: Kho theo lô, hạn dùng và điều chỉnh tồn
 
 **Spec nguồn:** `docs/superpowers/specs/2026-07-29-inventory-batch-expiry-adjustment-design.md`  
-**Trạng thái:** Chờ review, chưa triển khai  
+**Trạng thái:** ĐÃ TRIỂN KHAI (cập nhật trạng thái 15-08-2026 — tính năng đã vận hành, xem business-operations-guide.md)
 **Nguyên tắc thực hiện:** Mỗi hạng mục bên dưới phải đi theo thứ tự test đỏ → triển khai tối thiểu → refactor → test xanh → kiểm tra phù hợp → commit tiếng Anh riêng. Không chuyển sang hạng mục kế tiếp khi hạng mục hiện tại chưa hoàn tất.
 
 ## Hiện trạng kỹ thuật đã kiểm tra

@@ -1,7 +1,7 @@
 # Spec: Khắc phục logic nghiệp vụ và tăng độ an toàn dữ liệu
 
 **Ngày:** 26-07-2026  
-**Trạng thái:** Chờ phê duyệt triển khai  
+**Trạng thái:** ĐÃ TRIỂN KHAI (cập nhật trạng thái 15-08-2026 — tính năng đã vận hành, xem business-operations-guide.md)
 **Phạm vi:** Multi-tenant, booking, giá, dịch vụ/kho, quyền hạn và audit trail
 
 ## 1. Mục tiêu

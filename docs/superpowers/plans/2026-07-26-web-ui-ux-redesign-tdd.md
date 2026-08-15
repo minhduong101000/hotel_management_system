@@ -2,7 +2,7 @@
 
 **Ngày:** 26-07-2026  
 **Spec nguồn:** `docs/superpowers/specs/2026-07-26-web-ui-ux-redesign-design.md`  
-**Trạng thái:** Chờ phê duyệt để triển khai
+**Trạng thái:** ĐÃ TRIỂN KHAI (cập nhật trạng thái 15-08-2026 — tính năng đã vận hành, xem business-operations-guide.md)
 
 ## 1. Phạm vi và nguyên tắc triển khai
 

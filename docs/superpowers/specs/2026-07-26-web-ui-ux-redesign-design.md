@@ -1,7 +1,7 @@
 # Spec: Chuẩn hóa giao diện web Hotel POS Pro
 
 **Ngày:** 26-07-2026  
-**Trạng thái:** Chờ phê duyệt để triển khai  
+**Trạng thái:** ĐÃ TRIỂN KHAI (cập nhật trạng thái 15-08-2026 — tính năng đã vận hành, xem business-operations-guide.md)
 **Phạm vi:** Giao diện web nội bộ cho Master admin, Hotel admin và Staff
 
 ## 1. Bối cảnh và mục tiêu

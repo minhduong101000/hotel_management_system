@@ -1,6 +1,6 @@
                                                                                                                                                                                                                                                     # Spec: Quản lý kho theo lô, hạn dùng và điều chỉnh tồn
 
-**Trạng thái:** Chờ review  
+**Trạng thái:** ĐÃ TRIỂN KHAI (cập nhật trạng thái 15-08-2026 — tính năng đã vận hành, xem business-operations-guide.md)
 **Phạm vi:** Chi phí đồng bộ kho, kho hàng, dịch vụ/minibar và lịch sử biến động kho.  
 **Không bao gồm:** Xuất báo cáo, sao lưu/khôi phục, chính sách hoàn cọc tự động.
 
