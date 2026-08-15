@@ -461,6 +461,20 @@ body:not(.login-page) {
     box-shadow: var(--shadow-action);
 }
 
+/* Outline-primary theo token hành động (bootstrap precompiled là xanh dương) */
+.app-content .btn-outline-primary {
+    --bs-btn-color: var(--color-action);
+    --bs-btn-border-color: var(--color-action);
+    --bs-btn-hover-color: #fff;
+    --bs-btn-hover-bg: var(--color-action);
+    --bs-btn-hover-border-color: var(--color-action);
+    --bs-btn-active-color: #fff;
+    --bs-btn-active-bg: var(--color-action-hover);
+    --bs-btn-active-border-color: var(--color-action-hover);
+    --bs-btn-disabled-color: var(--color-action);
+    --bs-btn-disabled-border-color: var(--color-action);
+}
+
 .app-content .btn-info {
     --bs-btn-color: #fff;
     --bs-btn-bg: var(--color-info);
@@ -1280,8 +1294,8 @@ body.login-page {
 }
 
 .bd-pos-header {
-    background: #f8f9fb;
-    border-bottom: 1px solid #e6ebf2;
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
 }
 
 .bd-pos-modal .modal-body {
@@ -1326,12 +1340,12 @@ body.login-page {
     overflow-y: auto;
 }
 
-.bd-sidebar-tab-bar .btn-group .btn.active {
-    color: #198754;
-    background: #e8f6ee;
-    border-color: #9cd8b5;
-    font-weight: 700;
-}
+/* Segmented dùng chung trong modal (tab sidebar POS...) */
+.pos-seg { display: inline-flex; background: #f1f5f9; border-radius: 9px; padding: 3px; gap: 2px; }
+.pos-seg--full { display: flex; width: 100%; }
+.pos-seg--full .pos-seg__btn { flex: 1; }
+.pos-seg__btn { border: 0; background: transparent; padding: 6px 12px; border-radius: 7px; font-size: 12.5px; font-weight: 600; color: var(--color-muted-text); cursor: pointer; text-align: center; white-space: nowrap; }
+.pos-seg__btn.active { background: var(--color-surface); color: var(--color-text); box-shadow: 0 1px 2px rgba(15, 23, 42, .10); }
 
 .bd-service-item {
     border: 1px solid #dee3eb;
@@ -1345,8 +1359,19 @@ body.login-page {
 }
 
 .bd-service-item:hover {
-    border-color: #8cc7a8;
+    border-color: var(--color-action);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.bd-service-price {
+    color: var(--color-action);
+    font-weight: 600;
+}
+
+.bd-invoice-grand-total {
+    font-size: 24px;
+    letter-spacing: -.02em;
+    color: var(--color-text);
 }
 
 .bd-main-panel {
@@ -1355,10 +1380,19 @@ body.login-page {
 }
 
 .bd-invoice-table thead th {
-    background: #f3f6fa;
-    color: #4b5563;
-    font-size: 0.85rem;
+    background: var(--color-surface);
+    color: #94a3b8;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .06em;
     text-transform: uppercase;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.bd-invoice-table tbody td {
+    border-top: 1px solid #f1f5f9;
+    border-bottom: 0;
+    font-size: 13.5px;
 }
 
 .bd-invoice-table td,
@@ -2082,6 +2116,12 @@ body.login-page {
     .pos-summary { border-left: 0; border-top: 1px solid var(--color-border); }
 }
 
-/* Nút outline trong pos-modal: teal theo thiết kế (bootstrap precompiled màu xanh dương) */
-.pos-modal .btn-outline-primary { color: var(--color-action); border-color: var(--color-action); }
-.pos-modal .btn-outline-primary:hover { background: var(--color-surface-teal); color: var(--color-action-hover); border-color: var(--color-action-hover); }
+/* Hộp cảnh báo hủy trong modal sửa booking */
+.pos-danger-box { background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 14px 16px; }
+.pos-danger-box legend, .pos-danger-box h6 { color: #b91c1c; }
+
+/* Thẻ chọn cách áp giá (dời lịch) — viền teal khi chọn */
+.pos-choice { border: 1px solid var(--color-border); border-radius: 11px; padding: 10px 14px 10px 40px; cursor: pointer; }
+.pos-choice:hover { background: #f8fafc; }
+.pos-choice:has(input:checked) { border-color: var(--color-action); background: var(--color-surface-teal); }
+.pos-choice .form-check-input:checked { background-color: var(--color-action); border-color: var(--color-action); }

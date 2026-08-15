@@ -995,10 +995,10 @@ function renderBookingDetailServiceCatalog() {
             <div class="bd-service-item">
                 <div>
                     <div class="fw-bold">${s.name || 'Dich vu'}</div>
-                    <div class="small text-muted">${formatVND(s.price || 0)}</div>
+                    <div class="small bd-service-price">${formatVND(s.price || 0)}</div>
                 </div>
-                <button type="button" class="btn btn-sm btn-outline-success" onclick="bdAddServiceById(${Number(s.id)})" ${disabledAttr}>
-                    <i class="fas fa-plus"></i>
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="bdAddServiceById(${Number(s.id)})" ${disabledAttr}>
+                    <i class="fas fa-plus" aria-hidden="true"></i>
                 </button>
             </div>
         </div>
