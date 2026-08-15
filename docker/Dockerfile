@@ -4,5 +4,9 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 ENV FLASK_APP=app.py APP_ENV=production
+# Không chạy root: một lỗ RCE trong app không chiếm trọn container
+RUN useradd --create-home --uid 1001 app && chown -R app:app /app
+USER app
 EXPOSE 8000
-CMD ["sh", "-c", "flask db upgrade && gunicorn -b 0.0.0.0:8000 -w 2 app:app"]
+# Migration KHÔNG chạy ở đây — service `migrate` one-shot đảm nhiệm (chống race)
+CMD ["gunicorn", "-c", "docker/gunicorn.conf.py", "app:app"]

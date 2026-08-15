@@ -1,17 +1,76 @@
+# Topology production (spec 15-08-2026). Dev tiện nghi nằm ở
+# docker-compose.override.yml (compose tự nạp khi chạy local).
+x-web-env: &web-env
+  APP_ENV: production
+  SECRET_KEY: ${SECRET_KEY}
+  DATABASE_URL: mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:3306/${MYSQL_DATABASE}
+  SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+  MAIL_SERVER: ${MAIL_SERVER:-}
+  MAIL_PORT: ${MAIL_PORT:-587}
+  MAIL_USE_TLS: ${MAIL_USE_TLS:-True}
+  MAIL_USERNAME: ${MAIL_USERNAME:-}
+  MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+  MAIL_DEFAULT_SENDER: ${MAIL_DEFAULT_SENDER:-}
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    command: ["flask", "db", "upgrade"]
+    environment: *web-env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+    logging: *default-logging
+
   web:
     build:
       context: .
       dockerfile: docker/Dockerfile
-    ports:
-      - "8000:8000"
     environment:
-      APP_ENV: production
-      SECRET_KEY: ${SECRET_KEY}
-      DATABASE_URL: mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:3306/${MYSQL_DATABASE}
+      <<: *web-env
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3).status == 200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    logging: *default-logging
+
+  caddy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # Khong co domain that -> phuc vu HTTP :80 (site address hop le cho Caddy)
+      DOMAIN: ${DOMAIN:-:80}
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *default-logging
 
   db:
     image: mysql:8
@@ -20,8 +79,7 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-    ports:
-      - "3306:3306"
+    # KHÔNG publish 3306 ở base — dev mở 127.0.0.1 qua override
     volumes:
       - dbdata:/var/lib/mysql
     healthcheck:
@@ -29,12 +87,35 @@ services:
       interval: 5s
       timeout: 3s
       retries: 30
+    restart: unless-stopped
+    logging: *default-logging
+
+  db-backup:
+    image: mysql:8
+    entrypoint: ["bash", "/backup.sh"]
+    environment:
+      MYSQL_HOST: db
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: root
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+    volumes:
+      - ./docker/backup.sh:/backup.sh:ro
+      - ./backups:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *default-logging
 
   adminer:
     image: adminer
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     profiles: ["dev"]
+    logging: *default-logging
 
 volumes:
   dbdata:
+  caddy_data:
+  caddy_config:

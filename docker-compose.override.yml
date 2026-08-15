@@ -1,0 +1,13 @@
+# Tiện nghi DEV — compose tự nạp file này khi chạy local.
+# Production deploy dùng: docker compose -f docker-compose.yml up -d
+services:
+  web:
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  db:
+    ports:
+      - "127.0.0.1:3306:3306"
+
+  adminer:
+    profiles: []

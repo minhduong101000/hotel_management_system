@@ -1,0 +1,17 @@
+# Reverse proxy cho HotelPOS (spec 15-08-2026).
+# Đặt DOMAIN trong .env để bật HTTPS tự động (Let's Encrypt).
+# Không có DOMAIN: phục vụ HTTP :80 — nhớ đặt SESSION_COOKIE_SECURE=false
+# trong .env nếu chạy LAN thuần HTTP, nếu không sẽ không đăng nhập được.
+
+{$DOMAIN} {
+	encode gzip
+
+	# Header bảo mật ở tầng proxy (bổ sung cho header app tầng Flask)
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Frame-Options "SAMEORIGIN"
+		-Server
+	}
+
+	reverse_proxy web:8000
+}
