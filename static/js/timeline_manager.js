@@ -219,7 +219,7 @@ function buildTimelineColumns(range) {
             dow: dense ? TLG_DOW[d.getDay()].replace('T', '') : TLG_DOW[d.getDay()],
             num: dense
                 ? String(d.getDate()).padStart(2, '0')
-                : d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
+                : String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0'),
             isToday: d.getTime() === today,
             weekend: d.getDay() === 0 || d.getDay() === 6,
         });
