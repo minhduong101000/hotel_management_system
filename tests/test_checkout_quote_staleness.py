@@ -68,4 +68,6 @@ def test_checkout_frontend_submits_quote_identity_and_refreshes_stale_quote():
     assert "quote_stale" in source
     assert "checkout-status" in source
     assert "amount: amount" not in source
-    assert "payment_method: 'cash'" in source
+    # 15-08: client cho chọn phương thức, mặc định vẫn là cash (hidden input)
+    assert "payment_method: getCheckoutPaymentMethod(" in source
+    assert "|| 'cash'" in source
