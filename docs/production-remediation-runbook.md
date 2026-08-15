@@ -170,3 +170,28 @@ Biên bản phát hành phải chứa commit, Alembic revision trước/sau, k�
 test, checksum backup, kết quả restore rehearsal, smoke test, reconciliation dry-run,
 người phê duyệt và mọi bước chưa thể kiểm chứng. Không đính kèm secret, cookie phiên,
 dữ liệu khách hàng nguyên bản hoặc chuỗi kết nối thật.
+
+
+## Backup & Restore (bổ sung 15-08-2026)
+
+- Service `db-backup` tự dump mỗi 24h vào `./backups/<db>-<timestamp>.sql.gz`,
+  giữ `BACKUP_RETENTION_DAYS` ngày (mặc định 14). Chạy tay một bản:
+  `docker compose run --rm -e ONE_SHOT=1 db-backup`.
+- **Diễn tập restore mỗi quý** (backup chưa restore thử = chưa có backup):
+  1. `gunzip -k backups/<file>.sql.gz`
+  2. Tạo DB tạm: `docker compose exec db mysql -uroot -p$MYSQL_ROOT_PASSWORD -e "CREATE DATABASE hotel_restore_drill"`
+  3. `docker compose exec -T db mysql -uroot -p$MYSQL_ROOT_PASSWORD hotel_restore_drill < backups/<file>.sql`
+  4. Đối chiếu vài bảng đếm dòng với production, rồi DROP DATABASE tạm.
+- Volume `./backups` nằm NGOÀI docker volume — đồng bộ định kỳ ra máy khác/cloud.
+
+## Xoay secret (bổ sung 15-08-2026)
+
+- `SECRET_KEY`: sinh mới `openssl rand -hex 32`, cập nhật `.env`,
+  `docker compose up -d web`. **Hệ quả: toàn bộ phiên đăng nhập bị đăng xuất**
+  — làm ngoài giờ vận hành. Khuyến nghị 6 tháng/lần hoặc ngay khi nghi lộ.
+- `MYSQL_PASSWORD`: đổi trong MySQL trước
+  (`ALTER USER 'hotel'@'%' IDENTIFIED BY '<mật khẩu mới>';`), cập nhật `.env`,
+  rồi `docker compose up -d web migrate db-backup`. Không cần đổi DATABASE_URL
+  thủ công — compose lắp từ biến.
+- `ADMIN_PASSWORD` trong `.env` chỉ dùng cho seed lần đầu; đổi mật khẩu admin
+  thật qua màn hình Nhân sự.

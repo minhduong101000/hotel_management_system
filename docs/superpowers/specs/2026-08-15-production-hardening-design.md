@@ -1,7 +1,7 @@
 # Spec: Production hardening
 
 **Ngày:** 15-08-2026
-**Trạng thái:** Đã chốt phạm vi (chủ dự án duyệt nhóm việc 14-08)
+**Trạng thái:** ĐÃ TRIỂN KHAI 15-08-2026 — nghiệm thu đủ 7 tiêu chí trên stack sống
 **Nguồn:** 12 phát hiện của audit ops 14-08.
 **Không bao gồm:** giám sát/alert bên ngoài (Sentry/uptime — cần tài khoản dịch vụ, để đợt sau), CDN, multi-replica thật sự (single-node compose).
 
