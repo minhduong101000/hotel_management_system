@@ -14,26 +14,25 @@ def test_timeline_has_navigation_view_and_status_controls(client, seed_hotels, l
         'timeline-view-day',
         'timeline-view-3days',
         'timeline-view-week',
+        'timeline-view-2weeks',
+        'timeline-view-month',
         'timeline-status-filter',
         'timeline-state',
         'timeline-empty-notice',
     ):
         assert f'id="{control_id}"' in html
 
-    for group_class in (
-        'timeline-toolbar-group--range',
-        'timeline-toolbar-group--view',
-        'timeline-toolbar-group--actions',
-    ):
-        assert group_class in html
-    assert 'timeline-range-controls button-group' in html
-    assert 'timeline-view-switch button-group' in html
-    assert 'timeline-toolbar-actions button-group' in html
+    # Toolbar một hàng + segmented + legend chấm màu (thiết kế 15-08)
+    for design_class in ('tlg-toolbar', 'tlg-nav', 'tlg-seg', 'tlg-legend', 'tlg-stats'):
+        assert design_class in html
     assert 'id="timeline-view-day"' in html and 'aria-pressed="false"' in html
     assert 'id="timeline-view-3days"' in html and 'aria-pressed="true"' in html
     assert 'onclick="setTimelineViewMode(' in html
     assert 'onclick="shiftTimeline(' in html
     assert 'onchange="applyTimelineStatusFilter()"' in html
+    # Filter đủ 5 trạng thái nghiệp vụ + tất cả
+    for option in ('booked', 'checked_in', 'hourly', 'group', 'overstay'):
+        assert f'value="{option}"' in html
 
 
 def test_timeline_renders_distinct_structured_data_states_and_light_legend(
@@ -77,8 +76,13 @@ def test_timeline_manager_supports_view_ranges_filters_and_feedback_states():
     assert "state === 'error'" in source
     assert "errorDescription.textContent = message" in source
     assert 'stateNode.innerHTML' not in source
-    assert '.timeline-toolbar-group--range' in styles
-    assert '.timeline-toolbar-group--view' in styles
-    assert '.timeline-toolbar-group--actions' in styles
-    assert '.timeline-legend .legend-item' in styles
-    assert '.legend-overstay { background: linear-gradient' not in styles
+    # Lưới tự vẽ (spec 15-08): không còn vis-timeline, tên khách đổ qua textContent
+    assert 'function buildTimelineGrid' in source
+    assert 'function renderTimelineStats' in source
+    assert 'new vis.' not in source
+    assert "'2weeks': 14" in source and 'month: 30' in source
+    assert '.tlg-toolbar' in styles
+    assert '.tlg-seg__btn.active' in styles
+    assert '.tlg-legend__item' in styles
+    assert '.tlg-bar--overstay' in styles
+    assert '.vis-item' not in styles

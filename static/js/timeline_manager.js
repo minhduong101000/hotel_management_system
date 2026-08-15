@@ -1,6 +1,5 @@
 // static/js/timeline_manager.js
 
-var timeline;
 var roomMap = {}; // Dùng để map ID phòng -> Số phòng
 let timelineData = null;
 let timelineViewMode = '3days';
@@ -20,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ========================================================
-// 1. LOAD TIMELINE (VIS.JS)
+// 1. LOAD TIMELINE (lưới phòng × ngày tự vẽ — spec 15-08)
 // ========================================================
 function loadTimeline() {
     showTimelineState('loading');
@@ -51,6 +50,8 @@ function startOfDay(value) {
     return date;
 }
 
+const TIMELINE_VIEW_SPANS = { day: 1, '3days': 3, week: 7, '2weeks': 14, month: 30 };
+
 function getTimelineRange() {
     const start = startOfDay(timelineAnchorDate);
     const end = new Date(start);
@@ -58,10 +59,8 @@ function getTimelineRange() {
         const day = (start.getDay() + 6) % 7;
         start.setDate(start.getDate() - day);
         end.setTime(start.getTime());
-        end.setDate(end.getDate() + 7);
-    } else {
-        end.setDate(end.getDate() + (timelineViewMode === 'day' ? 1 : 3));
     }
+    end.setDate(end.getDate() + (TIMELINE_VIEW_SPANS[timelineViewMode] || 3));
     return { start, end };
 }
 
@@ -78,7 +77,7 @@ function updateTimelineControls() {
     const range = getTimelineRange();
     const label = document.getElementById('timeline-range-label');
     if (label) label.textContent = formatTimelineRange(range);
-    ['day', '3days', 'week'].forEach(mode => {
+    Object.keys(TIMELINE_VIEW_SPANS).forEach(mode => {
         const control = document.getElementById(`timeline-view-${mode}`);
         if (!control) return;
         const isActive = mode === timelineViewMode;
@@ -94,7 +93,7 @@ function setTimelineViewMode(mode) {
 
 function shiftTimeline(direction) {
     const range = getTimelineRange();
-    const step = timelineViewMode === 'week' ? 7 : timelineViewMode === 'day' ? 1 : 3;
+    const step = TIMELINE_VIEW_SPANS[timelineViewMode] || 3;
     timelineAnchorDate = new Date(range.start);
     timelineAnchorDate.setDate(timelineAnchorDate.getDate() + direction * step);
     renderTimeline();
@@ -109,12 +108,32 @@ function applyTimelineStatusFilter() {
     renderTimeline();
 }
 
+function timelineItemIsOverstay(item) {
+    return item.is_overstay === true || (item.className || '').includes('tl-overstay');
+}
+
+function timelineItemIsHourly(item) {
+    return (item.rental_type || '').toLowerCase() === 'hourly'
+        || (item.className || '').includes('tl-hourly');
+}
+
+// Trạng thái hiển thị của thanh (ưu tiên: quá giờ > đoàn > theo giờ > ngày)
+function timelineStatusKey(item) {
+    if (timelineItemIsOverstay(item)) return 'overstay';
+    if (item.is_group) return 'group';
+    if (timelineItemIsHourly(item)) return 'hourly';
+    if (item.status === 'checked_in') return 'staying';
+    return 'booked';
+}
+
 function getFilteredTimelineItems(items) {
     const filter = document.getElementById('timeline-status-filter')?.value || 'all';
     if (filter === 'all') return items;
     return items.filter(item => {
-        if (filter === 'overstay') return item.className?.includes('tl-overstay');
-        if (filter === 'booked') return item.status === 'booked';
+        if (filter === 'overstay') return timelineItemIsOverstay(item);
+        if (filter === 'hourly') return timelineItemIsHourly(item);
+        if (filter === 'group') return item.is_group === true;
+        if (filter === 'booked') return item.status === 'booked' || item.status === 'pending';
         return item.status === filter;
     });
 }
@@ -150,55 +169,233 @@ function showTimelineState(state, message = '') {
 function renderTimeline() {
     if (!timelineData) return;
     updateTimelineControls();
+    renderTimelineStats();
     if (timelineData.groups.length === 0) {
-        if (timeline) timeline.destroy();
-        timeline = null;
         showTimelineState('empty');
         return;
     }
 
     const filteredItems = getFilteredTimelineItems(timelineData.items);
-    const container = document.getElementById('visualization');
-    const items = new vis.DataSet(filteredItems);
-    const groups = new vis.DataSet(timelineData.groups);
-    const range = getTimelineRange();
-    const options = {
-        groupOrder: 'content', orientation: 'top', stack: true, zoomKey: 'ctrlKey', minHeight: '550px',
-        start: range.start, end: range.end, locale: 'vi',
-        tooltip: { followMouse: true, overflowMethod: 'cap' },
-        // vis 8.x mac dinh tước class/style khoi content HTML (XSS filter) —
-        // lam chet toan bo he chip (tl-name, badge, icon). Content do SERVER
-        // sinh; van giu filter, chi whitelist the + attr can cho chip design.
-        xss: {
-            disabled: false,
-            filterOptions: {
-                whiteList: {
-                    i: ['class'],
-                    span: ['class', 'title'],
-                    strong: ['class'],
-                    br: [],
-                },
-            },
-        },
-    };
-
-    if (timeline) timeline.destroy();
-    timeline = new vis.Timeline(container, items, groups, options);
+    buildTimelineGrid(filteredItems);
     showTimelineState(filteredItems.length === 0 ? 'no-items' : 'ready');
-    timeline.on('click', function (properties) {
-        if (properties.item) {
-            const itemData = items.get(properties.item);
-            if (itemData) {
-                if (itemData.is_finalized || itemData.status === 'checked_out' || itemData.status === 'cancelled') {
-                    alert('Booking này đã hoàn tất hoặc đã hủy, không thể mở/sửa trên timeline.');
-                    return;
-                }
-                openEditModal(itemData.id, itemData.booking_id);
-            }
-        } else if (properties.what === 'background' && properties.group) {
-            openCreateModal(properties.group, properties.time);
+}
+
+// ========================================================
+// 1b. LƯỚI PHÒNG × NGÀY — vị trí thanh = % phút trong khoảng nhìn
+// ========================================================
+const TLG_DOW = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+
+function tlgEl(className, text) {
+    const el = document.createElement('div');
+    el.className = className;
+    if (text !== undefined) el.textContent = text;
+    return el;
+}
+
+function buildTimelineColumns(range) {
+    const columns = [];
+    if (timelineViewMode === 'day') {
+        for (let h = 0; h < 24; h++) {
+            const start = new Date(range.start);
+            start.setHours(h);
+            columns.push({
+                start,
+                dow: '',
+                num: String(h).padStart(2, '0'),
+                isToday: false,
+                weekend: false,
+            });
         }
+        return columns;
+    }
+    const dayCount = Math.round((range.end - range.start) / 86400000);
+    const dense = dayCount > 14;
+    const today = startOfDay(new Date()).getTime();
+    for (let i = 0; i < dayCount; i++) {
+        const d = new Date(range.start);
+        d.setDate(d.getDate() + i);
+        columns.push({
+            start: d,
+            dow: dense ? TLG_DOW[d.getDay()].replace('T', '') : TLG_DOW[d.getDay()],
+            num: dense
+                ? String(d.getDate()).padStart(2, '0')
+                : d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
+            isToday: d.getTime() === today,
+            weekend: d.getDay() === 0 || d.getDay() === 6,
+        });
+    }
+    return columns;
+}
+
+function tlgNowlineEl(range) {
+    const now = new Date();
+    if (now < range.start || now >= range.end) return null;
+    const el = tlgEl('tlg-nowline');
+    el.style.left = (((now - range.start) / (range.end - range.start)) * 100) + '%';
+    return el;
+}
+
+function tlgFloorOf(roomNumber) {
+    const value = String(roomNumber || '');
+    return /^\d{3,}$/.test(value) ? value.slice(0, -2) : null;
+}
+
+function buildTimelineGrid(items) {
+    const container = document.getElementById('visualization');
+    if (!container) return;
+    const range = getTimelineRange();
+    const columns = buildTimelineColumns(range);
+    const dense = timelineViewMode !== 'day' && columns.length > 14;
+
+    container.replaceChildren();
+    container.classList.add('tlg');
+    container.classList.toggle('tlg--dense', dense);
+    container.classList.toggle('tlg--hours', timelineViewMode === 'day');
+
+    const itemsByRoom = {};
+    items.forEach(item => {
+        (itemsByRoom[item.group] = itemsByRoom[item.group] || []).push(item);
     });
+
+    // Header: cột phòng + dải ngày/giờ
+    const head = tlgEl('tlg-head');
+    head.appendChild(tlgEl('tlg-rooms-head', 'Phòng'));
+    const colsHead = tlgEl('tlg-cols');
+    columns.forEach(col => {
+        const cell = tlgEl('tlg-col-head'
+            + (col.isToday ? ' tlg-col-head--today' : '')
+            + (col.weekend ? ' tlg-col-head--weekend' : ''));
+        if (col.dow) cell.appendChild(tlgEl('tlg-col-dow', col.dow));
+        cell.appendChild(tlgEl('tlg-col-num', col.num));
+        colsHead.appendChild(cell);
+    });
+    const headNow = tlgNowlineEl(range);
+    if (headNow) colsHead.appendChild(headNow);
+    head.appendChild(colsHead);
+    container.appendChild(head);
+
+    // Thân lưới — nhóm theo tầng khi mọi phòng đánh số chuẩn (>=3 chữ số)
+    const groups = timelineData.groups;
+    const floors = groups.map(g => tlgFloorOf(g.room_number));
+    const useFloors = floors.length > 0 && floors.every(f => f !== null)
+        && new Set(floors).size > 1;
+    let currentFloor = null;
+
+    groups.forEach((room, index) => {
+        if (useFloors && floors[index] !== currentFloor) {
+            currentFloor = floors[index];
+            container.appendChild(tlgEl('tlg-row tlg-row--group', 'Tầng ' + currentFloor));
+        }
+        container.appendChild(
+            buildTimelineRow(room, itemsByRoom[room.id] || [], columns, range)
+        );
+    });
+}
+
+function buildTimelineRow(room, items, columns, range) {
+    const row = tlgEl('tlg-row');
+
+    const roomCell = tlgEl('tlg-room-cell');
+    roomCell.appendChild(tlgEl('tlg-room-dot' + (items.length ? ' tlg-room-dot--busy' : '')));
+    const roomInfo = tlgEl('tlg-room-info');
+    roomInfo.appendChild(tlgEl('tlg-room-num', room.room_number || ''));
+    if (room.room_type) roomInfo.appendChild(tlgEl('tlg-room-type', room.room_type));
+    roomCell.appendChild(roomInfo);
+    row.appendChild(roomCell);
+
+    const cells = tlgEl('tlg-cells');
+    columns.forEach(col => {
+        const cell = tlgEl('tlg-cell'
+            + (col.weekend ? ' tlg-cell--weekend' : '')
+            + (col.isToday ? ' tlg-cell--today' : ''));
+        cell.title = 'Nhấn để tạo đặt phòng';
+        cell.addEventListener('click', () => {
+            const time = new Date(col.start);
+            // Chế độ nhiều ngày: mặc định giờ nhận 14:00 của ngày được nhấn
+            if (timelineViewMode !== 'day') time.setHours(14, 0, 0, 0);
+            openCreateModal(room.id, time);
+        });
+        cells.appendChild(cell);
+    });
+
+    const totalMs = range.end - range.start;
+    items.forEach(item => {
+        const bar = buildTimelineBar(item, range, totalMs);
+        if (bar) cells.appendChild(bar);
+    });
+
+    const nowEl = tlgNowlineEl(range);
+    if (nowEl) cells.appendChild(nowEl);
+    row.appendChild(cells);
+    return row;
+}
+
+function buildTimelineBar(item, range, totalMs) {
+    const start = new Date(item.start);
+    const end = new Date(item.end);
+    if (!(end > range.start) || !(start < range.end)) return null;
+
+    const clampedStart = Math.max(start.getTime(), range.start.getTime());
+    const clampedEnd = Math.min(end.getTime(), range.end.getTime());
+    const left = ((clampedStart - range.start.getTime()) / totalMs) * 100;
+    const width = ((clampedEnd - clampedStart) / totalMs) * 100;
+
+    const statusKey = timelineStatusKey(item);
+    const bar = tlgEl('tlg-bar tlg-bar--' + statusKey);
+    bar.style.left = left + '%';
+    bar.style.width = 'calc(' + width + '% - 4px)';
+    if (item.title) bar.title = item.title;
+
+    bar.appendChild(tlgEl('tlg-bar__stripe'));
+    if (item.is_group) {
+        const icon = document.createElement('i');
+        icon.className = 'fas fa-users tlg-bar__icon';
+        icon.setAttribute('aria-hidden', 'true');
+        bar.appendChild(icon);
+    }
+    // Tên khách qua textContent — không innerHTML với dữ liệu người dùng
+    bar.appendChild(tlgEl('tlg-bar__name', item.customer_name || 'Khách lẻ'));
+
+    const durationMs = end - start;
+    const meta = timelineItemIsHourly(item)
+        ? Math.max(1, Math.round(durationMs / 3600000)) + ' giờ'
+        : Math.max(1, Math.round(durationMs / 86400000)) + ' đêm';
+    if (width >= 8) {
+        bar.appendChild(tlgEl('tlg-bar__meta',
+            statusKey === 'overstay' ? meta + ' · Quá giờ' : meta));
+    }
+
+    bar.addEventListener('click', event => {
+        event.stopPropagation();
+        if (item.is_finalized || item.status === 'checked_out' || item.status === 'cancelled') {
+            alert('Booking này đã hoàn tất hoặc đã hủy, không thể mở/sửa trên timeline.');
+            return;
+        }
+        openEditModal(item.id, item.booking_id);
+    });
+    return bar;
+}
+
+// Thẻ thống kê đầu trang — tính từ dữ liệu đã tải (API trả mọi booking chưa hoàn tất)
+function renderTimelineStats() {
+    const set = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = String(value);
+    };
+    const items = timelineData ? timelineData.items : [];
+    const totalRooms = timelineData ? timelineData.groups.length : 0;
+    const today = startOfDay(new Date()).getTime();
+    const sameDay = value => startOfDay(new Date(value)).getTime() === today;
+
+    const occupied = new Set(
+        items.filter(i => i.status === 'checked_in').map(i => i.group)
+    ).size;
+    set('tl-stat-occupancy', totalRooms ? Math.round((occupied / totalRooms) * 100) : 0);
+    set('tl-stat-arrivals', items.filter(i =>
+        (i.status === 'booked' || i.status === 'pending') && sameDay(i.start)).length);
+    set('tl-stat-departures', items.filter(i =>
+        i.status === 'checked_in' && sameDay(i.end)).length);
+    set('tl-stat-overstay', items.filter(timelineItemIsOverstay).length);
 }
 
 // ========================================================

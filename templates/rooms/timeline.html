@@ -1,55 +1,56 @@
 {% extends "layouts/base.html" %}
 
 {% block content %}
-<link href="https://unpkg.com/vis-timeline@8.5.4/styles/vis-timeline-graph2d.min.css" rel="stylesheet" type="text/css" />
-
-<div class="container-fluid p-4">
-    <div class="timeline-header timeline-page-heading mb-3">
-        <div><div class="timeline-title"><i class="fas fa-stream"></i>Timeline phòng</div><p class="timeline-subtitle">Theo dõi lịch nhận, lưu trú và trả phòng theo thời gian</p></div>
+<div class="container-fluid p-4 tl-page">
+    <div class="tlg-header mb-3">
+        <div class="tlg-heading">
+            <div class="tlg-eyebrow">Vận hành nội bộ</div>
+            <h1 class="tlg-title">Timeline phòng</h1>
+        </div>
+        <div class="tlg-stats" aria-label="Số liệu hôm nay">
+            <div class="tlg-stat"><div class="tlg-stat__label">Lấp đầy</div><div class="tlg-stat__row"><span class="tlg-stat__value" id="tl-stat-occupancy">–</span><span class="tlg-stat__suffix">%</span></div></div>
+            <div class="tlg-stat"><div class="tlg-stat__label">Nhận hôm nay</div><div class="tlg-stat__row"><span class="tlg-stat__value" id="tl-stat-arrivals">–</span><span class="tlg-stat__suffix">phòng</span></div></div>
+            <div class="tlg-stat"><div class="tlg-stat__label">Trả hôm nay</div><div class="tlg-stat__row"><span class="tlg-stat__value" id="tl-stat-departures">–</span><span class="tlg-stat__suffix">phòng</span></div></div>
+            <div class="tlg-stat"><div class="tlg-stat__label">Quá giờ</div><div class="tlg-stat__row"><span class="tlg-stat__value" id="tl-stat-overstay">–</span><span class="tlg-stat__suffix">phòng</span></div></div>
+        </div>
     </div>
 
-    <section class="timeline-ops-toolbar mb-3" aria-label="Điều khiển Timeline">
-        <div class="timeline-toolbar-group timeline-toolbar-group--range">
-            <span class="timeline-toolbar-label">Khoảng thời gian</span>
-            <div class="timeline-range-controls button-group" role="group" aria-label="Điều hướng thời gian">
-                <button type="button" id="timeline-prev" class="btn btn-icon btn-outline-secondary" onclick="shiftTimeline(-1)" aria-label="Khoảng thời gian trước"><i class="fas fa-chevron-left" aria-hidden="true"></i></button>
-                <button type="button" id="timeline-today" class="btn btn-outline-primary" onclick="goToToday()">Hôm nay</button>
-                <button type="button" id="timeline-next" class="btn btn-icon btn-outline-secondary" onclick="shiftTimeline(1)" aria-label="Khoảng thời gian tiếp theo"><i class="fas fa-chevron-right" aria-hidden="true"></i></button>
-                <span id="timeline-range-label" class="timeline-range-label" aria-live="polite">Đang tải khoảng thời gian</span>
-            </div>
+    <section class="tlg-toolbar mb-3" aria-label="Điều khiển Timeline">
+        <div class="tlg-nav" role="group" aria-label="Điều hướng thời gian">
+            <button type="button" id="timeline-prev" class="tlg-nav__btn" onclick="shiftTimeline(-1)" aria-label="Khoảng thời gian trước"><i class="fas fa-chevron-left" aria-hidden="true"></i></button>
+            <button type="button" id="timeline-today" class="tlg-nav__today" onclick="goToToday()">Hôm nay</button>
+            <button type="button" id="timeline-next" class="tlg-nav__btn" onclick="shiftTimeline(1)" aria-label="Khoảng thời gian tiếp theo"><i class="fas fa-chevron-right" aria-hidden="true"></i></button>
         </div>
-
-        <div class="timeline-toolbar-group timeline-toolbar-group--view">
-            <span class="timeline-toolbar-label">Chế độ xem</span>
-            <div class="timeline-view-switch button-group" role="group" aria-label="Chế độ xem">
-                <button type="button" id="timeline-view-day" class="btn btn-outline-primary" onclick="setTimelineViewMode('day')" aria-pressed="false">Ngày</button>
-                <button type="button" id="timeline-view-3days" class="btn btn-outline-primary active" onclick="setTimelineViewMode('3days')" aria-pressed="true">3 ngày</button>
-                <button type="button" id="timeline-view-week" class="btn btn-outline-primary" onclick="setTimelineViewMode('week')" aria-pressed="false">Tuần</button>
-            </div>
+        <span id="timeline-range-label" class="tlg-range" aria-live="polite">Đang tải khoảng thời gian</span>
+        <div class="tlg-divider" aria-hidden="true"></div>
+        <div class="tlg-seg" role="group" aria-label="Chế độ xem">
+            <button type="button" id="timeline-view-day" class="tlg-seg__btn" onclick="setTimelineViewMode('day')" aria-pressed="false">Ngày</button>
+            <button type="button" id="timeline-view-3days" class="tlg-seg__btn active" onclick="setTimelineViewMode('3days')" aria-pressed="true">3 ngày</button>
+            <button type="button" id="timeline-view-week" class="tlg-seg__btn" onclick="setTimelineViewMode('week')" aria-pressed="false">Tuần</button>
+            <button type="button" id="timeline-view-2weeks" class="tlg-seg__btn" onclick="setTimelineViewMode('2weeks')" aria-pressed="false">2 tuần</button>
+            <button type="button" id="timeline-view-month" class="tlg-seg__btn" onclick="setTimelineViewMode('month')" aria-pressed="false">Tháng</button>
         </div>
-
-        <div class="timeline-toolbar-group timeline-toolbar-group--actions">
-            <span class="timeline-toolbar-label">Lọc & thao tác</span>
-            <div class="timeline-toolbar-actions button-group">
-                <label class="visually-hidden" for="timeline-status-filter">Lọc trạng thái phòng</label>
-                <select id="timeline-status-filter" class="form-select" onchange="applyTimelineStatusFilter()">
-                    <option value="all">Tất cả trạng thái</option>
-                    <option value="booked">Đặt trước</option>
-                    <option value="checked_in">Đang ở</option>
-                    <option value="overstay">Quá giờ</option>
-                </select>
-                <button type="button" class="btn btn-success fw-semibold" data-bs-toggle="modal" data-bs-target="#groupBookingModal"><i class="fas fa-users-cog" aria-hidden="true"></i><span>Đặt đoàn</span></button>
-                <button type="button" class="btn btn-outline-primary" onclick="loadTimeline()" aria-label="Làm mới Timeline"><i class="fas fa-sync" aria-hidden="true"></i><span aria-hidden="true">Làm mới</span></button>
-            </div>
-        </div>
+        <div class="tlg-divider" aria-hidden="true"></div>
+        <label class="visually-hidden" for="timeline-status-filter">Lọc trạng thái phòng</label>
+        <select id="timeline-status-filter" class="form-select tlg-filter" onchange="applyTimelineStatusFilter()">
+            <option value="all">Tất cả trạng thái</option>
+            <option value="booked">Đặt trước</option>
+            <option value="checked_in">Đang ở</option>
+            <option value="hourly">Theo giờ</option>
+            <option value="group">Đặt đoàn</option>
+            <option value="overstay">Quá giờ</option>
+        </select>
+        <div class="tlg-spacer" aria-hidden="true"></div>
+        <button type="button" class="tlg-btn tlg-btn--ghost" onclick="loadTimeline()"><i class="fas fa-sync me-1" aria-hidden="true"></i>Làm mới</button>
+        <button type="button" class="tlg-btn tlg-btn--primary" data-bs-toggle="modal" data-bs-target="#groupBookingModal"><i class="fas fa-users me-1" aria-hidden="true"></i>Đặt đoàn</button>
     </section>
 
-    <div class="legend-bar timeline-legend mb-3" role="list" aria-label="Chú thích trạng thái">
-        <span class="legend-item legend-booked" role="listitem"><i class="far fa-calendar-check" aria-hidden="true"></i>Đặt trước</span>
-        <span class="legend-item legend-active" role="listitem"><i class="fas fa-bed" aria-hidden="true"></i>Đang ở</span>
-        <span class="legend-item legend-hourly" role="listitem"><i class="fas fa-clock" aria-hidden="true"></i>Theo giờ</span>
-        <span class="legend-item legend-group" role="listitem"><i class="fas fa-users" aria-hidden="true"></i>Đặt đoàn</span>
-        <span class="legend-item legend-overstay" role="listitem"><i class="fas fa-exclamation-triangle" aria-hidden="true"></i>Quá giờ</span>
+    <div class="tlg-legend mb-3" role="list" aria-label="Chú thích trạng thái">
+        <span class="tlg-legend__item" role="listitem"><span class="tlg-dot tlg-dot--booked" aria-hidden="true"></span>Đặt trước</span>
+        <span class="tlg-legend__item" role="listitem"><span class="tlg-dot tlg-dot--staying" aria-hidden="true"></span>Đang ở</span>
+        <span class="tlg-legend__item" role="listitem"><span class="tlg-dot tlg-dot--hourly" aria-hidden="true"></span>Theo giờ</span>
+        <span class="tlg-legend__item" role="listitem"><span class="tlg-dot tlg-dot--group" aria-hidden="true"></span>Đặt đoàn</span>
+        <span class="tlg-legend__item" role="listitem"><span class="tlg-dot tlg-dot--overstay" aria-hidden="true"></span>Quá giờ</span>
     </div>
 
     <div class="card timeline-card">
@@ -84,6 +85,7 @@
             </div>
         </div>
     </div>
+    <p class="tlg-hint">Nhấn ô trống để tạo đặt phòng · nhấn một booking để mở chi tiết.</p>
 </div>
 
 {% include "rooms/_booking_modal.html" %}
@@ -441,7 +443,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="https://unpkg.com/vis-timeline@8.5.4/standalone/umd/vis-timeline-graph2d.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 <script src="{{ url_for('static', filename='js/qr_scanner.js') }}"></script>
 <script src="{{ url_for('static', filename='js/timeline_manager.js') }}"></script>
