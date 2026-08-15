@@ -1,4 +1,5 @@
 from flask import Flask, abort, g, jsonify, redirect, render_template, request, url_for
+from sqlalchemy import text as sa_text
 from extensions import csrf, db, login_manager, mail
 from flask_migrate import Migrate
 from flask_wtf.csrf import CSRFError
@@ -125,7 +126,24 @@ def create_app(test_config=None, environment=None):
             if not current_user.is_super_admin and current_user.hotel_id != g.hotel_id:
                 abort(403, description="Bạn không có quyền truy cập vào khách sạn này.")
 
+    # --- 4b. LOGGING (INFO ra stdout — container gom qua json-file driver) ---
+    if not app.config.get('TESTING'):
+        import logging as _logging
+        _logging.basicConfig(
+            level=_logging.INFO,
+            format='%(asctime)s %(levelname)s %(name)s: %(message)s',
+        )
+
     # --- 5. ROUTES HỆ THỐNG ---
+    @app.route('/healthz')
+    def healthz():
+        # Route công khai cho healthcheck/uptime — không tenant, không auth.
+        try:
+            db.session.execute(sa_text('SELECT 1'))
+        except Exception:
+            return jsonify(status='degraded'), 503
+        return jsonify(status='ok')
+
     @app.route('/')
     def index():
         return redirect(url_for('room.map_view', hotel_slug='central')) 

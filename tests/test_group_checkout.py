@@ -231,9 +231,15 @@ def test_group_checkout_excess_deposit_returns_credit_without_refund(
     booking_room.status = "checked_in"
     booking_room.check_in_actual = datetime.now() - timedelta(days=1)
     booking_room.room.status = "occupied"
-    booking.prepaid_amount = Decimal("1100000")
     db.session.commit()
     login_as(client, user)
+
+    # Chống phụ thuộc giờ chạy: lấy hóa đơn thật rồi đặt cọc = hóa đơn + 100k
+    # -> balance luôn đúng -100k dù test chạy lúc mấy giờ.
+    base_quote, _ = _group_quote(client, hotel, booking.id)
+    booking.prepaid_amount = Decimal(str(base_quote["settlement_total"])) + Decimal("100000")
+    booking_room.room_deposit_amount = booking.prepaid_amount
+    db.session.commit()
     quote, payload = _group_quote(client, hotel, booking.id)
 
     assert Decimal(quote["balance"]) == Decimal("-100000.00")

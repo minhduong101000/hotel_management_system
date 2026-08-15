@@ -7,8 +7,8 @@ def send_async_email(app, msg):
     with app.app_context():
         try:
             mail.send(msg)
-        except Exception as e:
-            print(f"Error sending email: {e}")
+        except Exception:
+            app.logger.exception("Error sending booking notification email")
 
 def send_booking_notification(booking, hotel):
     """
@@ -16,7 +16,9 @@ def send_booking_notification(booking, hotel):
     Chạy trong thread riêng để không block request chính.
     """
     if not hotel.email:
-        print(f"Hotel {hotel.name} has no email configured. Skipping notification.")
+        current_app.logger.info(
+            "Hotel %s has no email configured. Skipping notification.", hotel.name
+        )
         return
 
     subject = f"🔔 [HOTEL] Booking mới: {hotel.name} - {booking.code}"

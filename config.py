@@ -110,6 +110,12 @@ def apply_runtime_config(app, environment=None, test_config=None):
             SQLALCHEMY_DATABASE_URI=os.environ.get("DATABASE_URL"),
             DEBUG=False,
             TESTING=False,
+            # HTTPS mặc định bắt buộc; triển khai LAN thuần HTTP phải chủ động
+            # tắt bằng SESSION_COOKIE_SECURE=false (nếu không login sẽ hỏng).
+            SESSION_COOKIE_SECURE=(
+                os.environ.get("SESSION_COOKIE_SECURE", "true").strip().lower()
+                != "false"
+            ),
         )
         validate_production_config(app.config)
 
