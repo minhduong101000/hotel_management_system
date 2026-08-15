@@ -18,7 +18,7 @@ from models.booking_room import BookingRoom
 # ====================================================
 # 2. IMPORT SERVICE (Logic tính giá)
 # ====================================================
-from services.pricing_service import get_effective_room_prices_bulk
+from services.pricing_service import get_effective_room_prices, get_effective_room_prices_bulk
 from services import audit_service, booking_quote_service
 from services.room_configuration_service import (
     RoomConfigurationValidationError,
