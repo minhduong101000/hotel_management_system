@@ -286,6 +286,26 @@ function changeServiceQty(serviceId, changeValue, currentQty) {
 }
 
 /**
+ * 3b. PHƯƠNG THỨC THANH TOÁN (thiết kế 15-08)
+ * Segmented Tiền mặt/Chuyển khoản/Thẻ — giá trị lưu vào hidden input,
+ * dùng chung cho checkout lẻ (co-payment-method) và đoàn (gc-payment-method).
+ */
+function getCheckoutPaymentMethod(inputId = 'co-payment-method') {
+    return document.getElementById(inputId)?.value || 'cash';
+}
+
+function setCheckoutPaymentMethod(method, button, inputId = 'co-payment-method') {
+    const input = document.getElementById(inputId);
+    if (input) input.value = method;
+    const group = button?.closest('[role="group"]');
+    if (group) {
+        group.querySelectorAll('.pos-method-btn').forEach(b => {
+            b.classList.toggle('active', b === button);
+        });
+    }
+}
+
+/**
  * 4. HÀM XÁC NHẬN THANH TOÁN
  */
 function confirmCheckout() {
@@ -298,10 +318,10 @@ function confirmCheckout() {
     setCheckoutConfirmBusy(true);
     showCheckoutStatus('Đang xác nhận thanh toán...', 'info');
 
-    const payload = { 
+    const payload = {
         number: currentCheckoutRoom,
         include_tax: checkoutIncludeTax,
-        payment_method: 'cash',
+        payment_method: getCheckoutPaymentMethod(),
         quote_fingerprint: currentCheckoutQuote.fingerprint,
         quote_checkout_at: currentCheckoutQuote.checkout_at
     };
@@ -618,7 +638,7 @@ function submitGroupCheckout() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             include_tax: groupCheckoutIncludeTax,
-            payment_method: 'cash',
+            payment_method: getCheckoutPaymentMethod('gc-payment-method'),
             quote_fingerprint: currentGroupCheckoutQuote.fingerprint,
             quote_checkout_at: currentGroupCheckoutQuote.checkout_at
         })
