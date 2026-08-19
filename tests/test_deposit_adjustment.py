@@ -237,7 +237,7 @@ def test_lowering_a_deposit_to_zero_still_keeps_the_original_mark(
 
     response = client.post(
         f"/{hotel.slug}/timeline/api/bookings/update",
-        json=_update_payload(br, 0, reason="Khách hủy, trả lại toàn bộ cọc bằng tay"),
+        json=_update_payload(br, 0, reason="Gõ nhầm số 0 khi nhận cọc"),
     )
 
     assert response.get_json()["success"] is True, response.get_json()
