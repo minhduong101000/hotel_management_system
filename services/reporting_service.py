@@ -23,7 +23,9 @@ class ReportPeriod:
 
 
 def resolve_report_period(period, start_value=None, end_value=None, now=None):
-    now = now or datetime.now()
+    from services import time_service
+
+    now = now or time_service.business_now_naive()
     today = now.date()
 
     if period == "week":

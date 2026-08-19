@@ -115,9 +115,20 @@ def _effective_rule_query(hotel_id, room_types, check_date):
     ).order_by(PriceRule.priority.desc())
 
 
+def _default_price_date():
+    """Ngày/giờ mặc định khi dò PriceRule — theo lịch nghiệp vụ VN.
+
+    Dùng giờ máy sẽ khiến rule lễ/Tết và rule cuối tuần chỉ có hiệu lực từ
+    7 giờ sáng trong deployment UTC.
+    """
+    from services import time_service
+
+    return time_service.business_now_naive()
+
+
 def get_effective_room_prices(room, check_date=None):
     """Return effective prices for one room."""
-    check_date = check_date or datetime.now()
+    check_date = check_date or _default_price_date()
     try:
         candidate_rules = _effective_rule_query(
             room.hotel_id,
@@ -135,7 +146,7 @@ def get_effective_room_prices_bulk(rooms, check_date=None):
     if not rooms:
         return {}
 
-    check_date = check_date or datetime.now()
+    check_date = check_date or _default_price_date()
     hotel_id = rooms[0].hotel_id
     room_types = sorted({room.room_type for room in rooms})
     candidate_rules = _effective_rule_query(

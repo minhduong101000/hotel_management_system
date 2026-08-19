@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 import pytest
@@ -7,7 +7,7 @@ from extensions import db
 from models import Payment
 from models.audit_event import AuditEvent
 from models.business_operation import BusinessOperation
-from services import payment_service, refund_service
+from services import payment_service, refund_service, time_service
 
 
 START = datetime(2026, 8, 10, 14, 0)
@@ -222,6 +222,34 @@ def test_refund_unused_value_hourly_room_is_zero(app, seed_hotels):
         # Thuê giờ: đã ở là tính trọn block -> phần chưa dùng = 0
         assert quote["base_value"] == Decimal("0.00")
         assert quote["refund_amount"] == Decimal("0.00")
+
+
+def test_refund_unused_value_default_effective_at_uses_business_day(
+    app, seed_hotels, monkeypatch
+):
+    """Nhánh mặc định effective_at=None phải theo NGÀY NGHIỆP VỤ VN.
+
+    18:00 UTC ngày 11/08 = 01:00 VN ngày 12/08. Nếu ai đó sau này đổi nhánh
+    mặc định trong unused_value() từ business_now_naive() sang
+    utc_now_naive(), effective_at sẽ rơi về ngày 11 (UTC) thay vì ngày 12
+    (VN) -> đêm 11 bị tính nhầm là "chưa dùng" -> hoàn thừa một đêm cho
+    khách. Khoá hành vi ĐÚNG: gọi unused_value() KHÔNG truyền effective_at.
+    """
+    _, _, user, _, booking_room, _ = seed_hotels
+    with app.app_context():
+        _five_night_room(booking_room)
+        _fund(booking_room.booking, 2_000_000)
+
+        monkeypatch.setattr(
+            time_service,
+            "utc_now",
+            lambda: datetime(2026, 8, 11, 18, 0, tzinfo=timezone.utc),
+        )
+
+        value = refund_service.unused_value(booking_room.booking)
+        # Ngày nghiệp vụ VN là 12/08 -> rời đi ngày 12, đã ở đêm 10 và 11
+        # -> còn đúng 3 đêm chưa dùng (12, 13, 14) x 400k = 1.200.000.
+        assert value == Decimal("1200000.00")
 
 
 def test_refund_unused_value_falls_back_to_price_snapshot(app, seed_hotels):

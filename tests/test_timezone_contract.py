@@ -339,6 +339,52 @@ def test_room_map_shows_check_in_time_in_business_time(
     assert target["check_in_time"] == "14:00 19/08", target["check_in_time"]
 
 
+def test_booking_code_uses_the_business_day_not_the_utc_day(
+    utc_container, client, seed_hotels, login_as, monkeypatch
+):
+    """01:00 VN ngày 19 là 18:00 UTC ngày 18 — mã không được in ngày 18."""
+    from models import Booking
+
+    monkeypatch.setattr(
+        time_service, "utc_now", lambda: datetime(2026, 8, 18, 18, 0, tzinfo=timezone.utc)
+    )
+    hotel, _, admin, _, br, _ = seed_hotels
+    login_as(client, admin)
+    room_number = br.room.room_number
+    br.status = "cancelled"
+    db.session.commit()
+
+    response = client.post(
+        f"/{hotel.slug}/timeline/api/bookings/create",
+        json={
+            "room_number": room_number,
+            "status": "booked",
+            "rental_type": "daily",
+            "customer_name": "Khach Dem",
+            "customer_phone": "0900000002",
+            "check_in": "2026-08-19T14:00",
+            "check_out": "2026-08-20T12:00",
+            "deposit": 500000,
+            "source": "walk_in",
+        },
+    )
+    assert response.get_json()["success"] is True, response.get_json()
+
+    code = Booking.query.order_by(Booking.id.desc()).first().code
+    assert "260819" in code, code
+
+
+def test_price_rule_lookup_defaults_to_the_business_day(app, monkeypatch):
+    """Giá ngày lễ bắt đầu 'hôm nay' phải có hiệu lực từ 00:00 VN, không phải 07:00."""
+    from services import pricing_service
+
+    monkeypatch.setattr(
+        time_service, "utc_now", lambda: datetime(2026, 8, 18, 18, 0, tzinfo=timezone.utc)
+    )
+    with app.app_context():
+        assert pricing_service._default_price_date() == datetime(2026, 8, 19, 1, 0)
+
+
 def test_deposit_payment_created_at_is_utc_even_on_a_vn_clock_host(
     client, seed_hotels, login_as, monkeypatch
 ):

@@ -123,7 +123,7 @@ def _reschedule_price_comparison(br, room, check_in, check_out):
 
 # --- HÀM HELPER: TẠO MÃ BOOKING ---
 def generate_booking_code():
-    date_str = datetime.now().strftime('%y%m%d')
+    date_str = time_service.business_today().strftime('%y%m%d')
     chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
     random_str = ''.join(random.choices(chars, k=4))
     return f"BK-{date_str}-{random_str}"

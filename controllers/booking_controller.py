@@ -198,7 +198,11 @@ def print_deposit_invoice(booking_id):
     customer_name = booking.customer.name if booking.customer else "Khách lẻ"
     customer_phone = booking.customer.phone if booking.customer else "--"
     customer_email = booking.customer.email if (booking.customer and booking.customer.email) else "--"
-    deposit_date = booking.created_at.strftime('%d/%m/%Y %H:%M') if booking.created_at else datetime.now().strftime('%d/%m/%Y %H:%M')
+    deposit_date = (
+        time_service.format_business(booking.created_at, '%d/%m/%Y %H:%M')
+        if booking.created_at
+        else time_service.format_business(time_service.utc_now_naive(), '%d/%m/%Y %H:%M')
+    )
     deposit_amount = float(booking.prepaid_amount or 0)
     room_number = ", ".join([br.room.room_number for br in booking.rooms if br.room]) or "--"
 
@@ -873,7 +877,7 @@ def create_group_booking():
             if customer_info.get('name') and customer.name in ["", "Khách lẻ"]: customer.name = customer_info.get('name')
             db.session.flush()
 
-        time_prefix = datetime.now().strftime('%y%m%d-%H%M%S')
+        time_prefix = time_service.business_now_naive().strftime('%y%m%d-%H%M%S')
         booking_code = f"GRP-{time_prefix}" 
 
         new_booking = Booking(

@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 from sqlalchemy import func
@@ -7,7 +5,7 @@ from sqlalchemy import func
 from decorators import master_admin_required
 from extensions import db
 from models import Booking, Hotel, Room, User
-from services import audit_service
+from services import audit_service, time_service
 
 
 master_bp = Blueprint('master', __name__)
@@ -42,7 +40,16 @@ def dashboard():
     hotels = Hotel.query.order_by(Hotel.name).all()
     room_counts = dict(db.session.query(Room.hotel_id, func.count(Room.id)).group_by(Room.hotel_id))
     user_counts = dict(db.session.query(User.hotel_id, func.count(User.id)).filter(User.hotel_id.isnot(None)).group_by(User.hotel_id))
-    metrics = {'total_rooms': Room.query.count(), 'occupied_rooms': Room.query.filter_by(status='occupied').count(), 'today_bookings': Booking.query.filter(func.date(Booking.created_at) == datetime.now().date()).count()}
+    today_business = time_service.business_today()
+    start_utc, end_utc = time_service.business_day_utc_bounds(today_business)
+    metrics = {
+        'total_rooms': Room.query.count(),
+        'occupied_rooms': Room.query.filter_by(status='occupied').count(),
+        'today_bookings': Booking.query.filter(
+            Booking.created_at >= start_utc,
+            Booking.created_at < end_utc,
+        ).count(),
+    }
     return render_template('master/dashboard.html', hotels=hotels, room_counts=room_counts, user_counts=user_counts, metrics=metrics)
 
 
