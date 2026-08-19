@@ -1461,13 +1461,24 @@ async function openBookingDetailModal() {
         if (bookingRooms.length > 0) {
             bookingRooms.forEach(r => {
                 const statusLabel = r.status || '';
-                roomSelect.innerHTML += `<option value="${r.booking_room_id}" data-room-id="${r.room_id}" data-room-number="${escapeHtml(r.room_number)}" title="${escapeHtml(statusLabel)}">${escapeHtml(r.room_number)}</option>`;
+                const option = document.createElement('option');
+                option.value = r.booking_room_id;
+                option.dataset.roomId = r.room_id;
+                option.dataset.roomNumber = r.room_number;
+                option.title = statusLabel;
+                option.textContent = r.room_number;
+                roomSelect.appendChild(option);
             });
             roomSelect.value = String(detail.id);
         } else {
             fallbackRooms.forEach(r => {
                 const roomNumber = r.number || r.room_number;
-                roomSelect.innerHTML += `<option value="${r.id}" data-room-id="${r.id}" data-room-number="${escapeHtml(roomNumber)}">${escapeHtml(roomNumber)}</option>`;
+                const option = document.createElement('option');
+                option.value = r.id;
+                option.dataset.roomId = r.id;
+                option.dataset.roomNumber = roomNumber;
+                option.textContent = roomNumber;
+                roomSelect.appendChild(option);
             });
             roomSelect.value = String(detail.room_id);
         }

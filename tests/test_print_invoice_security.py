@@ -54,3 +54,31 @@ def test_checkout_uses_the_shared_escape_helper():
     checkout = _source("static/js/checkout.js")
     assert "function checkoutEscapeHtml" not in checkout
     assert "escapeHtml(" in checkout
+
+
+def test_room_number_options_are_built_via_dom_api_not_html_attribute_interpolation():
+    """escapeHtml() chỉ an toàn cho nội dung text, KHÔNG cho thuộc tính HTML
+    (nó không escape dấu nháy kép). Số phòng là chuỗi tự do admin nhập; nếu
+    nội suy vào `data-room-number="${...}"` hay `title="${...}"` thì một số
+    phòng chứa `"` có thể thoát khỏi thuộc tính và chèn handler sự kiện.
+    Phải dựng <option> bằng DOM API (createElement/dataset/textContent) để
+    loại bỏ cả lớp lỗi, thay vì escape thủ công cho từng ngữ cảnh."""
+    script = _source("static/js/timeline_manager.js")
+    start = script.index("async function openBookingDetailModal(")
+    end = script.index("roomSelect.onchange = () => {")
+    body = script[start:end]
+
+    forbidden = (
+        'data-room-number="${',
+        'title="${',
+        "roomSelect.innerHTML +=",
+    )
+    for pattern in forbidden:
+        assert pattern not in body, f"còn nội suy thô vào thuộc tính HTML: {pattern}"
+
+    assert body.count("document.createElement('option')") == 2
+    assert "option.dataset.roomNumber = r.room_number" in body
+    assert "option.dataset.roomNumber = roomNumber" in body
+    assert "option.title = statusLabel" in body
+    assert "option.textContent = r.room_number" in body
+    assert "option.textContent = roomNumber" in body
