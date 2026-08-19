@@ -286,3 +286,42 @@ def test_group_booking_refuses_a_room_with_an_overstaying_guest(
     body = response.get_json()
     assert body["success"] is False, body
     assert "trùng lịch hết" in body["msg"]
+
+
+def test_update_without_status_still_checks_for_overlap(client, seed_hotels, login_as):
+    """Gọi thẳng API mà bỏ trường status: trước đây vừa bỏ qua kiểm tra trùng
+    lịch, vừa ghi status = None."""
+    from models import BookingRoom
+
+    hotel, _, admin, _, br, _ = seed_hotels
+    br.status = "booked"
+    br.check_in_expected = datetime(2026, 8, 19, 14, 0)
+    br.check_out_expected = datetime(2026, 8, 20, 12, 0)
+    other = BookingRoom(
+        hotel_id=hotel.id,
+        booking_id=br.booking_id,
+        room_id=br.room_id,
+        status="booked",
+        check_in_expected=datetime(2026, 8, 22, 14, 0),
+        check_out_expected=datetime(2026, 8, 23, 12, 0),
+    )
+    db.session.add(other)
+    db.session.commit()
+    login_as(client, admin)
+
+    response = client.post(
+        f"/{hotel.slug}/timeline/api/bookings/update",
+        json={
+            "booking_id": br.booking_id,
+            "booking_room_id": other.id,
+            "room_id": br.room_id,
+            # cố tình KHÔNG gửi status
+            "check_in": "2026-08-19T18:00",   # đè lên br
+            "check_out": "2026-08-20T10:00",
+        },
+    )
+
+    assert response.get_json()["success"] is False
+    db.session.refresh(other)
+    assert other.status == "booked"                              # không bị ghi None
+    assert other.check_in_expected == datetime(2026, 8, 22, 14, 0)  # không bị đổi giờ

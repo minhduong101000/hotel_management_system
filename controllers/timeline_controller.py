@@ -1309,10 +1309,25 @@ def update_booking():
             clean_out = check_out_str.split('.')[0]
             parsed_check_out = datetime.strptime(clean_out, '%Y-%m-%dT%H:%M')
 
+        # Thiếu status không có nghĩa là "bỏ qua kiểm tra" — giữ nguyên trạng
+        # thái hiện tại và vẫn phải soi trùng lịch.
+        effective_status = new_status or br.status
+
         # Validate overlap BEFORE applying room/time changes.
-        if new_status in ['booked', 'checked_in']:
-            candidate_start = parsed_check_in if parsed_check_in else (br.check_in_actual or br.check_in_expected)
-            candidate_end = parsed_check_out if parsed_check_out else (br.check_out_actual or br.check_out_expected)
+        if effective_status in ['booked', 'checked_in']:
+            # Giờ do client gửi lên đã là giờ nghiệp vụ. Khi thiếu, lấy mốc đang
+            # lưu — nhưng *_actual là UTC nên phải quy đổi trước khi đem so với
+            # cửa sổ bận (đã là giờ nghiệp vụ), nếu không sẽ chặn oan 7 tiếng.
+            candidate_start = parsed_check_in or (
+                time_service.to_business_naive(br.check_in_actual)
+                if br.check_in_actual
+                else br.check_in_expected
+            )
+            candidate_end = parsed_check_out or (
+                time_service.to_business_naive(br.check_out_actual)
+                if br.check_out_actual
+                else br.check_out_expected
+            )
             candidate_start = _normalize_dt(candidate_start)
             candidate_end = _normalize_dt(candidate_end)
 
@@ -1330,7 +1345,7 @@ def update_booking():
 
         # Cập nhật thông tin mới
         br.room_id = new_room_id
-        br.status = new_status
+        br.status = effective_status
 
         if parsed_check_in:
             br.check_in_expected = parsed_check_in
