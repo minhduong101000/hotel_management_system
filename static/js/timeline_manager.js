@@ -1137,11 +1137,28 @@ async function bdApplyLiveRoomPricing(detail) {
 function buildPrintRows() {
     const rows = [];
     let stt = 1;
-    if (bookingDetailRoomLine && Number(bookingDetailRoomFee) > 0) {
+    // Cùng thứ tự ưu tiên với renderBookingDetailServices: breakdown là các
+    // dòng khách phải đọc được (tiền từng đêm, phụ thu phát sinh...). Gộp lại
+    // thành một dòng tổng thì tờ giấy không giải thích được khoản thu thêm.
+    if (bookingDetailRoomBreakdown.length) {
+        bookingDetailRoomBreakdown.forEach(item => {
+            const amount = Number(item.amount || 0);
+            const detailText = item.detail ? ` (${escapeHtml(item.detail)})` : '';
+            rows.push(`
+            <tr>
+                <td>${stt++}</td>
+                <td>${escapeHtml(item.label || 'Tiền phòng')}${detailText}</td>
+                <td>1</td>
+                <td>${escapeHtml(formatVND(amount))}</td>
+                <td>${escapeHtml(formatVND(amount))}</td>
+            </tr>
+        `);
+        });
+    } else if (bookingDetailRoomLine) {
         rows.push(`
             <tr>
                 <td>${stt++}</td>
-                <td>${escapeHtml(bookingDetailRoomLine.name)}</td>
+                <td>${escapeHtml(bookingDetailRoomLine.name || 'Tiền phòng')}</td>
                 <td>1</td>
                 <td>${escapeHtml(formatVND(bookingDetailRoomFee))}</td>
                 <td>${escapeHtml(formatVND(bookingDetailRoomFee))}</td>
