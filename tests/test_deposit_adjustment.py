@@ -146,3 +146,77 @@ def test_cashier_report_kpi_classifies_adjustment_by_type_not_sign(
     assert data["total_refunded"] == 0.0        # điều chỉnh không phải hoàn tiền
     assert data["total_received"] == 500000.0   # đã trừ đúng phần điều chỉnh
     assert data["net_amount"] == 500000.0        # số ròng không đổi
+
+
+def _update_payload(br, deposit, reason=None):
+    payload = {
+        "booking_id": br.booking_id,
+        "booking_room_id": br.id,
+        "room_id": br.room_id,
+        "status": br.status,
+        "check_in": "2026-08-19T14:00",
+        "check_out": "2026-08-20T12:00",
+        "deposit": deposit,
+    }
+    if reason is not None:
+        payload["deposit_reason"] = reason
+    return payload
+
+
+def test_lowering_a_deposit_without_a_reason_is_rejected(client, seed_hotels, login_as):
+    hotel, _, admin, _, br, _ = seed_hotels
+    br.room_deposit_amount = 5000000
+    br.room_deposit_original = 5000000
+    db.session.commit()
+    login_as(client, admin)
+    before = Payment.query.count()
+
+    response = client.post(
+        f"/{hotel.slug}/timeline/api/bookings/update",
+        json=_update_payload(br, 500000),
+    )
+
+    body = response.get_json()
+    assert body["success"] is False
+    assert body["error_code"] == "deposit_reason_required"
+    db.session.refresh(br)
+    assert float(br.room_deposit_amount) == 5000000.0   # không đổi gì
+    assert Payment.query.count() == before
+
+
+def test_lowering_a_deposit_with_a_reason_leaves_a_trace(client, seed_hotels, login_as):
+    hotel, _, admin, _, br, _ = seed_hotels
+    br.room_deposit_amount = 5000000
+    br.room_deposit_original = 5000000
+    db.session.commit()
+    login_as(client, admin)
+
+    response = client.post(
+        f"/{hotel.slug}/timeline/api/bookings/update",
+        json=_update_payload(br, 500000, reason="gõ nhầm số 0"),
+    )
+
+    assert response.get_json()["success"] is True, response.get_json()
+    db.session.refresh(br)
+    assert float(br.room_deposit_amount) == 500000.0
+    # Số cọc GỐC phải còn nguyên — đây là bản ghi duy nhất về số ban đầu
+    assert float(br.room_deposit_original) == 5000000.0
+    adjustment = Payment.query.filter_by(payment_type="deposit_adjustment").one()
+    assert float(adjustment.amount) == -4500000.0
+    assert "gõ nhầm số 0" in adjustment.note
+
+
+def test_raising_a_deposit_needs_no_reason(client, seed_hotels, login_as):
+    hotel, _, admin, _, br, _ = seed_hotels
+    br.room_deposit_amount = 500000
+    br.room_deposit_original = 500000
+    db.session.commit()
+    login_as(client, admin)
+
+    response = client.post(
+        f"/{hotel.slug}/timeline/api/bookings/update",
+        json=_update_payload(br, 800000),
+    )
+
+    assert response.get_json()["success"] is True
+    assert Payment.query.filter_by(payment_type="deposit").count() == 1

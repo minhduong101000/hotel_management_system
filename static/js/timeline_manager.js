@@ -585,7 +585,10 @@ function openEditModal(bookingRoomId, bookingId) {
         
         // Tiền cọc
         document.getElementById('edit-deposit').value = data.deposit;
-        
+        const depositOriginal = document.getElementById('edit-deposit-original');
+        if (depositOriginal) depositOriginal.value = data.deposit || 0;
+        toggleDepositReason();
+
         // CCCD & Địa chỉ
         const cccdEl = document.getElementById('edit-cccd');
         const addrEl = document.getElementById('edit-address');
@@ -629,6 +632,15 @@ function openEditModal(bookingRoomId, bookingId) {
     .catch(err => console.error(err));
 }
 
+// Ô lý do chỉ hiện khi số cọc bị GIẢM so với lúc mở modal.
+function toggleDepositReason() {
+    const block = document.getElementById('deposit-adjust-block');
+    if (!block) return;
+    const current = Number(document.getElementById('edit-deposit')?.value || 0);
+    const original = Number(document.getElementById('edit-deposit-original')?.value || 0);
+    block.style.display = current < original ? 'block' : 'none';
+}
+
 function saveBookingChanges() {
     // Lấy ID chính xác của dòng cần sửa (BookingRoom)
     const bookingRoomId = document.getElementById('edit-booking-room-id').value;
@@ -670,6 +682,15 @@ function saveBookingChanges() {
     } 
     // --- TRƯỜNG HỢP 2: CẬP NHẬT THÔNG TIN (ĐỔI PHÒNG, ĐỔI GIỜ) ---
     else {
+        const depositNow = Number(document.getElementById('edit-deposit').value || 0);
+        const depositWas = Number(document.getElementById('edit-deposit-original')?.value || 0);
+        const depositReason = document.getElementById('deposit-adjust-reason')?.value.trim() || '';
+        if (depositNow < depositWas && !depositReason) {
+            alert('Giảm tiền cọc phải có lý do để đối soát.');
+            document.getElementById('deposit-adjust-reason')?.focus();
+            return;
+        }
+
         const data = {
             booking_id: bookingId,
             booking_room_id: bookingRoomId, // QUAN TRỌNG: Gửi ID này để biết sửa thanh nào trên timeline
@@ -678,6 +699,7 @@ function saveBookingChanges() {
             check_in: document.getElementById('edit-checkin').value,
             check_out: document.getElementById('edit-checkout').value,
             deposit: document.getElementById('edit-deposit').value,
+            deposit_reason: depositReason,
             customer_name: document.getElementById('edit-customer').value,
             customer_cccd: document.getElementById('edit-cccd').value,
             customer_address: document.getElementById('edit-address').value

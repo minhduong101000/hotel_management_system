@@ -1303,20 +1303,47 @@ def update_booking():
         if new_deposit is not None:
             room_deposit = max(0.0, float(new_deposit))
             old_deposit = float(br.room_deposit_amount or 0)
-            
-            # --- LOGIC MỚI: Ghi nhận nộp thêm cọc vào sổ quỹ ---
+
             if room_deposit > old_deposit:
-                diff = room_deposit - old_deposit
+                # Nhận thêm tiền: ghi nhận vào sổ quỹ như một khoản cọc mới.
                 payment_service.record_deposit(
                     booking_id=br.booking_id,
-                    amount=diff,
+                    amount=room_deposit - old_deposit,
                     payment_method='cash',
                     note=f"Nộp thêm cọc cho phòng {br.room.room_number if br.room else br.room_id} (Cập nhật đơn)",
                     created_by=current_user.id,
                 )
+            elif room_deposit < old_deposit:
+                # Giảm cọc là sửa số đã ghi nhận -> bắt buộc có lý do và để lại
+                # bút toán đối ứng. Sổ tiền append-only: không sửa dòng cũ.
+                deposit_reason = (data.get('deposit_reason') or '').strip()
+                if not deposit_reason:
+                    return jsonify({
+                        'success': False,
+                        'error_code': 'deposit_reason_required',
+                        'msg': 'Giảm tiền cọc phải có lý do để đối soát.',
+                    }), 400
+
+                payment_service.record_deposit_adjustment(
+                    booking_id=br.booking_id,
+                    amount=room_deposit - old_deposit,
+                    note=f"Điều chỉnh cọc phòng {br.room.room_number if br.room else br.room_id}: {deposit_reason}",
+                    created_by=current_user.id,
+                )
+                audit_service.record_event(
+                    hotel_id=br.hotel_id,
+                    actor_user_id=current_user.id,
+                    action='deposit_adjustment',
+                    entity_type='booking_room',
+                    entity_id=br.id,
+                    before_data={'room_deposit_amount': old_deposit},
+                    after_data={'room_deposit_amount': room_deposit, 'reason': deposit_reason},
+                )
 
             br.room_deposit_amount = room_deposit
-            if br.status not in ['cancelled', 'checked_out']:
+            # Chỉ nâng mốc gốc khi thu THÊM tiền; giảm cọc không được xóa dấu vết
+            # số tiền ban đầu đã nhận.
+            if br.status not in ['cancelled', 'checked_out'] and room_deposit > float(br.room_deposit_original or 0):
                 br.room_deposit_original = room_deposit
 
         # -- Logic đổi phòng --

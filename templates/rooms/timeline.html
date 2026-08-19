@@ -102,6 +102,7 @@
             <div class="modal-body px-4 py-3">
                 <input type="hidden" id="edit-booking-id">
                 <input type="hidden" id="edit-booking-room-id">
+                <input type="hidden" id="edit-deposit-original">
                 <div class="row g-3 mb-3">
                     <div class="col-md-7">
                         <div class="d-flex justify-content-between align-items-center">
@@ -141,8 +142,13 @@
                     </div>
                     <div class="col-md-6">
                         <label class="pos-label" for="edit-deposit">Tiền đặt cọc (VNĐ)</label>
-                        <input type="number" class="form-control fw-bold" id="edit-deposit" placeholder="0">
+                        <input type="number" class="form-control fw-bold" id="edit-deposit" placeholder="0" oninput="toggleDepositReason()">
                         <small class="text-muted d-block mt-1">Khoản cọc được trừ trực tiếp khi thanh toán.</small>
+                        <div id="deposit-adjust-block" class="mt-2" style="display: none;">
+                            <label class="pos-label" for="deposit-adjust-reason">Lý do giảm cọc <span class="text-danger" aria-hidden="true">*</span></label>
+                            <input type="text" class="form-control form-control-sm" id="deposit-adjust-reason" autocomplete="off" placeholder="Ví dụ: gõ nhầm số 0">
+                            <small class="text-muted d-block mt-1">Sổ quỹ sẽ ghi một dòng điều chỉnh kèm lý do này.</small>
+                        </div>
                     </div>
                 </div>
 
