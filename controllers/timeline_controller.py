@@ -339,13 +339,16 @@ def get_booking_detail(id):
 
     room_lines = []
     for room_row in booking.rooms:
+        # _effective_range quy đổi *_actual (UTC) sang giờ nghiệp vụ trước khi
+        # trộn với *_expected — không được nối hai hệ giờ vào cùng một trường.
+        row_start, row_end = _effective_range(room_row)
         room_lines.append({
             'booking_room_id': room_row.id,
             'room_id': room_row.room_id,
             'room_number': room_row.room.room_number if room_row.room else room_row.room_id,
             'status': room_row.status,
-            'check_in': (room_row.check_in_actual or room_row.check_in_expected).strftime('%Y-%m-%d %H:%M') if (room_row.check_in_actual or room_row.check_in_expected) else '',
-            'check_out': (room_row.check_out_actual or room_row.check_out_expected).strftime('%Y-%m-%d %H:%M') if (room_row.check_out_actual or room_row.check_out_expected) else '',
+            'check_in': row_start.strftime('%Y-%m-%d %H:%M') if row_start else '',
+            'check_out': row_end.strftime('%Y-%m-%d %H:%M') if row_end else '',
             'deposit': float(room_row.room_deposit_amount or 0),
         })
     
@@ -364,8 +367,14 @@ def get_booking_detail(id):
         'reason': row.reason,
         'price_mode': row.price_mode,
         'actor_name': actor_names.get(row.actor_user_id, f'User #{row.actor_user_id}'),
-        'created_at': row.created_at.strftime('%d/%m/%Y %H:%M'),
+        # created_at là timestamp hệ thống (UTC) -> đổi sang giờ nghiệp vụ để đọc.
+        'created_at': time_service.format_business(row.created_at, '%d/%m/%Y %H:%M'),
     } for row in reschedule_rows]
+
+    # Mốc đổ vào ô datetime-local rồi được POST NGƯỢC vào check_in_expected /
+    # check_out_expected (cột giờ nghiệp vụ) — phải là giờ nghiệp vụ, nếu không
+    # mỗi lần lễ tân bấm Lưu sẽ lùi cột nghiệp vụ đi đúng độ lệch múi giờ.
+    detail_start, detail_end = _effective_range(br)
 
     data = {
         'id': br.id, # BookingRoom ID
@@ -383,15 +392,15 @@ def get_booking_detail(id):
         'rental_type': br.rental_type,
         
         # Format ngày giờ cho input datetime-local của HTML (YYYY-MM-DDTHH:MM)
-        'check_in': (br.check_in_actual or br.check_in_expected).strftime('%Y-%m-%dT%H:%M'),
-        'check_out': (br.check_out_actual or br.check_out_expected).strftime('%Y-%m-%dT%H:%M'),
+        'check_in': detail_start.strftime('%Y-%m-%dT%H:%M') if detail_start else '',
+        'check_out': detail_end.strftime('%Y-%m-%dT%H:%M') if detail_end else '',
         
         'price': float(br.price_snapshot or 0),
         'deposit': float(br.room_deposit_amount or 0),
         'booking_total_amount': float(booking.total_amount or 0),
         'booking_prepaid_amount': float(booking.prepaid_amount or 0),
         'note': booking.note,
-        'created_at': booking.created_at.strftime('%d/%m/%Y %H:%M') if booking.created_at else '',
+        'created_at': time_service.format_business(booking.created_at, '%d/%m/%Y %H:%M'),
 
         'room_services': services_payload,
         'rooms': room_lines,
