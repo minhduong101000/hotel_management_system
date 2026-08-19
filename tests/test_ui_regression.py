@@ -60,3 +60,14 @@ def test_api_helper_maps_addroom_and_no_bare_customer_fetch():
     assert "'/api/bookings/add-room'" in timeline_block
     # Không còn fetch trần thiếu prefix tenant
     assert "fetch(`/api/customers" not in timeline_js
+
+
+def test_external_scripts_are_version_pinned():
+    """unpkg không kèm version sẽ trả bản MỚI NHẤT ở mỗi lần cache miss —
+    đúng cách vis-timeline từng trôi version và làm gãy Timeline."""
+    from pathlib import Path
+
+    for rel in ("templates/rooms/map.html", "templates/rooms/timeline.html"):
+        source = Path(rel).read_text(encoding="utf-8")
+        assert "unpkg.com/html5-qrcode\"" not in source, f"{rel}: html5-qrcode chưa pin version"
+        assert "unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" in source
