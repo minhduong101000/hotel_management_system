@@ -337,3 +337,50 @@ def test_room_map_shows_check_in_time_in_business_time(
     rooms = payload.get("rooms") if isinstance(payload, dict) else payload
     target = next(r for r in rooms if r.get("booking_id") == br.booking_id)
     assert target["check_in_time"] == "14:00 19/08", target["check_in_time"]
+
+
+def test_deposit_payment_created_at_is_utc_even_on_a_vn_clock_host(
+    client, seed_hotels, login_as, monkeypatch
+):
+    """KHÔNG dùng utc_container: giả lập máy chạy giờ VN (dev, hoặc ai đó set TZ).
+
+    created_at phải bám time_service chứ không bám đồng hồ máy, nếu không phiếu
+    thu buổi tối rơi sang ngày nghiệp vụ hôm sau trong sổ quỹ.
+    """
+    import os
+    import time as _time
+
+    from models import Payment
+
+    original = os.environ.get("TZ")
+    os.environ["TZ"] = "Asia/Ho_Chi_Minh"
+    _time.tzset()
+    try:
+        monkeypatch.setattr(
+            time_service, "utc_now", lambda: datetime(2026, 8, 19, 12, 0, tzinfo=timezone.utc)
+        )
+        hotel, _, admin, _, br, _ = seed_hotels
+        login_as(client, admin)
+
+        response = client.post(
+            f"/{hotel.slug}/timeline/api/bookings/update",
+            json={
+                "booking_id": br.booking_id,
+                "booking_room_id": br.id,
+                "room_id": br.room_id,
+                "status": br.status,
+                "check_in": "2026-08-19T14:00",
+                "check_out": "2026-08-20T12:00",
+                "deposit": 200000,
+            },
+        )
+        assert response.get_json()["success"] is True, response.get_json()
+
+        payment = Payment.query.order_by(Payment.id.desc()).first()
+        assert payment.created_at == datetime(2026, 8, 19, 12, 0)
+    finally:
+        if original is None:
+            os.environ.pop("TZ", None)
+        else:
+            os.environ["TZ"] = original
+        _time.tzset()

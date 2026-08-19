@@ -14,7 +14,7 @@ from typing import Optional
 from extensions import db
 from models.business_operation import BusinessOperation
 from models.payment import Payment
-from services import audit_service, business_operation_service, payment_service
+from services import audit_service, business_operation_service, payment_service, time_service
 
 
 MONEY_QUANTUM = Decimal("0.01")
@@ -82,7 +82,12 @@ def unused_value(booking, effective_at: Optional[datetime] = None) -> Decimal:
     Quy tắc: đêm có business_date >= ngày rời đi là chưa dùng. Thuê giờ đã ở
     tính trọn block nên phần chưa dùng luôn bằng 0. Phòng đã checkout/hủy: 0.
     """
-    effective_at = effective_at or datetime.now()
+    # effective_at chỉ dùng để so sánh .date() với check_in_expected/
+    # check_out_expected và business_date snapshot — đều là giờ nghiệp vụ VN
+    # naive, không phải cột timestamp hệ thống. Vì vậy mặc định đúng là
+    # business_now_naive(), không phải utc_now_naive() (utc lệch 7h sẽ đẩy
+    # nhầm ngày quanh nửa đêm VN, giống hệt bug mà spec 14-08-2026 đang vá).
+    effective_at = effective_at or time_service.business_now_naive()
     effective_str = effective_at.strftime("%Y-%m-%d")
     total = Decimal("0")
     for booking_room in booking.rooms:

@@ -10,6 +10,7 @@ from datetime import datetime
 import re
 from services import audit_service
 from services import inventory_batch_service
+from services import time_service
 
 expense_bp = Blueprint('expense', __name__)
 
@@ -286,7 +287,7 @@ def void_expense(expense_id):
         return jsonify({'success': False, 'msg': 'Khoản chi đã được hủy ghi nhận.'}), 409
     expense.is_voided = True
     expense.void_reason = reason
-    expense.voided_at = datetime.now()
+    expense.voided_at = time_service.utc_now_naive()
     expense.voided_by = current_user.id
     audit_service.record_event(hotel_id=expense.hotel_id, actor_user_id=current_user.id,
         action='void_expense', entity_type='expense', entity_id=expense.id,

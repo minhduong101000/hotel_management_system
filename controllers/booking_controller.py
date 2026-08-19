@@ -879,8 +879,8 @@ def create_group_booking():
         new_booking = Booking(
             code=booking_code,           
             customer_id=customer.id,
-            created_at=datetime.now(),
-            status='confirmed',          
+            created_at=time_service.utc_now_naive(),
+            status='confirmed',
             prepaid_amount=total_deposit,
             note=f"{note} (Đoàn: {len(room_ids)} phòng)",
         )
@@ -894,7 +894,6 @@ def create_group_booking():
                 amount=total_deposit,
                 payment_method='cash',
                 note=f"Nhận cọc đặt đoàn {booking_code} ({len(room_ids)} phòng)",
-                created_at=datetime.now(),
                 flush=True,
                 created_by=current_user.id,
             )
@@ -981,7 +980,7 @@ def create_group_booking():
 
             booking_state_service.aggregate_booking_state(
                 new_booking,
-                changed_at=datetime.now(),
+                changed_at=time_service.utc_now_naive(),
             )
 
             audit_service.record_event(

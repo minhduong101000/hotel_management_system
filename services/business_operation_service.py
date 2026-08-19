@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime
 import hashlib
 import json
 from typing import Any, Callable
@@ -9,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 
 from extensions import db
 from models.business_operation import BusinessOperation
+from services import time_service
 
 
 class OperationRequestConflict(ValueError):
@@ -46,7 +46,7 @@ def _replay_result(
 def complete_operation(operation: BusinessOperation, result_snapshot: dict):
     operation.status = "completed"
     operation.result_snapshot = result_snapshot
-    operation.completed_at = datetime.now()
+    operation.completed_at = time_service.utc_now_naive()
 
 
 def replay_operation(operation: BusinessOperation, request_payload: Any):

@@ -619,7 +619,7 @@ def create_booking():
             prepaid_amount=deposit_amount,
             source=source,
             note=data.get('note'),
-            created_at=datetime.now()
+            created_at=time_service.utc_now_naive()
         )
         db.session.add(new_booking)
         db.session.flush() # Lấy booking_id
@@ -631,7 +631,6 @@ def create_booking():
                 amount=deposit_amount,
                 payment_method='cash',
                 note=f"Tiền cọc đặt phòng {room.room_number}",
-                created_at=datetime.now(),
                 flush=True,
                 created_by=current_user.id,
             )
@@ -674,12 +673,12 @@ def create_booking():
         if status == 'checked_in':
             booking_state_service.check_in_room(
                 new_br,
-                checked_in_at=datetime.now(),
+                checked_in_at=time_service.utc_now_naive(),
             )
         else:
             booking_state_service.aggregate_booking_state(
                 new_booking,
-                changed_at=datetime.now(),
+                changed_at=time_service.utc_now_naive(),
             )
         audit_service.record_event(
             hotel_id=g.hotel_id,
@@ -1141,7 +1140,7 @@ def cancel_booking():
         room_labels = ', '.join([r.room.room_number if r.room else str(r.room_id) for r in rooms_to_cancel])
 
         # 4. Chốt dữ liệu tài chính trước khi chuyển trạng thái nguyên tử.
-        cancelled_at = datetime.now()
+        cancelled_at = time_service.utc_now_naive()
         for br in rooms_to_cancel:
             if br.final_amount is None:
                 br.final_amount = 0
@@ -1189,7 +1188,6 @@ def cancel_booking():
                     f"Ghi nhận phí hủy phòng {room_labels}: {cancellation_fee:,.0f} đ "
                     f"({fee_percent_effective:.0f}% cọc phân bổ, trích từ tiền cọc)"
                 ),
-                created_at=datetime.now(),
                 business_operation=operation,
                 component_key='cancellation_fee',
                 created_by=current_user.id,
@@ -1314,7 +1312,6 @@ def update_booking():
                     amount=diff,
                     payment_method='cash',
                     note=f"Nộp thêm cọc cho phòng {br.room.room_number if br.room else br.room_id} (Cập nhật đơn)",
-                    created_at=datetime.now(),
                     created_by=current_user.id,
                 )
 
@@ -1392,7 +1389,7 @@ def update_booking():
                     room_current.status = 'occupied'
                     # Cập nhật giờ check-in thực tế nếu chưa có
                     if not br.check_in_actual:
-                        br.check_in_actual = datetime.now()
+                        br.check_in_actual = time_service.utc_now_naive()
                 
                 elif new_status == 'cancelled' or new_status == 'checked_out':
                     room_current.status = 'available'
