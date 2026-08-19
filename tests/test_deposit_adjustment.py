@@ -220,3 +220,29 @@ def test_raising_a_deposit_needs_no_reason(client, seed_hotels, login_as):
 
     assert response.get_json()["success"] is True
     assert Payment.query.filter_by(payment_type="deposit").count() == 1
+
+
+def test_lowering_a_deposit_to_zero_still_keeps_the_original_mark(
+    client, seed_hotels, login_as
+):
+    """Biên: giảm cọc VỀ 0 (không phải chỉ giảm một phần) vẫn phải đi qua
+    cùng đường tiền — bút toán đối ứng đúng bằng -old_deposit, và
+    room_deposit_original không bị xóa dấu vết.
+    """
+    hotel, _, admin, _, br, _ = seed_hotels
+    br.room_deposit_amount = 5000000
+    br.room_deposit_original = 5000000
+    db.session.commit()
+    login_as(client, admin)
+
+    response = client.post(
+        f"/{hotel.slug}/timeline/api/bookings/update",
+        json=_update_payload(br, 0, reason="Khách hủy, trả lại toàn bộ cọc bằng tay"),
+    )
+
+    assert response.get_json()["success"] is True, response.get_json()
+    db.session.refresh(br)
+    assert float(br.room_deposit_amount) == 0.0
+    assert float(br.room_deposit_original) == 5000000.0
+    adjustment = Payment.query.filter_by(payment_type="deposit_adjustment").one()
+    assert float(adjustment.amount) == -5000000.0
