@@ -45,6 +45,44 @@ def business_today() -> date:
     return business_now().date()
 
 
+def business_now_naive() -> datetime:
+    """'Bây giờ' theo giờ nghiệp vụ, dạng naive.
+
+    DÙNG KHI: so sánh với các cột *_expected (vốn là giờ nghiệp vụ naive).
+    KHÔNG dùng để ghi vào cột timestamp hệ thống — dùng utc_now_naive().
+    """
+    return business_now().replace(tzinfo=None)
+
+
+def to_business_naive(utc_dt):
+    """Đổi mốc UTC (naive hoặc aware) sang giờ nghiệp vụ dạng naive.
+
+    DÙNG KHI: cần đặt timestamp hệ thống (*_actual, created_at) cạnh giờ dự
+    kiến để so sánh hoặc tính tiền.
+    """
+    if utc_dt is None:
+        return None
+    if utc_dt.tzinfo is None:
+        utc_dt = utc_dt.replace(tzinfo=timezone.utc)
+    return utc_dt.astimezone(_business_tz()).replace(tzinfo=None)
+
+
+def business_naive_to_utc(business_dt):
+    """Chiều ngược của to_business_naive: giờ nghiệp vụ naive -> UTC naive.
+
+    DÙNG KHI: nhận một mốc giờ nghiệp vụ từ client rồi ghi vào cột *_actual.
+    """
+    if business_dt is None:
+        return None
+    if business_dt.tzinfo is not None:
+        business_dt = business_dt.replace(tzinfo=None)
+    return (
+        business_dt.replace(tzinfo=_business_tz())
+        .astimezone(timezone.utc)
+        .replace(tzinfo=None)
+    )
+
+
 def business_period_to_utc(start_date: date, end_date: date):
     """Đổi kỳ báo cáo theo ngày Bangkok thành cửa sổ [start_utc, end_utc) naive-UTC.
 

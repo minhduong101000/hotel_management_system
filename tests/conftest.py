@@ -97,3 +97,26 @@ def upcoming_booking(app, seed_hotels):
     hotel_a, _, user_a, _, br_a, _ = seed_hotels
     # Just use br_a
     return hotel_a, user_a, br_a.room, br_a
+
+
+@pytest.fixture()
+def utc_container():
+    """Ép đồng hồ tiến trình chạy UTC như container production.
+
+    Không dùng monkeypatch.setenv vì thứ tự teardown khiến tzset() chạy trước
+    khi biến môi trường được khôi phục.
+    """
+    import os
+    import time as _time
+
+    original = os.environ.get("TZ")
+    os.environ["TZ"] = "UTC"
+    _time.tzset()
+    try:
+        yield
+    finally:
+        if original is None:
+            os.environ.pop("TZ", None)
+        else:
+            os.environ["TZ"] = original
+        _time.tzset()

@@ -40,3 +40,33 @@ def test_to_business_date_crosses_midnight(app):
         assert time_service.to_business_date(
             datetime(2026, 8, 13, 16, 30)
         ) == date(2026, 8, 13)
+
+
+def test_business_now_naive_is_vn_wallclock_without_tzinfo(app, monkeypatch):
+    # 03:00 UTC = 10:00 giờ VN
+    monkeypatch.setattr(
+        time_service, "utc_now", lambda: datetime(2026, 8, 19, 3, 0, tzinfo=timezone.utc)
+    )
+    with app.app_context():
+        result = time_service.business_now_naive()
+    assert result == datetime(2026, 8, 19, 10, 0)
+    assert result.tzinfo is None
+
+
+def test_to_business_naive_accepts_naive_and_aware_utc(app):
+    with app.app_context():
+        assert time_service.to_business_naive(datetime(2026, 8, 19, 3, 0)) == datetime(2026, 8, 19, 10, 0)
+        assert time_service.to_business_naive(
+            datetime(2026, 8, 19, 3, 0, tzinfo=timezone.utc)
+        ) == datetime(2026, 8, 19, 10, 0)
+        assert time_service.to_business_naive(None) is None
+
+
+def test_business_naive_to_utc_is_the_exact_inverse(app):
+    with app.app_context():
+        business = datetime(2026, 8, 19, 10, 0)
+        assert time_service.business_naive_to_utc(business) == datetime(2026, 8, 19, 3, 0)
+        assert time_service.to_business_naive(
+            time_service.business_naive_to_utc(business)
+        ) == business
+        assert time_service.business_naive_to_utc(None) is None
