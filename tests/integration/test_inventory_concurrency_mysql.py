@@ -1,5 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date, datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 import pytest
@@ -22,7 +22,7 @@ from models import (
     User,
 )
 from models.inventory_item import InventoryItem
-from services import inventory_batch_service
+from services import inventory_batch_service, time_service
 
 
 pytestmark = pytest.mark.mysql
@@ -89,7 +89,9 @@ def test_allocation_migration_merges_duplicates_before_unique_constraint(
             hotel_id=hotel.id,
             inventory_item_id=item.id,
             batch_code="MIGRATE-01",
-            received_at=date.today(),
+            # received_at là ngày nghiệp vụ (khớp inventory_batch_service,
+            # nơi mặc định received_at = business_today()).
+            received_at=time_service.business_today(),
             quantity_received=5,
             quantity_available=2,
             unit_cost=1,
@@ -177,23 +179,27 @@ def test_concurrent_orders_cannot_consume_the_same_last_unit(
         )
         db.session.add_all([booking, item])
         db.session.flush()
-        now = datetime.now()
+        # check_in_expected/check_out_expected là giờ nghiệp vụ;
+        # check_in_actual là timestamp hệ thống (UTC-naive) — cùng lớp lỗi
+        # đã vá ở tests/, tách hai biến để không tái tạo lệch múi giờ.
+        business_now = time_service.business_now_naive()
+        actual_now = time_service.utc_now_naive()
         booking_room = BookingRoom(
             hotel_id=hotel.id,
             booking_id=booking.id,
             room_id=room.id,
             status="checked_in",
-            check_in_actual=now,
-            check_in_expected=now,
-            check_out_expected=now + timedelta(days=1),
+            check_in_actual=actual_now,
+            check_in_expected=business_now,
+            check_out_expected=business_now + timedelta(days=1),
         )
         db.session.add(booking_room)
         db.session.flush()
         inventory_batch_service.create_receipt_batch(
             item=item,
             quantity=1,
-            received_at=date.today(),
-            expires_at=date.today() + timedelta(days=30),
+            received_at=time_service.business_today(),
+            expires_at=time_service.business_today() + timedelta(days=30),
         )
         db.session.commit()
         hotel_slug = hotel.slug

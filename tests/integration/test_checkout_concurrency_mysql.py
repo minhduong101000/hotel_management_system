@@ -1,5 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
@@ -16,6 +16,7 @@ from models import (
     Room,
     User,
 )
+from services import time_service
 
 
 pytestmark = pytest.mark.mysql
@@ -58,19 +59,26 @@ def test_concurrent_checkout_mutates_once(mysql_database_url):
         )
         db.session.add(booking)
         db.session.flush()
-        now = datetime.now().replace(microsecond=0)
+        # check_in_expected/check_out_expected và business_date của snapshot
+        # là giờ nghiệp vụ; check_in_actual là timestamp hệ thống (UTC-naive).
+        # Một biến now() duy nhất cho cả hai từng lệch nhau đúng offset múi
+        # giờ dưới TZ=UTC, làm phụ thu/thiếu một đêm trong tổng checkout.
+        business_now = time_service.business_now_naive().replace(microsecond=0)
+        actual_now = time_service.utc_now_naive().replace(microsecond=0)
         booking_room = BookingRoom(
             hotel_id=hotel.id,
             booking_id=booking.id,
             room_id=room.id,
             status="checked_in",
             rental_type="daily",
-            check_in_actual=now - timedelta(days=1),
-            check_in_expected=now - timedelta(days=1),
-            check_out_expected=now,
+            check_in_actual=actual_now - timedelta(days=1),
+            check_in_expected=business_now - timedelta(days=1),
+            check_out_expected=business_now,
             price_breakdown_snapshot=[
                 {
-                    "business_date": (now - timedelta(days=1)).date().isoformat(),
+                    "business_date": (
+                        business_now - timedelta(days=1)
+                    ).date().isoformat(),
                     "amount": 500000.0,
                 }
             ],
