@@ -274,3 +274,66 @@ def test_preview_checkout_displays_check_in_and_check_out_in_business_time(
     assert payload["success"] is True, payload
     assert payload["check_in"] == "14:00 19/08/2026", payload["check_in"]
     assert payload["check_out"] == "12:00 20/08/2026", payload["check_out"]
+
+
+def test_room_conflict_check_does_not_flag_a_window_before_the_real_check_in(
+    utc_container, client, seed_hotels, login_as
+):
+    """Chống trùng phòng không được so UTC thô của check_in_actual với cửa sổ
+    giờ nghiệp vụ của khách mới.
+
+    Khách đang ở nhận phòng thật lúc 14:00 VN (check_in_actual = 07:00 UTC).
+    Trước khi sửa, code so trực tiếp 07:00 (bị hiểu lầm là giờ nghiệp vụ) với
+    cửa sổ giờ nghiệp vụ 10:00-13:00 VN của khách mới -> tưởng chồng lấn (07:00
+    < 13:00) -> chặn oan một khoảng thời gian hoàn toàn TRƯỚC giờ nhận phòng
+    thật của khách đang ở.
+    """
+    hotel, _, admin, _, br, _ = seed_hotels
+    br.status = "checked_in"
+    br.check_in_expected = datetime(2026, 8, 19, 14, 0)     # VN
+    br.check_out_expected = datetime(2026, 8, 20, 12, 0)    # VN
+    br.check_in_actual = datetime(2026, 8, 19, 7, 0)        # UTC = 14:00 VN
+    db.session.commit()
+    room_number = br.room.room_number
+    login_as(client, admin)
+
+    response = client.post(
+        f"/{hotel.slug}/timeline/api/bookings/create",
+        json={
+            "room_number": room_number,
+            "status": "booked",
+            "rental_type": "daily",
+            "customer_name": "Khach Truoc Gio Nhan",
+            "customer_phone": "0900000002",
+            "check_in": "2026-08-19T10:00",
+            "check_out": "2026-08-19T13:00",
+            "deposit": 500000,
+            "source": "walk_in",
+        },
+    )
+
+    assert response.status_code == 200, response.get_json()
+    assert response.get_json()["success"] is True, response.get_json()
+
+
+def test_room_map_shows_check_in_time_in_business_time(
+    utc_container, client, seed_hotels, login_as, monkeypatch
+):
+    """Sơ đồ phòng không được in giờ UTC thô của check_in_actual."""
+    hotel, _, admin, _, br, _ = seed_hotels
+    br.status = "checked_in"
+    br.check_in_actual = datetime(2026, 8, 19, 7, 0)   # UTC = 14:00 VN
+    br.check_out_expected = datetime(2026, 8, 20, 12, 0)
+    br.room.status = "occupied"
+    db.session.commit()
+    monkeypatch.setattr(
+        time_service, "utc_now", lambda: datetime(2026, 8, 19, 8, 0, tzinfo=timezone.utc)
+    )
+    login_as(client, admin)
+
+    response = client.get(f"/{hotel.slug}/rooms/api/rooms")
+
+    payload = response.get_json()
+    rooms = payload.get("rooms") if isinstance(payload, dict) else payload
+    target = next(r for r in rooms if r.get("booking_id") == br.booking_id)
+    assert target["check_in_time"] == "14:00 19/08", target["check_in_time"]

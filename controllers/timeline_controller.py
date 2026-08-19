@@ -39,8 +39,14 @@ def _normalize_dt(dt: datetime | None) -> datetime | None:
 
 
 def _effective_range(br: BookingRoom) -> tuple[datetime | None, datetime | None]:
-    start = br.check_in_actual or br.check_in_expected
-    end = br.check_out_actual or br.check_out_expected
+    """Mốc bắt đầu/kết thúc hiệu lực của một booking, luôn ở giờ nghiệp vụ.
+
+    check_in_actual/check_out_actual là UTC còn check_in_expected/
+    check_out_expected đã là giờ nghiệp vụ — phải quy đổi *_actual trước khi
+    trộn, nếu không cửa sổ "đang bận" sẽ lùi 7 tiếng so với thực tế.
+    """
+    start = time_service.to_business_naive(br.check_in_actual) or br.check_in_expected
+    end = time_service.to_business_naive(br.check_out_actual) or br.check_out_expected
     return _normalize_dt(start), _normalize_dt(end)
 
 
@@ -132,8 +138,11 @@ def _has_active_booking_conflict(room_id, check_in_dt, check_out_dt):
 
     now = time_service.business_now_naive()
     for row in active_rows:
-        row_start = row.check_in_actual or row.check_in_expected
-        row_end = row.check_out_actual or row.check_out_expected
+        # check_in_actual/check_out_actual là UTC, check_in_expected/
+        # check_out_expected đã là giờ nghiệp vụ — quy đổi *_actual trước khi
+        # trộn, nếu không cửa sổ "đang bận" sẽ lùi 7 tiếng so với thực tế.
+        row_start = time_service.to_business_naive(row.check_in_actual) or row.check_in_expected
+        row_end = time_service.to_business_naive(row.check_out_actual) or row.check_out_expected
 
         # Nếu phòng đang check-in mà thiếu mốc end thì coi như đang bận.
         if row.status == 'checked_in' and not row_end:

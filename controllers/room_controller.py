@@ -392,7 +392,7 @@ def get_rooms():
                 room_data['status'] = 'occupied' 
                 
                 if br.check_in_actual:
-                    room_data['check_in_time'] = br.check_in_actual.strftime('%H:%M %d/%m')
+                    room_data['check_in_time'] = time_service.format_business(br.check_in_actual, '%H:%M %d/%m')
 
                 if br.check_out_expected:
                     room_data['check_out_expected'] = br.check_out_expected.strftime('%H:%M %d/%m')
