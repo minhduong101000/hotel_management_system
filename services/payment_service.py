@@ -99,6 +99,42 @@ def record_deposit(
     )
 
 
+def record_deposit_adjustment(
+    *,
+    booking_id: int,
+    amount,
+    note: str,
+    payment_method: str = "cash",
+    created_at: Optional[datetime] = None,
+    flush: bool = False,
+    business_operation: Optional[BusinessOperation] = None,
+    component_key: Optional[str] = None,
+    created_by: Optional[int] = None,
+) -> Payment:
+    """Ghi một dòng ÂM khi tiền cọc bị điều chỉnh giảm.
+
+    Sổ tiền là append-only: sửa số cọc thì thêm dòng đối ứng, không sửa dòng cũ.
+    Đây KHÔNG phải hoàn tiền cho khách (dùng refund_service) mà là điều chỉnh
+    số đã ghi nhận — ví dụ lễ tân gõ dư một số 0.
+    """
+    normalized = _to_decimal_amount(amount)
+    if normalized >= 0:
+        raise ValueError("record_deposit_adjustment chỉ nhận số âm; tăng cọc dùng record_deposit.")
+
+    return _create_payment(
+        booking_id=booking_id,
+        amount=normalized,
+        payment_method=payment_method,
+        payment_type="deposit_adjustment",
+        note=note,
+        created_at=created_at,
+        flush=flush,
+        business_operation=business_operation,
+        component_key=component_key,
+        created_by=created_by,
+    )
+
+
 def record_room_payment(
     *,
     booking_id: int,

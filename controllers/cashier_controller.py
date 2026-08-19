@@ -93,6 +93,9 @@ def get_cashier_data():
             if p.payment_type == 'deposit':
                 type_label = 'Nhận cọc'
                 badge_color = 'info'
+            elif p.payment_type == 'deposit_adjustment':
+                type_label = 'Điều chỉnh cọc'
+                badge_color = 'dark'
             elif p.payment_type == 'room_payment':
                 type_label = 'Thanh toán Phòng'
                 badge_color = 'success'
