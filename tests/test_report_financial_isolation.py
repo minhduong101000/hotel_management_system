@@ -42,7 +42,7 @@ def test_revenue_report_scopes_every_financial_metric_and_excludes_voided_expens
                 category="Khác",
                 description="Chi phí hợp lệ",
                 amount=20_000,
-                expense_date=date.today(),
+                expense_date=time_service.business_today(),
                 created_at=now,
             ),
             Expense(
@@ -50,7 +50,7 @@ def test_revenue_report_scopes_every_financial_metric_and_excludes_voided_expens
                 category="Khác",
                 description="Chi phí đã void",
                 amount=500_000,
-                expense_date=date.today(),
+                expense_date=time_service.business_today(),
                 created_at=now,
                 is_voided=True,
             ),
@@ -59,7 +59,7 @@ def test_revenue_report_scopes_every_financial_metric_and_excludes_voided_expens
                 category="Khác",
                 description="Chi phí tenant khác",
                 amount=700_000,
-                expense_date=date.today(),
+                expense_date=time_service.business_today(),
                 created_at=now,
             ),
         ]
@@ -91,8 +91,14 @@ def test_revenue_report_scopes_every_financial_metric_and_excludes_voided_expens
 def test_profit_and_loss_uses_expense_date_instead_of_record_creation_time(
     client, seed_hotels, login_as
 ):
+    from services import time_service
+
     hotel, _, admin, _, _, _ = seed_hotels
-    now = datetime.now()
+    # expense_date là ngày nghiệp vụ (report lọc theo business_today()); created_at
+    # chỉ là mốc ghi sổ hệ thống (UTC-naive) và cố tình lệch để chứng minh report
+    # KHÔNG dùng created_at để lọc.
+    business_today = time_service.business_today()
+    now = time_service.utc_now_naive()
     db.session.add_all(
         [
             Expense(
@@ -100,7 +106,7 @@ def test_profit_and_loss_uses_expense_date_instead_of_record_creation_time(
                 category="Khác",
                 description="Ghi sổ hôm nay",
                 amount=30_000,
-                expense_date=date.today(),
+                expense_date=business_today,
                 created_at=now - timedelta(days=30),
             ),
             Expense(
@@ -108,7 +114,7 @@ def test_profit_and_loss_uses_expense_date_instead_of_record_creation_time(
                 category="Khác",
                 description="Ghi sổ tháng trước",
                 amount=90_000,
-                expense_date=date.today() - timedelta(days=30),
+                expense_date=business_today - timedelta(days=30),
                 created_at=now,
             ),
         ]

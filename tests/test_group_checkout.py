@@ -11,7 +11,7 @@ from models import (
     Room,
     Service,
 )
-from services import payment_service
+from services import payment_service, time_service
 
 
 def _add_room(
@@ -23,7 +23,11 @@ def _add_room(
     nightly_amount,
     final_amount=0,
 ):
-    now = datetime.now().replace(microsecond=0)
+    # check_in_expected/check_out_expected: giờ nghiệp vụ (business_now_naive).
+    # check_in_actual/check_out_actual: UTC-naive (utc_now_naive) — đây là các
+    # cột hệ thống mà booking_quote_service quy đổi ngược qua to_business_naive().
+    business_now = time_service.business_now_naive().replace(microsecond=0)
+    actual_now = time_service.utc_now_naive().replace(microsecond=0)
     room = Room(
         hotel_id=hotel.id,
         room_number=room_number,
@@ -41,18 +45,18 @@ def _add_room(
         room_id=room.id,
         status=status,
         rental_type="daily",
-        check_in_expected=now - timedelta(days=1),
-        check_out_expected=now,
+        check_in_expected=business_now - timedelta(days=1),
+        check_out_expected=business_now,
         check_in_actual=(
-            now - timedelta(days=1)
+            actual_now - timedelta(days=1)
             if status in ("checked_in", "checked_out")
             else None
         ),
-        check_out_actual=now if status == "checked_out" else None,
+        check_out_actual=actual_now if status == "checked_out" else None,
         final_amount=final_amount,
         price_breakdown_snapshot=[
             {
-                "business_date": (now - timedelta(days=1)).date().isoformat(),
+                "business_date": (business_now - timedelta(days=1)).date().isoformat(),
                 "amount": float(nightly_amount),
             }
         ],
