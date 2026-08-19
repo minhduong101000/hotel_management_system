@@ -168,3 +168,56 @@ def test_occupied_room_ids_includes_the_overstaying_room(app, seed_hotels, froze
         )
 
     assert br.room_id in busy_ids
+
+
+def test_back_to_back_checkout_and_checkin_at_same_time_is_not_a_conflict(
+    app, seed_hotels, frozen_noon
+):
+    """Khách A hẹn trả 12:00 (chưa quá hẹn) -> khách B đặt bắt đầu ĐÚNG 12:00
+    cùng ngày không được coi là trùng. Đây là ca xoay phòng hàng ngày ở khách
+    sạn; cửa sổ bận phải nửa-mở [start, end) ở nhánh 'bounded' để trả 12:00 và
+    nhận 12:00 không đụng nhau."""
+    hotel, _, _, _, br, _ = seed_hotels
+    br.status = "booked"
+    br.check_in_expected = datetime(2026, 8, 19, 14, 0)
+    br.check_out_expected = datetime(2026, 8, 20, 12, 0)
+    db.session.commit()
+
+    with app.test_request_context(f"/{hotel.slug}/"):
+        from flask import g
+
+        g.hotel_id = hotel.id
+        busy = room_availability_service.has_room_conflict(
+            room_id=br.room_id,
+            start_dt=datetime(2026, 8, 20, 12, 0),  # đúng giờ khách A trả
+            end_dt=datetime(2026, 8, 21, 12, 0),
+        )
+
+    assert busy is False
+
+
+def test_active_row_missing_expected_dates_fails_safe_as_busy(app, seed_hotels, frozen_noon, caplog):
+    """Một booking đang active (booked) nhưng thiếu check_in_expected (cột
+    cho phép NULL, dữ liệu bất thường có thật) phải được coi là BẬN
+    (fail-safe), không phải trống (fail-open) — trong cơ chế chống trùng
+    phòng, đoán sai theo hướng an toàn (lễ tân kiểm tra lại thủ công) còn hơn
+    đoán sai theo hướng mở (hai khách vào cùng một phòng)."""
+    hotel, _, _, _, br, _ = seed_hotels
+    br.status = "booked"
+    br.check_in_expected = None
+    br.check_out_expected = datetime(2026, 8, 20, 12, 0)
+    db.session.commit()
+
+    with app.test_request_context(f"/{hotel.slug}/"):
+        from flask import g
+
+        g.hotel_id = hotel.id
+        with caplog.at_level("WARNING"):
+            busy = room_availability_service.has_room_conflict(
+                room_id=br.room_id,
+                start_dt=datetime(2026, 8, 19, 14, 0),
+                end_dt=datetime(2026, 8, 20, 18, 0),
+            )
+
+    assert busy is True
+    assert any("thiếu mốc thời gian" in message for message in caplog.messages)

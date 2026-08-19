@@ -14,7 +14,18 @@ check_out_actual) phải thoả ĐỒNG THỜI — xem `_row_window`:
   được cho phòng đó.
 - Bất biến B: khách đã quá giờ trả dự kiến vẫn đang chiếm phòng THẬT tại thời
   điểm hiện tại — một đặt phòng có cửa sổ trùm qua "bây giờ" vẫn phải bị chặn.
+
+FAIL-SAFE khi thiếu dữ liệu ngày: `check_in_expected`/`check_out_expected` cho
+phép NULL ở DB, nên một dòng active (booked/checked_in) thiếu mốc cần thiết để
+xác định cửa sổ bận là trạng thái có thật, không chỉ lý thuyết. Đây là cơ chế
+CHỐNG TRÙNG PHÒNG nên khi gặp dữ liệu khuyết, `_conflicting_rows` cố ý coi
+dòng đó là BẬN (fail-safe) thay vì bỏ qua/coi là trống (fail-open): đoán sai
+theo hướng an toàn thì lễ tân thấy phòng bận và kiểm tra lại thủ công; đoán
+sai theo hướng mở thì hai khách có thể bị xếp vào cùng một phòng. Có log
+warning kèm theo để lần ra dữ liệu bất thường đó.
 """
+
+from flask import current_app
 
 from models import BookingRoom
 from services import time_service
@@ -79,6 +90,11 @@ def _row_window(row, now):
 
 
 def _conflicting_rows(rows, start_dt, end_dt, now):
+    """Duyệt các dòng active và trả về những dòng trùng cửa sổ [start_dt, end_dt).
+
+    Xem module docstring cho lý do một dòng active thiếu start/end được coi
+    là BẬN (fail-safe) thay vì bị bỏ qua.
+    """
     for row in rows:
         row_start, row_end, mode = _row_window(row, now)
 
@@ -87,6 +103,16 @@ def _conflicting_rows(rows, start_dt, end_dt, now):
             continue
 
         if not row_start or not row_end:
+            # Dòng active nhưng thiếu mốc thời gian cần thiết (dữ liệu bất
+            # thường, không phải lỗi hệ thống) -> fail-safe: coi là bận, ghi
+            # log để lần ra thay vì âm thầm coi phòng là trống.
+            current_app.logger.warning(
+                "room_availability_service: BookingRoom id=%s room_id=%s "
+                "status=%s thiếu mốc thời gian (start=%s, end=%s) khi kiểm "
+                "tra trùng phòng -> coi là BẬN (fail-safe).",
+                row.id, row.room_id, row.status, row_start, row_end,
+            )
+            yield row
             continue
 
         if mode == 'capped_now':
