@@ -19,7 +19,7 @@ from models.booking_room import BookingRoom
 # 2. IMPORT SERVICE (Logic tính giá)
 # ====================================================
 from services.pricing_service import get_effective_room_prices, get_effective_room_prices_bulk
-from services import audit_service, booking_quote_service, time_service
+from services import audit_service, booking_quote_service, room_availability_service, time_service
 from services.room_configuration_service import (
     RoomConfigurationValidationError,
     room_audit_snapshot,
@@ -527,20 +527,17 @@ def search_available_rooms():
         if check_in >= check_out:
             return jsonify({'success': False, 'msg': 'Ngày Trả phòng phải sau ngày Nhận phòng!'})
 
-        # --- 1. LỌC PHÒNG BẬN ---
-        # Tìm các phòng có booking dính dáng tới khoảng thời gian này
-        occupied_room_ids = db.session.query(BookingRoom.room_id).filter(
-            BookingRoom.status.in_(['booked', 'checked_in']),
-            # Logic trùng lịch: (StartA < EndB) AND (EndA > StartB)
-            BookingRoom.check_in_expected < check_out,
-            BookingRoom.check_out_expected > check_in
-        ).distinct()
+        # --- 1. LỌC PHÒNG BẬN (dùng chung ngữ nghĩa với đường đặt phòng) ---
+        busy_room_ids = room_availability_service.occupied_room_ids(
+            start_dt=check_in,
+            end_dt=check_out,
+        )
 
         # --- 2. LẤY PHÒNG TRỐNG ---
         available_rooms = tenant_query(Room).filter(
-            Room.id.notin_(occupied_room_ids),
             Room.status != 'maintenance'
         ).all()
+        available_rooms = [r for r in available_rooms if r.id not in busy_room_ids]
 
         # --- 3. GOM NHÓM & TÍNH GIÁ ---
         grouped_data = {}

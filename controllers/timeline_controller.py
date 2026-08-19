@@ -24,6 +24,7 @@ from services import (
     booking_state_service,
     business_operation_service,
     payment_service,
+    room_availability_service,
     time_service,
 )
 from decorators import booking_reschedule_required
@@ -58,41 +59,12 @@ def _has_room_time_conflict(
     exclude_booking_room_id: int | None = None,
 ) -> bool:
     """Return True if another active booking overlaps [start_dt, end_dt) in the same room."""
-    start_dt = _normalize_dt(start_dt)
-    end_dt = _normalize_dt(end_dt)
-
-    if not start_dt or not end_dt:
-        return False
-
-    q = tenant_query(BookingRoom).filter(
-        BookingRoom.room_id == room_id,
-        BookingRoom.status.in_(['booked', 'checked_in']),
+    return room_availability_service.has_room_conflict(
+        room_id=room_id,
+        start_dt=_normalize_dt(start_dt),
+        end_dt=_normalize_dt(end_dt),
+        exclude_booking_room_id=exclude_booking_room_id,
     )
-    if exclude_booking_room_id is not None:
-        q = q.filter(BookingRoom.id != int(exclude_booking_room_id))
-
-    candidates = q.all()
-    now = time_service.business_now_naive()
-
-    for row in candidates:
-        row_start, row_end = _effective_range(row)
-
-        if row.status == 'checked_in' and not row_end:
-            # A checked-in row with no end is treated as occupying the room.
-            return True
-
-        if not row_start or not row_end:
-            continue
-
-        if row.status == 'checked_in' and row_end < now:
-            # Overstay: treat end as now.
-            row_end = now
-
-        # Standard overlap test: [a,b) overlaps [c,d) iff a < d and b > c
-        if row_start < end_dt and row_end > start_dt:
-            return True
-
-    return False
 
 
 def _reschedule_price_comparison(br, room, check_in, check_out):
@@ -131,34 +103,11 @@ def generate_booking_code():
 
 def _has_active_booking_conflict(room_id, check_in_dt, check_out_dt):
     """Trả về True nếu phòng có booking active bị giao thời gian."""
-    active_rows = tenant_query(BookingRoom).filter(
-        BookingRoom.room_id == room_id,
-        BookingRoom.status.in_(['booked', 'checked_in'])
-    ).all()
-
-    now = time_service.business_now_naive()
-    for row in active_rows:
-        # check_in_actual/check_out_actual là UTC, check_in_expected/
-        # check_out_expected đã là giờ nghiệp vụ — quy đổi *_actual trước khi
-        # trộn, nếu không cửa sổ "đang bận" sẽ lùi 7 tiếng so với thực tế.
-        row_start = time_service.to_business_naive(row.check_in_actual) or row.check_in_expected
-        row_end = time_service.to_business_naive(row.check_out_actual) or row.check_out_expected
-
-        # Nếu phòng đang check-in mà thiếu mốc end thì coi như đang bận.
-        if row.status == 'checked_in' and not row_end:
-            return True
-
-        if not row_start or not row_end:
-            continue
-
-        if row.status == 'checked_in' and row_end < now:
-            # Trường hợp khách ở quá giờ dự kiến: vẫn coi là bận đến hiện tại.
-            row_end = now
-
-        if row_start < check_out_dt and row_end > check_in_dt:
-            return True
-
-    return False
+    return room_availability_service.has_room_conflict(
+        room_id=room_id,
+        start_dt=_normalize_dt(check_in_dt),
+        end_dt=_normalize_dt(check_out_dt),
+    )
 
 
 def _estimate_booking_amount(room, rental_type, check_in_dt, check_out_dt):

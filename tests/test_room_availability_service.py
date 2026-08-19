@@ -221,3 +221,68 @@ def test_active_row_missing_expected_dates_fails_safe_as_busy(app, seed_hotels, 
 
     assert busy is True
     assert any("thiếu mốc thời gian" in message for message in caplog.messages)
+
+
+@pytest.fixture()
+def frozen_4pm(monkeypatch):
+    """16:00 VN ngày 19-08 = 09:00 UTC.
+
+    Khác `frozen_noon` (13:00): mốc này nằm SAU giờ bắt đầu (14:00) của cửa sổ
+    tìm kiếm/đặt phòng mới bên dưới, nên mới phân biệt được code cũ (chỉ so
+    giờ dự kiến) với service mới (chốt cửa sổ bận của khách quá hẹn tại "bây
+    giờ"). Xem phần "Phát hiện chặn" trong task-13-report.md để biết vì sao
+    `frozen_noon` (13:00, TRƯỚC 14:00) không đo được gì ở đây.
+    """
+    monkeypatch.setattr(
+        time_service, "utc_now", lambda: datetime(2026, 8, 19, 9, 0, tzinfo=timezone.utc)
+    )
+
+
+def test_search_does_not_offer_a_room_with_an_overstaying_guest(
+    client, seed_hotels, login_as, frozen_4pm
+):
+    hotel, _, admin, _, br, _ = seed_hotels
+    br.status = "checked_in"
+    br.check_in_expected = datetime(2026, 8, 18, 14, 0)
+    br.check_out_expected = datetime(2026, 8, 19, 12, 0)   # quá hẹn 4 tiếng (now = 16:00)
+    br.check_in_actual = datetime(2026, 8, 18, 7, 0)        # UTC, = 14:00 VN 18-08
+    db.session.commit()
+    login_as(client, admin)
+
+    response = client.post(
+        f"/{hotel.slug}/rooms/api/rooms/search",
+        json={"check_in": "2026-08-19", "check_out": "2026-08-20"},
+    )
+
+    grouped = response.get_json()["data"]
+    offered = [r["number"] for rooms in grouped.values() for r in rooms]
+    assert br.room.room_number not in offered
+
+
+def test_group_booking_refuses_a_room_with_an_overstaying_guest(
+    client, seed_hotels, login_as, frozen_4pm
+):
+    hotel, _, admin, _, br, _ = seed_hotels
+    br.status = "checked_in"
+    br.check_in_expected = datetime(2026, 8, 18, 14, 0)
+    br.check_out_expected = datetime(2026, 8, 19, 12, 0)   # quá hẹn 4 tiếng (now = 16:00)
+    br.check_in_actual = datetime(2026, 8, 18, 7, 0)        # UTC, = 14:00 VN 18-08
+    db.session.commit()
+    login_as(client, admin)
+
+    response = client.post(
+        f"/{hotel.slug}/bookings/api/bookings/group_create",
+        json={
+            "check_in": "2026-08-19",
+            "check_out": "2026-08-20",
+            "room_ids": [br.room_id],
+            "customer": {"phone": "0900000003", "name": "Doan Test"},
+            # Cọc phải đúng 50% hoặc 100% tổng dự kiến (1 đêm x 500.000),
+            # nếu không request bị chặn TRƯỚC khi tới bước kiểm tra trùng phòng.
+            "deposit": 500000,
+        },
+    )
+
+    body = response.get_json()
+    assert body["success"] is False, body
+    assert "trùng lịch hết" in body["msg"]

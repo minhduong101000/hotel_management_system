@@ -27,6 +27,7 @@ from services import (
     group_checkout_service,
     inventory_service,
     payment_service,
+    room_availability_service,
     room_checkout_service,
     time_service,
 )
@@ -916,12 +917,11 @@ def create_group_booking():
                 errors.append(f"Phòng {current_room.room_number} đang bảo trì.")
                 continue
 
-            is_taken = tenant_query(BookingRoom).filter(
-                BookingRoom.room_id == r_id,
-                BookingRoom.status.in_(['booked', 'checked_in']),
-                BookingRoom.check_in_expected < check_out,
-                BookingRoom.check_out_expected > check_in
-            ).first()
+            is_taken = room_availability_service.has_room_conflict(
+                room_id=r_id,
+                start_dt=check_in,
+                end_dt=check_out,
+            )
 
             if is_taken:
                 errors.append(f"Phòng {current_room.room_number} đã có lịch.")
