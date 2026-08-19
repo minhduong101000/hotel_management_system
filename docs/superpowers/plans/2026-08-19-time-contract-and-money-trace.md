@@ -2027,8 +2027,19 @@ def _row_window(row, now):
     Trả về (start, end, busy_without_end): busy_without_end nghĩa là khách đang
     ở mà không có mốc kết thúc -> coi như chiếm phòng vô thời hạn.
     """
-    start = _naive(row.check_in_actual or row.check_in_expected)
-    end = _naive(row.check_out_actual or row.check_out_expected)
+    # *_actual lưu UTC còn *_expected đã là giờ nghiệp vụ. Phải quy đổi TRƯỚC
+    # khi trộn, nếu không cửa sổ bận của khách đang ở sẽ bắt đầu sớm 7 tiếng và
+    # chặn oan những booking hợp lệ.
+    start = (
+        time_service.to_business_naive(row.check_in_actual)
+        if row.check_in_actual
+        else _naive(row.check_in_expected)
+    )
+    end = (
+        time_service.to_business_naive(row.check_out_actual)
+        if row.check_out_actual
+        else _naive(row.check_out_expected)
+    )
 
     if row.status == 'checked_in' and not end:
         return start, end, True
