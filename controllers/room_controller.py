@@ -19,7 +19,7 @@ from models.booking_room import BookingRoom
 # 2. IMPORT SERVICE (Logic tính giá)
 # ====================================================
 from services.pricing_service import get_effective_room_prices, get_effective_room_prices_bulk
-from services import audit_service, booking_quote_service
+from services import audit_service, booking_quote_service, time_service
 from services.room_configuration_service import (
     RoomConfigurationValidationError,
     room_audit_snapshot,
@@ -280,8 +280,8 @@ def get_rooms():
         # 1. Lấy tất cả phòng
         rooms = tenant_query(Room).all()
         
-        now = datetime.now()
-        limit_time = now + timedelta(hours=24) 
+        now = time_service.business_now_naive()
+        limit_time = now + timedelta(hours=24)
 
         # 2. Lấy danh sách phòng ĐANG CÓ KHÁCH (Status = 'checked_in')
         # --- TỐI ƯU QUERY: Load luôn Booking VÀ Customer để tránh N+1 ---
@@ -396,7 +396,7 @@ def get_rooms():
 
                 if br.check_out_expected:
                     room_data['check_out_expected'] = br.check_out_expected.strftime('%H:%M %d/%m')
-                    room_data['is_overdue'] = datetime.now() > br.check_out_expected
+                    room_data['is_overdue'] = time_service.business_now_naive() > br.check_out_expected
                 else:
                     room_data['is_overdue'] = False
                 

@@ -66,7 +66,7 @@ def _has_room_time_conflict(
         q = q.filter(BookingRoom.id != int(exclude_booking_room_id))
 
     candidates = q.all()
-    now = datetime.now()
+    now = time_service.business_now_naive()
 
     for row in candidates:
         row_start, row_end = _effective_range(row)
@@ -130,7 +130,7 @@ def _has_active_booking_conflict(room_id, check_in_dt, check_out_dt):
         BookingRoom.status.in_(['booked', 'checked_in'])
     ).all()
 
-    now = datetime.now()
+    now = time_service.business_now_naive()
     for row in active_rows:
         row_start = row.check_in_actual or row.check_in_expected
         row_end = row.check_out_actual or row.check_out_expected
@@ -173,6 +173,29 @@ def _is_valid_deposit_by_ratio(deposit_amount, estimated_amount):
     dep = round(float(deposit_amount), 2)
     return abs(dep - expected_50) <= 1 or abs(dep - expected_100) <= 1
 
+def _business_range(br, now_business):
+    """Mốc bắt đầu/kết thúc của một bar, luôn ở giờ nghiệp vụ.
+
+    check_in_actual là UTC còn check_in_expected đã là giờ nghiệp vụ, nên phải
+    quy đổi trước khi trộn — nếu không bar sẽ nhảy lùi lúc khách check-in.
+    """
+    start = (
+        time_service.to_business_naive(br.check_in_actual)
+        if br.check_in_actual
+        else br.check_in_expected
+    )
+    end = (
+        time_service.to_business_naive(br.check_out_actual)
+        if br.check_out_actual
+        else br.check_out_expected
+    )
+    if not start:
+        start = now_business
+    if not end:
+        end = start + timedelta(hours=1)
+    return start, end
+
+
 # =======================================================
 # 1. LẤY DỮ LIỆU TIMELINE (Cho Vis.js)
 # =======================================================
@@ -206,7 +229,7 @@ def get_timeline():
     )
     
     items = []
-    now = datetime.now() 
+    now = time_service.business_now_naive()
 
     for br in booking_rooms:
         b = br.booking # Object Booking cha
@@ -221,16 +244,11 @@ def get_timeline():
         room_count = booking_room_counts.get(br.booking_id, 1)
         is_group = room_count > 1
 
-        # 1. XÁC ĐỊNH THỜI GIAN START / END
-        start = br.check_in_actual if br.check_in_actual else br.check_in_expected
-        end = br.check_out_actual if br.check_out_actual else br.check_out_expected
+        # 1. XÁC ĐỊNH THỜI GIAN START / END (luôn ở giờ nghiệp vụ)
+        start, end = _business_range(br, now)
 
-        if not start: start = now
-        if not end: end = start + timedelta(hours=1)
-
-        if br.status == 'checked_in':
-            if end < now:
-                end = now 
+        if br.status == 'checked_in' and end < now:
+            end = now
         
         # 2. XỬ LÝ MÀU SẮC & GIAO DIỆN (Bảng màu mới - Hài hòa)
         style = ''
@@ -847,9 +865,10 @@ def update_booking_timeline():
             # Cắt chuỗi để bỏ timezone nếu cần, hoặc dùng dateutil
             # Ví dụ đơn giản: lấy 19 ký tự đầu (YYYY-MM-DDTHH:MM:SS)
             new_start = _normalize_dt(datetime.fromisoformat(start_str.replace("Z", "+00:00")))
-            # Nếu đang active thì update check_in_actual, chưa thì update expected
+            # Client gửi lên giờ nghiệp vụ; nếu đang active thì phải quy đổi
+            # sang UTC trước khi ghi vào check_in_actual, chưa thì update expected.
             if br.status == 'checked_in':
-                br.check_in_actual = new_start
+                br.check_in_actual = time_service.business_naive_to_utc(new_start)
             else:
                 br.check_in_expected = new_start
             target_start = new_start
@@ -857,7 +876,7 @@ def update_booking_timeline():
         if end_str:
             new_end = _normalize_dt(datetime.fromisoformat(end_str.replace("Z", "+00:00")))
             if br.status == 'checked_out':
-                br.check_out_actual = new_end
+                br.check_out_actual = time_service.business_naive_to_utc(new_end)
             else:
                 br.check_out_expected = new_end
             target_end = new_end

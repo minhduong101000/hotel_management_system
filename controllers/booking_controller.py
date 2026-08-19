@@ -366,6 +366,16 @@ def preview_checkout_room():
 
     check_in_time = booking_room.check_in_actual or booking_room.check_in_expected or time_service.utc_now_naive()
     check_out_time = time_service.utc_now_naive().replace(microsecond=0)
+    # Hiển thị: check_in_actual/utc_now_naive() là UTC nên phải đổi sang giờ
+    # nghiệp vụ để lễ tân đọc đúng; check_in_expected đã sẵn là giờ nghiệp vụ,
+    # không được đổi lần nữa (format_business giả định input là UTC).
+    if booking_room.check_in_actual:
+        check_in_display = time_service.format_business(booking_room.check_in_actual)
+    elif booking_room.check_in_expected:
+        check_in_display = booking_room.check_in_expected.strftime('%H:%M %d/%m/%Y')
+    else:
+        check_in_display = time_service.format_business(check_in_time)
+    check_out_display = time_service.format_business(check_out_time)
     quote = booking_quote_service.build_checkout_quote(
         booking_room,
         checkout_at=check_out_time,
@@ -419,8 +429,8 @@ def preview_checkout_room():
         'booking_room_id': booking_room.id,
         'room_number': room.room_number,
         'customer_name': customer_name,
-        'check_in': check_in_time.strftime('%H:%M %d/%m/%Y'),
-        'check_out': check_out_time.strftime('%H:%M %d/%m/%Y'),
+        'check_in': check_in_display,
+        'check_out': check_out_display,
         'rental_type': rental_type_text,
         'bill_details': breakdown,
         'duration_msg': duration_msg,

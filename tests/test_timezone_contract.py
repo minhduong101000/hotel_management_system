@@ -177,3 +177,100 @@ def test_check_in_after_midnight_vn_does_not_add_a_phantom_night(
     # bill_start_date = bill_end_date = 2026-08-19 => 1 đêm x 500.000, không
     # phụ thu (check-in đúng giờ hẹn, check-out đúng giờ hẹn).
     assert float(quote["total"]) == 500000.0, quote
+
+
+def test_overstay_is_flagged_as_soon_as_the_expected_hour_passes(
+    utc_container, client, seed_hotels, login_as, monkeypatch
+):
+    hotel, _, admin, _, br, _ = seed_hotels
+    br.status = "checked_in"
+    br.check_in_expected = datetime(2026, 8, 18, 14, 0)
+    br.check_out_expected = datetime(2026, 8, 19, 12, 0)   # VN
+    br.check_in_actual = datetime(2026, 8, 18, 7, 0)
+    db.session.commit()
+    # 12:30 VN = 05:30 UTC — đã quá hẹn 30 phút
+    monkeypatch.setattr(
+        time_service, "utc_now", lambda: datetime(2026, 8, 19, 5, 30, tzinfo=timezone.utc)
+    )
+    login_as(client, admin)
+
+    payload = client.get(f"/{hotel.slug}/timeline/api/bookings/timeline").get_json()
+
+    item = next(i for i in payload["items"] if i["id"] == br.id)
+    assert item["is_overstay"] is True
+
+
+def test_timeline_serializes_every_moment_in_business_time(
+    utc_container, client, seed_hotels, login_as, monkeypatch
+):
+    """Bar không được nhảy lùi 7 tiếng lúc khách check-in."""
+    hotel, _, admin, _, br, _ = seed_hotels
+    br.status = "checked_in"
+    br.check_in_expected = datetime(2026, 8, 19, 14, 0)
+    br.check_out_expected = datetime(2026, 8, 20, 12, 0)
+    br.check_in_actual = datetime(2026, 8, 19, 7, 0)       # UTC = 14:00 VN
+    db.session.commit()
+    monkeypatch.setattr(
+        time_service, "utc_now", lambda: datetime(2026, 8, 19, 8, 0, tzinfo=timezone.utc)
+    )
+    login_as(client, admin)
+
+    payload = client.get(f"/{hotel.slug}/timeline/api/bookings/timeline").get_json()
+
+    item = next(i for i in payload["items"] if i["id"] == br.id)
+    assert item["start"].startswith("2026-08-19T14:00"), item["start"]
+
+
+def test_room_map_marks_overdue_using_business_time(
+    utc_container, client, seed_hotels, login_as, monkeypatch
+):
+    hotel, _, admin, _, br, _ = seed_hotels
+    br.status = "checked_in"
+    br.check_in_actual = datetime(2026, 8, 18, 7, 0)
+    br.check_out_expected = datetime(2026, 8, 19, 12, 0)   # VN
+    br.room.status = "occupied"
+    db.session.commit()
+    monkeypatch.setattr(
+        time_service, "utc_now", lambda: datetime(2026, 8, 19, 5, 30, tzinfo=timezone.utc)
+    )
+    login_as(client, admin)
+
+    response = client.get(f"/{hotel.slug}/rooms/api/rooms")
+
+    payload = response.get_json()
+    rooms = payload.get("rooms") if isinstance(payload, dict) else payload
+    target = next(r for r in rooms if r.get("booking_id") == br.booking_id)
+    assert target["is_overdue"] is True
+
+
+def test_preview_checkout_displays_check_in_and_check_out_in_business_time(
+    utc_container, client, seed_hotels, login_as, monkeypatch
+):
+    """preview_checkout_room không được in giờ UTC thẳng ra màn hình lễ tân.
+
+    check_in_actual lưu UTC; lễ tân phải thấy giờ VN trên bảng xem trước
+    thanh toán, không phải mốc UTC lệch 7 tiếng.
+    """
+    hotel, _, admin, _, br, _ = seed_hotels
+    br.status = "checked_in"
+    br.rental_type = "daily"
+    br.check_in_expected = datetime(2026, 8, 19, 14, 0)     # VN
+    br.check_out_expected = datetime(2026, 8, 20, 12, 0)    # VN
+    br.check_in_actual = datetime(2026, 8, 19, 7, 0)        # UTC = 14:00 VN 19/08
+    br.room.status = "occupied"
+    db.session.commit()
+    # "Bây giờ" = 12:00 VN 20/08 = 05:00 UTC
+    monkeypatch.setattr(
+        time_service, "utc_now", lambda: datetime(2026, 8, 20, 5, 0, tzinfo=timezone.utc)
+    )
+    login_as(client, admin)
+
+    response = client.post(
+        f"/{hotel.slug}/bookings/api/rooms/preview_checkout",
+        json={"number": br.room.room_number},
+    )
+
+    payload = response.get_json()
+    assert payload["success"] is True, payload
+    assert payload["check_in"] == "14:00 19/08/2026", payload["check_in"]
+    assert payload["check_out"] == "12:00 20/08/2026", payload["check_out"]
