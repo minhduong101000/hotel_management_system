@@ -101,6 +101,56 @@ def test_excluded_row_does_not_conflict_with_itself(app, seed_hotels, frozen_noo
     assert busy is False
 
 
+def test_future_booking_is_allowed_while_guest_is_still_within_expected_stay(
+    app, seed_hotels, frozen_noon
+):
+    """Khách đang ở, dự kiến trả trưa mai (CHƯA quá hẹn) -> tuần sau vẫn phải
+    đặt được phòng này. Một khách đang ở không được khoá cứng mọi ngày tương
+    lai; chỉ có khách quá hẹn mới chiếm phòng vượt quá giờ dự kiến."""
+    hotel, _, _, _, br, _ = seed_hotels
+    br.status = "checked_in"
+    br.check_in_expected = datetime(2026, 8, 18, 14, 0)
+    br.check_out_expected = datetime(2026, 8, 20, 12, 0)  # trả trưa mai, chưa quá hẹn (now = 19/8 13:00)
+    db.session.commit()
+
+    with app.test_request_context(f"/{hotel.slug}/"):
+        from flask import g
+
+        g.hotel_id = hotel.id
+        busy = room_availability_service.has_room_conflict(
+            room_id=br.room_id,
+            start_dt=datetime(2026, 8, 26, 14, 0),
+            end_dt=datetime(2026, 8, 27, 12, 0),
+        )
+
+    assert busy is False
+
+
+def test_overdue_guest_still_blocks_a_booking_starting_around_right_now(
+    app, seed_hotels, frozen_noon
+):
+    """Khách đang ở đã quá giờ trả dự kiến (hẹn 12:00, giờ là 13:00) -> một đặt
+    phòng mà cửa sổ bao trùm "bây giờ" (bắt đầu từ trước bây giờ) vẫn phải bị
+    chặn, vì khách vẫn đang chiếm phòng thật ngay lúc này."""
+    hotel, _, _, _, br, _ = seed_hotels
+    br.status = "checked_in"
+    br.check_in_expected = datetime(2026, 8, 18, 14, 0)
+    br.check_out_expected = datetime(2026, 8, 19, 12, 0)  # hẹn 12:00, giờ 13:00 -> quá hẹn 1 tiếng
+    db.session.commit()
+
+    with app.test_request_context(f"/{hotel.slug}/"):
+        from flask import g
+
+        g.hotel_id = hotel.id
+        busy = room_availability_service.has_room_conflict(
+            room_id=br.room_id,
+            start_dt=datetime(2026, 8, 19, 12, 30),  # trước "bây giờ" (13:00)
+            end_dt=datetime(2026, 8, 19, 13, 30),     # trùm qua "bây giờ"
+        )
+
+    assert busy is True
+
+
 def test_occupied_room_ids_includes_the_overstaying_room(app, seed_hotels, frozen_noon):
     hotel, _, _, _, br, _ = seed_hotels
     br.status = "checked_in"

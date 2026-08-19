@@ -5,6 +5,15 @@ thực tế lẫn khách ở quá hẹn, còn đường đặt đoàn và tìm p
 dự kiến nên vẫn mời phòng đang có người.
 
 HỢP ĐỒNG: mọi tham số datetime là GIỜ NGHIỆP VỤ naive (cùng hệ với *_expected).
+
+Hai bất biến mà cửa sổ bận của một khách ĐANG Ở (checked_in, chưa có
+check_out_actual) phải thoả ĐỒNG THỜI — xem `_row_window`:
+
+- Bất biến A: khách còn trong hạn (chưa quá giờ trả dự kiến) không được khoá
+  cứng những ngày tương lai xa (vd tuần sau) — lễ tân vẫn phải nhận đặt trước
+  được cho phòng đó.
+- Bất biến B: khách đã quá giờ trả dự kiến vẫn đang chiếm phòng THẬT tại thời
+  điểm hiện tại — một đặt phòng có cửa sổ trùm qua "bây giờ" vẫn phải bị chặn.
 """
 
 from models import BookingRoom
@@ -13,6 +22,13 @@ from services.tenant_service import tenant_query
 
 ACTIVE_STATUSES = ('booked', 'checked_in')
 
+# Chế độ cửa sổ bận trả về bởi _row_window:
+#   'unbounded'   -> bận vô thời hạn, chặn mọi cửa sổ ứng viên bất kể xa gần.
+#   'capped_now'  -> bận từ start tới ĐÚNG "now" (bao gồm "now"), không chặn
+#                    xa hơn "now" — dùng cho khách quá hẹn nhưng còn mốc dự
+#                    kiến để biết họ lẽ ra đã phải trả.
+#   'bounded'     -> cửa sổ nửa-mở [start, end) bình thường.
+
 
 def _naive(dt):
     if dt is None:
@@ -20,13 +36,10 @@ def _naive(dt):
     return dt.replace(tzinfo=None) if dt.tzinfo is not None else dt
 
 
-def _row_window(row):
+def _row_window(row, now):
     """Khoảng thời gian phòng bị chiếm bởi một dòng BookingRoom.
 
-    Trả về (start, end, busy_without_end): busy_without_end nghĩa là khách đã
-    check-in nhưng CHƯA có mốc check-out thật -> coi như chiếm phòng vô thời
-    hạn, kể cả khi đã quá giờ dự kiến (khách ở quá hẹn). Phòng chỉ thật sự
-    trống trở lại khi có check_out_actual (hoặc trạng thái không còn active).
+    Trả về (start, end, mode) — xem hằng số mode ở trên.
     """
     # *_actual lưu UTC còn *_expected đã là giờ nghiệp vụ. Phải quy đổi TRƯỚC
     # khi trộn, nếu không cửa sổ bận của khách đang ở sẽ bắt đầu sớm 7 tiếng và
@@ -38,29 +51,54 @@ def _row_window(row):
     )
 
     if row.status == 'checked_in' and not row.check_out_actual:
-        # Đã check-in thật nhưng chưa check-out thật: đang chiếm phòng ngay
-        # bây giờ, không thể biết chắc khi nào sẽ trả. Không được chốt cửa sổ
-        # bận tại "now" rồi so [start,now) với cửa sổ ứng viên bắt đầu đúng
-        # lúc "now" — biên sẽ lệch và bỏ sót đúng ca khách đang ở quá hẹn.
-        return start, None, True
+        expected_end = _naive(row.check_out_expected)
+
+        if expected_end is None:
+            # Không có cả giờ trả dự kiến lẫn giờ trả thật: không có mốc nào
+            # để đoán khi nào khách rời phòng -> bận vô thời hạn.
+            return start, None, 'unbounded'
+
+        if expected_end <= now:
+            # Đã tới/quá giờ trả dự kiến nhưng chưa check-out thật (Bất biến
+            # B): khách đang chiếm phòng NGAY BÂY GIỜ. Chốt cửa sổ tại "now"
+            # (bao gồm "now") để không giả định họ còn ở đó xa hơn hiện tại —
+            # nếu không, mọi phòng có khách sẽ không nhận được đặt trước
+            # tương lai cho tới khi khách thật sự check-out (Bất biến A).
+            return start, now, 'capped_now'
+
+        # Chưa tới giờ trả dự kiến: cửa sổ bận bình thường theo giờ dự kiến,
+        # không chặn những ngày sau đó (Bất biến A).
+        return start, expected_end, 'bounded'
 
     end = (
         time_service.to_business_naive(row.check_out_actual)
         if row.check_out_actual
         else _naive(row.check_out_expected)
     )
-    return start, end, False
+    return start, end, 'bounded'
 
 
-def _conflicting_rows(rows, start_dt, end_dt):
+def _conflicting_rows(rows, start_dt, end_dt, now):
     for row in rows:
-        row_start, row_end, busy_without_end = _row_window(row)
-        if busy_without_end:
+        row_start, row_end, mode = _row_window(row, now)
+
+        if mode == 'unbounded':
             yield row
             continue
+
         if not row_start or not row_end:
             continue
-        # [a,b) giao [c,d) khi a < d và b > c
+
+        if mode == 'capped_now':
+            # [a, b] đóng ở đầu cuối: "now" tính là bận, để bắt đúng ca một
+            # đặt phòng bắt đầu chính xác lúc "now" (khách vẫn đang ở đó).
+            if row_start < end_dt and row_end >= start_dt:
+                yield row
+            continue
+
+        # 'bounded': [a,b) nửa-mở giao [c,d) khi a < d và b > c. Nửa-mở để
+        # hai booking nối ca đúng giờ (trả 12:00, nhận 12:00) không bị coi
+        # là trùng.
         if row_start < end_dt and row_end > start_dt:
             yield row
 
@@ -78,10 +116,6 @@ def has_room_conflict(
     if not start_dt or not end_dt:
         return False
 
-    # "now" không còn cần cho phép tính (khách chưa check-out thật -> luôn coi
-    # là bận vô thời hạn, xem _row_window) — vẫn giữ trong chữ ký để khớp hợp
-    # đồng interface và cho lời gọi tương lai truyền một mốc "bây giờ" đồng
-    # nhất giữa nhiều lời gọi trong cùng một request.
     now = now or time_service.business_now_naive()
     query = tenant_query(BookingRoom).filter(
         BookingRoom.room_id == room_id,
@@ -90,7 +124,7 @@ def has_room_conflict(
     if exclude_booking_room_id is not None:
         query = query.filter(BookingRoom.id != int(exclude_booking_room_id))
 
-    return any(_conflicting_rows(query.all(), start_dt, end_dt))
+    return any(_conflicting_rows(query.all(), start_dt, end_dt, now))
 
 
 def occupied_room_ids(*, start_dt, end_dt, now=None) -> set:
@@ -104,4 +138,4 @@ def occupied_room_ids(*, start_dt, end_dt, now=None) -> set:
         BookingRoom.status.in_(ACTIVE_STATUSES),
     ).all()
 
-    return {row.room_id for row in _conflicting_rows(rows, start_dt, end_dt)}
+    return {row.room_id for row in _conflicting_rows(rows, start_dt, end_dt, now)}
