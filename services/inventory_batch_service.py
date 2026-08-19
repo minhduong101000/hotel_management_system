@@ -47,7 +47,9 @@ def create_receipt_batch(
 ):
     """Create an inventory receipt batch and its immutable ledger entry."""
     _require_item_in_hotel(item, hotel_id)
-    received_at = received_at or date.today()
+    # Ngày nhập kho là NGÀY nghiệp vụ (nó cũng đi vào mã lô) — nhập lúc 00:30
+    # giờ VN không được đóng dấu ngày hôm trước theo đồng hồ máy.
+    received_at = received_at or time_service.business_today()
     _validate_receipt(quantity, received_at, expires_at)
     quantity = int(quantity)
 
@@ -92,7 +94,7 @@ def backfill_opening_batch(item, actor_user_id=None):
     if existing:
         return existing
 
-    received_at = date.today()
+    received_at = time_service.business_today()
     batch = InventoryBatch(
         hotel_id=item.hotel_id,
         inventory_item_id=item.id,

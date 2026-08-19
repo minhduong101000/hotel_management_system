@@ -1,5 +1,7 @@
 from extensions import db
-from datetime import date, timedelta
+from datetime import timedelta
+
+from services.time_service import business_today as _business_today
 
 class InventoryItem(db.Model):
     __tablename__ = 'inventory_items'
@@ -24,7 +26,9 @@ class InventoryItem(db.Model):
     movements = db.relationship('InventoryMovement', back_populates='item')
 
     def to_dict(self):
-        today = date.today()
+        # Hạn dùng là mốc NGÀY nghiệp vụ: lúc 00:30 giờ VN, đồng hồ máy chạy
+        # UTC vẫn còn ở hôm trước và sẽ xếp nhầm nhóm hàng sắp hết hạn.
+        today = _business_today()
         batches = self.batches or []
         expired_quantity = sum(int(batch.quantity_available or 0) for batch in batches if batch.expires_at and batch.expires_at < today and batch.status != 'depleted')
         expiring_quantity = sum(int(batch.quantity_available or 0) for batch in batches if batch.expires_at and today <= batch.expires_at <= today + timedelta(days=30) and batch.status == 'active')

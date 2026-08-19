@@ -6,11 +6,23 @@ from models.inventory_item import InventoryItem
 from models.service import Service
 from services import audit_service
 from services import inventory_batch_service
+from services import time_service
 from models.inventory_batch import InventoryBatch
 from decorators import admin_required
 from datetime import datetime
 
 warehouse_bp = Blueprint('warehouse', __name__)
+
+
+def _parse_received_at(raw):
+    """Ngày nhập kho do người dùng chọn, mặc định là NGÀY NGHIỆP VỤ hôm nay.
+
+    Đồng hồ máy chạy UTC nên lúc 00:30 giờ VN nó vẫn ở hôm trước — đóng dấu
+    lô hàng và sinh mã lô sai ngày, đúng lớp lỗi mã booking BK-yymmdd đã vá.
+    """
+    if raw:
+        return datetime.strptime(raw, '%Y-%m-%d').date()
+    return time_service.business_today()
 
 
 def _classify_item_group(name):
@@ -85,7 +97,7 @@ def add_item():
         if initial_quantity > 0:
             inventory_batch_service.create_receipt_batch(
                 item=new_item, quantity=initial_quantity,
-                received_at=datetime.strptime(data.get('received_at') or datetime.today().strftime('%Y-%m-%d'), '%Y-%m-%d').date(),
+                received_at=_parse_received_at(data.get('received_at')),
                 expires_at=datetime.strptime(data['expires_at'], '%Y-%m-%d').date() if data.get('expires_at') else None,
                 unit_cost=float(data.get('price', 0)), actor_user_id=current_user.id,
             )
@@ -163,7 +175,7 @@ def restock_item(item_id):
         if not item:
             return jsonify({'success': False, 'msg': 'Không tìm thấy vật tư!'})
         
-        received_at = datetime.strptime(data.get('received_at') or datetime.today().strftime('%Y-%m-%d'), '%Y-%m-%d').date()
+        received_at = _parse_received_at(data.get('received_at'))
         expires_at = datetime.strptime(data['expires_at'], '%Y-%m-%d').date() if data.get('expires_at') else None
         batch = inventory_batch_service.create_receipt_batch(
             item=item, quantity=qty, received_at=received_at, expires_at=expires_at,
