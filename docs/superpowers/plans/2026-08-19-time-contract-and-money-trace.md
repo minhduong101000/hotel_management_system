@@ -69,7 +69,7 @@
 
 > **Ghi chú lệch spec:** spec nêu 2 helper. Ta thêm helper thứ ba `business_naive_to_utc` vì Task 4 đổi payload timeline sang giờ VN, nên đường ghi ngược (`update_timeline` ghi vào `check_in_actual`) cần chiều quy đổi ngược lại. Không có nó thì Task 4 sẽ tạo lỗi mới.
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 Thêm vào cuối `tests/test_time_service.py`:
 
@@ -109,12 +109,12 @@ def test_business_naive_to_utc_is_the_exact_inverse(app):
         assert time_service.business_naive_to_utc(None) is None
 ```
 
-- [ ] **Step 2: Chạy test để chắc chắn nó đỏ**
+- [x] **Step 2: Chạy test để chắc chắn nó đỏ**
 
 Run: `venv/bin/python -m pytest tests/test_time_service.py -v`
 Expected: FAIL — `AttributeError: module 'services.time_service' has no attribute 'business_now_naive'`
 
-- [ ] **Step 3: Thêm 3 helper vào `services/time_service.py`**
+- [x] **Step 3: Thêm 3 helper vào `services/time_service.py`**
 
 Thêm ngay sau hàm `business_today()`:
 
@@ -157,12 +157,12 @@ def business_naive_to_utc(business_dt):
     )
 ```
 
-- [ ] **Step 4: Chạy test để xác nhận xanh**
+- [x] **Step 4: Chạy test để xác nhận xanh**
 
 Run: `venv/bin/python -m pytest tests/test_time_service.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Thêm fixture `utc_container` vào `tests/conftest.py`**
+- [x] **Step 5: Thêm fixture `utc_container` vào `tests/conftest.py`**
 
 Thêm vào cuối file. Fixture này **tái lập đúng môi trường production** (container không set `TZ` nên đồng hồ chạy UTC), là thứ khiến các test ở Task 2–4 bắt được lỗi mà máy dev giờ VN che mất.
 
@@ -190,7 +190,7 @@ def utc_container():
         _time.tzset()
 ```
 
-- [ ] **Step 6: Xác nhận fixture hoạt động**
+- [x] **Step 6: Xác nhận fixture hoạt động**
 
 Run:
 ```bash
@@ -204,7 +204,7 @@ print('naive now duoi TZ=UTC:', datetime.now())
 ```
 Expected: test PASS, và dòng in ra lệch 7 tiếng so với đồng hồ VN.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add services/time_service.py tests/test_time_service.py tests/conftest.py
@@ -225,7 +225,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 **Interfaces:**
 - Consumes: `time_service.business_now_naive()`, `time_service.utc_now_naive()`, fixture `utc_container` (Task 1).
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 Tạo `tests/test_timezone_contract.py`:
 
@@ -347,12 +347,12 @@ def test_walk_in_check_in_now_is_accepted(
     assert response.get_json()["success"] is True, response.get_json()
 ```
 
-- [ ] **Step 2: Chạy test để chắc chắn nó đỏ**
+- [x] **Step 2: Chạy test để chắc chắn nó đỏ**
 
 Run: `venv/bin/python -m pytest tests/test_timezone_contract.py -v`
 Expected: FAIL — test 1 và test 4 trả 400 với thông báo "Chỉ được check-in sớm tối đa 3 giờ…" / "Chỉ được vào ở ngay sớm tối đa 3 giờ…". Đây chính là lỗi P1 tái lập được.
 
-- [ ] **Step 3: Sửa guard check-in trong `controllers/booking_controller.py`**
+- [x] **Step 3: Sửa guard check-in trong `controllers/booking_controller.py`**
 
 Tìm khối bắt đầu bằng `now = datetime.now()` trong `checkin_room` và thay bằng:
 
@@ -371,7 +371,7 @@ Tìm khối bắt đầu bằng `now = datetime.now()` trong `checkin_room` và 
 
 Nếu `time_service` chưa có trong khối import của file, thêm nó vào import `from services import (...)`.
 
-- [ ] **Step 4: Sửa guard walk-in trong `controllers/timeline_controller.py`**
+- [x] **Step 4: Sửa guard walk-in trong `controllers/timeline_controller.py`**
 
 Thay dòng `now = datetime.now()` ngay trước `if status == 'checked_in':` bằng:
 
@@ -381,17 +381,17 @@ Thay dòng `now = datetime.now()` ngay trước `if status == 'checked_in':` b�
 
 Thêm `time_service` vào khối `from services import (...)` ở đầu file nếu chưa có.
 
-- [ ] **Step 5: Chạy test để xác nhận xanh**
+- [x] **Step 5: Chạy test để xác nhận xanh**
 
 Run: `venv/bin/python -m pytest tests/test_timezone_contract.py -v`
 Expected: PASS (4/4)
 
-- [ ] **Step 6: Chạy suite để chắc không vỡ chỗ khác**
+- [x] **Step 6: Chạy suite để chắc không vỡ chỗ khác**
 
 Run: `venv/bin/python -m pytest -m "not mysql" -q`
 Expected: PASS toàn bộ
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add controllers/booking_controller.py controllers/timeline_controller.py tests/test_timezone_contract.py
@@ -418,7 +418,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 - Consumes: `time_service.to_business_naive`, `time_service.utc_now_naive`.
 - Produces: hợp đồng "mọi tham số datetime của `calculate_complex_hotel_bill` là giờ nghiệp vụ VN naive".
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 Thêm vào `tests/test_timezone_contract.py`:
 
@@ -482,12 +482,12 @@ def test_check_in_after_midnight_vn_does_not_add_a_phantom_night(
     assert float(quote["total"]) == 500000.0, quote
 ```
 
-- [ ] **Step 2: Chạy test để chắc chắn nó đỏ**
+- [x] **Step 2: Chạy test để chắc chắn nó đỏ**
 
 Run: `venv/bin/python -m pytest tests/test_timezone_contract.py -k surcharge -v`
 Expected: FAIL — `total` ra 1.000.000 thay vì 500.000 (đúng số tiền bị thu oan).
 
-- [ ] **Step 3: Đưa hai mốc thời gian của đường checkout về UTC tường minh**
+- [x] **Step 3: Đưa hai mốc thời gian của đường checkout về UTC tường minh**
 
 Trong `controllers/booking_controller.py`, hai dòng của đường preview:
 
@@ -504,7 +504,7 @@ và dòng `checkout_at=datetime.now().replace(microsecond=0)` trong hàm checkou
 
 Thêm `time_service` vào khối import `from services import (...)` nếu chưa có.
 
-- [ ] **Step 4: Quy đổi tại biên trong `services/booking_quote_service.py`**
+- [x] **Step 4: Quy đổi tại biên trong `services/booking_quote_service.py`**
 
 Trong `build_checkout_quote`, thay khối tính `check_in` và lời gọi `_room_quote`:
 
@@ -534,7 +534,7 @@ Trong `build_checkout_quote`, thay khối tính `check_in` và lời gọi `_roo
 
 Thêm `from services import time_service` vào đầu file nếu chưa có.
 
-- [ ] **Step 5: Sửa `is_expired` dùng UTC**
+- [x] **Step 5: Sửa `is_expired` dùng UTC**
 
 `expires_at` được tính từ `checkout_at` (UTC) nên `now` mặc định cũng phải là UTC:
 
@@ -544,7 +544,7 @@ def is_expired(quote, now=None):
     return now > datetime.fromisoformat(quote["expires_at"])
 ```
 
-- [ ] **Step 6: Ghi hợp đồng vào docstring `calculate_complex_hotel_bill`**
+- [x] **Step 6: Ghi hợp đồng vào docstring `calculate_complex_hotel_bill`**
 
 Thêm vào đầu docstring của hàm trong `services/pricing_service.py`:
 
@@ -557,12 +557,12 @@ Thêm vào đầu docstring của hàm trong `services/pricing_service.py`:
     """
 ```
 
-- [ ] **Step 7: Chạy test để xác nhận xanh**
+- [x] **Step 7: Chạy test để xác nhận xanh**
 
 Run: `venv/bin/python -m pytest tests/test_timezone_contract.py -v && venv/bin/python -m pytest tests/test_checkout_settlement.py tests/test_pricing_quote.py tests/test_checkout_quote_staleness.py -q`
 Expected: PASS toàn bộ
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add services/booking_quote_service.py services/pricing_service.py controllers/booking_controller.py tests/test_timezone_contract.py
@@ -588,7 +588,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 **Interfaces:**
 - Consumes: `time_service.business_now_naive`, `time_service.to_business_naive`, `time_service.business_naive_to_utc`.
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 Thêm vào `tests/test_timezone_contract.py`:
 
@@ -657,12 +657,12 @@ def test_room_map_marks_overdue_using_business_time(
     assert target["is_overdue"] is True
 ```
 
-- [ ] **Step 2: Chạy test để chắc chắn nó đỏ**
+- [x] **Step 2: Chạy test để chắc chắn nó đỏ**
 
 Run: `venv/bin/python -m pytest tests/test_timezone_contract.py -k "overstay or business_time or overdue" -v`
 Expected: FAIL — `is_overstay` là `False` và `start` ra `07:00`.
 
-- [ ] **Step 3: Sửa hai clamp trùng phòng**
+- [x] **Step 3: Sửa hai clamp trùng phòng**
 
 Trong `controllers/timeline_controller.py`, ở `_has_room_time_conflict` và `_has_active_booking_conflict`, thay `now = datetime.now()` bằng:
 
@@ -670,7 +670,7 @@ Trong `controllers/timeline_controller.py`, ở `_has_room_time_conflict` và `_
     now = time_service.business_now_naive()
 ```
 
-- [ ] **Step 4: Đưa payload timeline về một hệ quy chiếu duy nhất**
+- [x] **Step 4: Đưa payload timeline về một hệ quy chiếu duy nhất**
 
 Thêm helper ngay trước `get_timeline`:
 
@@ -707,7 +707,7 @@ Trong `get_timeline`, thay `now = datetime.now()` bằng `now = time_service.bus
             end = now
 ```
 
-- [ ] **Step 5: Giữ đường ghi ngược đúng hệ quy chiếu**
+- [x] **Step 5: Giữ đường ghi ngược đúng hệ quy chiếu**
 
 Trong `update_timeline`, client giờ gửi lên giờ nghiệp vụ, nên khi ghi vào cột `*_actual` (UTC) phải quy đổi ngược:
 
@@ -729,7 +729,7 @@ Trong `update_timeline`, client giờ gửi lên giờ nghiệp vụ, nên khi g
             target_end = new_end
 ```
 
-- [ ] **Step 6: Sửa hai mốc trong `controllers/room_controller.py`**
+- [x] **Step 6: Sửa hai mốc trong `controllers/room_controller.py`**
 
 Thay `now = datetime.now()` (trong hàm dashboard) bằng:
 
@@ -745,12 +745,12 @@ và dòng `is_overdue`:
 
 Thêm `from services import time_service` nếu file chưa import.
 
-- [ ] **Step 7: Chạy test để xác nhận xanh**
+- [x] **Step 7: Chạy test để xác nhận xanh**
 
 Run: `venv/bin/python -m pytest tests/test_timezone_contract.py -v && venv/bin/python -m pytest tests/test_timeline_api_fields.py tests/test_timeline_operations_ui.py -q`
 Expected: PASS
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add controllers/timeline_controller.py controllers/room_controller.py tests/test_timezone_contract.py
@@ -780,7 +780,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 **Interfaces:**
 - Consumes: `time_service.utc_now_naive()`; `payment_service._now()` (mặc định sẵn có).
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 Thêm vào `tests/test_timezone_contract.py`:
 
@@ -832,19 +832,19 @@ def test_deposit_payment_created_at_is_utc_even_on_a_vn_clock_host(
         _time.tzset()
 ```
 
-- [ ] **Step 2: Chạy test để chắc chắn nó đỏ**
+- [x] **Step 2: Chạy test để chắc chắn nó đỏ**
 
 Run: `venv/bin/python -m pytest tests/test_timezone_contract.py -k created_at -v`
 Expected: FAIL — `created_at` ra 19:00 (giờ VN) thay vì 12:00 UTC.
 
-- [ ] **Step 3: Xóa tham số `created_at` thừa ở 4 lời gọi `payment_service.record_*`**
+- [x] **Step 3: Xóa tham số `created_at` thừa ở 4 lời gọi `payment_service.record_*`**
 
 `payment_service._now()` đã mặc định `utc_now_naive()`, nên cách sửa đúng là **xóa hẳn dòng**:
 
 - `controllers/timeline_controller.py`: xóa `created_at=datetime.now(),` trong lời gọi `record_deposit` (~606), `record_cancellation_fee` (~1163), `record_deposit` nộp thêm cọc (~1288).
 - `controllers/booking_controller.py`: xóa `created_at=datetime.now(),` trong lời gọi `record_deposit` của đặt đoàn (~884).
 
-- [ ] **Step 4: Thay các mốc còn lại bằng `utc_now_naive()`**
+- [x] **Step 4: Thay các mốc còn lại bằng `utc_now_naive()`**
 
 Với những chỗ ghi thẳng vào cột (không qua `payment_service`), **thay** chứ không xóa — vì default của model `Booking.created_at` là `db.func.now()` (giờ session MySQL, không đáng tin):
 
@@ -858,17 +858,17 @@ Với những chỗ ghi thẳng vào cột (không qua `payment_service`), **tha
 
 Tất cả thay bằng `time_service.utc_now_naive()` (giữ nguyên `.replace(microsecond=0)` ở đâu đang có). Thêm import `time_service` vào file nào còn thiếu.
 
-- [ ] **Step 5: Chạy test để xác nhận xanh**
+- [x] **Step 5: Chạy test để xác nhận xanh**
 
 Run: `venv/bin/python -m pytest tests/test_timezone_contract.py -v`
 Expected: PASS
 
-- [ ] **Step 6: Chạy toàn bộ suite nhanh**
+- [x] **Step 6: Chạy toàn bộ suite nhanh**
 
 Run: `venv/bin/python -m pytest -m "not mysql" -q`
 Expected: PASS
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add controllers/ services/ tests/test_timezone_contract.py
@@ -891,7 +891,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 - Modify: `services/pricing_service.py` (~120, ~138), `services/reporting_service.py` (~26)
 - Test: `tests/test_timezone_contract.py`
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 Thêm vào `tests/test_timezone_contract.py`:
 
@@ -942,12 +942,12 @@ def test_price_rule_lookup_defaults_to_the_business_day(app, monkeypatch):
         assert pricing_service._default_price_date() == datetime(2026, 8, 19, 1, 0)
 ```
 
-- [ ] **Step 2: Chạy test để chắc chắn nó đỏ**
+- [x] **Step 2: Chạy test để chắc chắn nó đỏ**
 
 Run: `venv/bin/python -m pytest tests/test_timezone_contract.py -k "booking_code or price_rule" -v`
 Expected: FAIL — mã chứa `260818`; `_default_price_date` chưa tồn tại.
 
-- [ ] **Step 3: Sửa mã booking và mã đoàn**
+- [x] **Step 3: Sửa mã booking và mã đoàn**
 
 `controllers/timeline_controller.py` trong `generate_booking_code`:
 
@@ -971,7 +971,7 @@ Và dòng hiển thị ngày cọc (~198) đổi sang giờ nghiệp vụ:
     )
 ```
 
-- [ ] **Step 4: Sửa mặc định ngày dò bảng giá**
+- [x] **Step 4: Sửa mặc định ngày dò bảng giá**
 
 Trong `services/pricing_service.py`, thêm helper dùng chung rồi thay hai chỗ `check_date = check_date or datetime.now()`:
 
@@ -993,7 +993,7 @@ rồi:
     check_date = check_date or _default_price_date()
 ```
 
-- [ ] **Step 5: Sửa bộ đếm dashboard và kỳ báo cáo**
+- [x] **Step 5: Sửa bộ đếm dashboard và kỳ báo cáo**
 
 `controllers/master_controller.py`:
 
@@ -1021,12 +1021,12 @@ def resolve_report_period(period, start_value=None, end_value=None, now=None):
     now = now or time_service.business_now_naive()
 ```
 
-- [ ] **Step 6: Chạy test để xác nhận xanh**
+- [x] **Step 6: Chạy test để xác nhận xanh**
 
 Run: `venv/bin/python -m pytest tests/test_timezone_contract.py -v && venv/bin/python -m pytest tests/test_report_period_utc.py tests/test_pricing_quote.py -q`
 Expected: PASS
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add controllers/ services/ tests/test_timezone_contract.py
@@ -1046,7 +1046,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 **Files:**
 - Create: `tests/test_no_ambient_now.py`
 
-- [ ] **Step 1: Viết test (đỏ nếu còn sót chỗ nào)**
+- [x] **Step 1: Viết test (đỏ nếu còn sót chỗ nào)**
 
 ```python
 """Chặn `datetime.now()` quay lại controllers/services.
@@ -1082,12 +1082,12 @@ def test_no_ambient_datetime_now_in_controllers_and_services():
     )
 ```
 
-- [ ] **Step 2: Chạy test**
+- [x] **Step 2: Chạy test**
 
 Run: `venv/bin/python -m pytest tests/test_no_ambient_now.py -v`
 Expected: PASS nếu Task 2–6 đã quét sạch. Nếu FAIL, danh sách in ra chính là các chỗ còn sót — sửa từng chỗ theo luật phân loại rồi chạy lại.
 
-- [ ] **Step 3: Chứng minh lưới thật sự bắt được**
+- [x] **Step 3: Chứng minh lưới thật sự bắt được**
 
 ```bash
 printf '\nfrom datetime import datetime\n_probe = datetime.now()\n' >> services/reporting_service.py
@@ -1097,7 +1097,7 @@ venv/bin/python -m pytest tests/test_no_ambient_now.py -q   # phải XANH trở 
 ```
 Expected: đỏ rồi xanh đúng như trên.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add tests/test_no_ambient_now.py
@@ -1119,7 +1119,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 **Interfaces:**
 - Produces: hàm toàn cục `escapeHtml(value) -> string` trong `main.js` (được nạp ở mọi trang tenant qua `layouts/base.html`).
 
-- [ ] **Step 1: Viết test chuỗi thất bại**
+- [x] **Step 1: Viết test chuỗi thất bại**
 
 Tạo `tests/test_print_invoice_security.py`:
 
@@ -1165,12 +1165,12 @@ def test_print_invoice_escapes_every_interpolated_field():
     assert "buildPrintRows(" in body
 ```
 
-- [ ] **Step 2: Chạy test để chắc chắn nó đỏ**
+- [x] **Step 2: Chạy test để chắc chắn nó đỏ**
 
 Run: `venv/bin/python -m pytest tests/test_print_invoice_security.py -v`
 Expected: FAIL — `function escapeHtml(` chưa có trong `main.js`.
 
-- [ ] **Step 3: Thêm `escapeHtml` vào `static/js/main.js`**
+- [x] **Step 3: Thêm `escapeHtml` vào `static/js/main.js`**
 
 Thêm vào đầu file, ngay trước `function api(path)`:
 
@@ -1187,7 +1187,7 @@ function escapeHtml(value) {
 }
 ```
 
-- [ ] **Step 4: Dựng lại các dòng hóa đơn từ dữ liệu và escape mọi trường**
+- [x] **Step 4: Dựng lại các dòng hóa đơn từ dữ liệu và escape mọi trường**
 
 Trong `static/js/timeline_manager.js`, thêm helper ngay trước `bdPrintInvoice`:
 
@@ -1252,12 +1252,12 @@ và escape mọi trường trong template — 6 chỗ nội suy trong khối `.m
             <div class="total">Tong tien: ${escapeHtml(total)}</div>
 ```
 
-- [ ] **Step 5: Chạy test chuỗi để xác nhận xanh**
+- [x] **Step 5: Chạy test chuỗi để xác nhận xanh**
 
 Run: `venv/bin/python -m pytest tests/test_print_invoice_security.py -v`
 Expected: PASS
 
-- [ ] **Step 6: Thêm test trình duyệt chứng minh mã không chạy**
+- [x] **Step 6: Thêm test trình duyệt chứng minh mã không chạy**
 
 Thêm vào cuối `tests/browser/test_smoke_flows.py`:
 
@@ -1292,7 +1292,7 @@ def test_b5_print_invoice_does_not_execute_injected_guest_name(admin_page, base)
     popup.close()
 ```
 
-- [ ] **Step 7: Chạy test trình duyệt**
+- [x] **Step 7: Chạy test trình duyệt**
 
 ```bash
 docker compose build web && docker compose up -d web && sleep 5
@@ -1302,7 +1302,7 @@ BROWSER_BASE_URL=http://127.0.0.1:8000 BROWSER_ADMIN_PASSWORD="$ADMIN_PASSWORD" 
 ```
 Expected: PASS (5/5). Nếu B5 đỏ trước khi sửa JS thì đó chính là bằng chứng lỗi — sửa xong phải xanh.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add static/js/main.js static/js/timeline_manager.js tests/test_print_invoice_security.py tests/browser/test_smoke_flows.py
@@ -1326,7 +1326,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 - Modify: `static/js/service.js` (~103, ~168)
 - Test: `tests/test_print_invoice_security.py`
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 Thêm vào `tests/test_print_invoice_security.py`:
 
@@ -1348,12 +1348,12 @@ def test_checkout_uses_the_shared_escape_helper():
     assert "escapeHtml(" in checkout
 ```
 
-- [ ] **Step 2: Chạy test để chắc chắn nó đỏ**
+- [x] **Step 2: Chạy test để chắc chắn nó đỏ**
 
 Run: `venv/bin/python -m pytest tests/test_print_invoice_security.py -v`
 Expected: FAIL — các chuỗi thô vẫn còn.
 
-- [ ] **Step 3: Escape trong `static/js/timeline_manager.js`**
+- [x] **Step 3: Escape trong `static/js/timeline_manager.js`**
 
 Catalog dịch vụ (~993):
 
@@ -1381,7 +1381,7 @@ Ba chỗ dựng `<option>` số phòng (~565, ~1432, ~1438) — escape cả text
                 roomSelect.innerHTML += `<option value="${r.id}" data-room-id="${r.id}" data-room-number="${escapeHtml(roomNumber)}">${escapeHtml(roomNumber)}</option>`;
 ```
 
-- [ ] **Step 4: Gộp helper trùng trong `static/js/checkout.js`**
+- [x] **Step 4: Gộp helper trùng trong `static/js/checkout.js`**
 
 Xóa định nghĩa `checkoutEscapeHtml` (~387-391) và thay mọi lời gọi `checkoutEscapeHtml(` thành `escapeHtml(`:
 
@@ -1398,11 +1398,11 @@ Escape tên dịch vụ ở `renderServicesInternal` (~213):
                   <span class="fw-bold text-dark">${escapeHtml(item.name)}</span>
 ```
 
-- [ ] **Step 5: Escape trong `static/js/service.js`**
+- [x] **Step 5: Escape trong `static/js/service.js`**
 
 Hai chỗ `${item.name}` (~103 menu POS, ~168 giỏ hàng) đổi thành `${escapeHtml(item.name)}`.
 
-- [ ] **Step 6: Kiểm tra cú pháp và chạy test**
+- [x] **Step 6: Kiểm tra cú pháp và chạy test**
 
 Run:
 ```bash
@@ -1412,7 +1412,7 @@ venv/bin/python -m pytest tests/test_print_invoice_security.py tests/test_custom
 ```
 Expected: JS OK, test PASS
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add static/js/
@@ -1433,7 +1433,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 **Interfaces:**
 - Produces: `payment_service.record_deposit_adjustment(*, booking_id, amount, note, payment_method='cash', created_at=None, flush=False, business_operation=None, component_key=None, created_by=None) -> Payment`; loại thanh toán mới `deposit_adjustment` (số tiền âm).
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 Tạo `tests/test_deposit_adjustment.py`:
 
@@ -1542,12 +1542,12 @@ def test_cashier_report_labels_the_adjustment(client, seed_hotels, login_as):
     assert "Điều chỉnh cọc" in labels
 ```
 
-- [ ] **Step 2: Chạy test để chắc chắn nó đỏ**
+- [x] **Step 2: Chạy test để chắc chắn nó đỏ**
 
 Run: `venv/bin/python -m pytest tests/test_deposit_adjustment.py -v`
 Expected: FAIL — `module 'services.payment_service' has no attribute 'record_deposit_adjustment'`
 
-- [ ] **Step 3: Thêm `record_deposit_adjustment` vào `services/payment_service.py`**
+- [x] **Step 3: Thêm `record_deposit_adjustment` vào `services/payment_service.py`**
 
 Đặt ngay sau `record_deposit`:
 
@@ -1590,7 +1590,7 @@ def record_deposit_adjustment(
 
 > `_to_decimal_amount` là helper sẵn có ở `services/payment_service.py:13`. `Optional`, `datetime`, `Payment`, `BusinessOperation` đã được import ở đầu file cho các hàm `record_*` khác.
 
-- [ ] **Step 4: Thêm nhãn trong `controllers/cashier_controller.py`**
+- [x] **Step 4: Thêm nhãn trong `controllers/cashier_controller.py`**
 
 Thêm một nhánh vào chuỗi `if/elif` gán `type_label`, đặt ngay sau nhánh `deposit`:
 
@@ -1599,12 +1599,12 @@ Thêm một nhánh vào chuỗi `if/elif` gán `type_label`, đặt ngay sau nh�
                 type_label = 'Điều chỉnh cọc'
 ```
 
-- [ ] **Step 5: Chạy test để xác nhận xanh**
+- [x] **Step 5: Chạy test để xác nhận xanh**
 
 Run: `venv/bin/python -m pytest tests/test_deposit_adjustment.py -v`
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add services/payment_service.py controllers/cashier_controller.py tests/test_deposit_adjustment.py
@@ -1627,7 +1627,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 - Consumes: `payment_service.record_deposit_adjustment` (Task 10).
 - Produces: `/api/bookings/update` nhận thêm trường `deposit_reason`; lỗi thiếu lý do trả `error_code: 'deposit_reason_required'`.
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 Thêm vào `tests/test_deposit_adjustment.py`:
 
@@ -1706,12 +1706,12 @@ def test_raising_a_deposit_needs_no_reason(client, seed_hotels, login_as):
     assert Payment.query.filter_by(payment_type="deposit").count() == 1
 ```
 
-- [ ] **Step 2: Chạy test để chắc chắn nó đỏ**
+- [x] **Step 2: Chạy test để chắc chắn nó đỏ**
 
 Run: `venv/bin/python -m pytest tests/test_deposit_adjustment.py -k deposit -v`
 Expected: FAIL — hiện tại giảm cọc vẫn thành công, không có `error_code`, `room_deposit_original` bị ghi đè.
 
-- [ ] **Step 3: Sửa khối cọc trong `update_booking`**
+- [x] **Step 3: Sửa khối cọc trong `update_booking`**
 
 Trong `controllers/timeline_controller.py`, thay khối `if new_deposit is not None:` bằng:
 
@@ -1765,12 +1765,12 @@ Trong `controllers/timeline_controller.py`, thay khối `if new_deposit is not N
 
 > Chữ ký thật của hàm là `record_event(*, hotel_id, actor_user_id, action, entity_type, entity_id, operation_key=None, before_data=None, after_data=None)` — khối trên đã dùng đúng.
 
-- [ ] **Step 4: Chạy test để xác nhận xanh**
+- [x] **Step 4: Chạy test để xác nhận xanh**
 
 Run: `venv/bin/python -m pytest tests/test_deposit_adjustment.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Thêm ô lý do vào modal sửa booking**
+- [x] **Step 5: Thêm ô lý do vào modal sửa booking**
 
 Trong `templates/rooms/timeline.html`, thay khối cột tiền cọc trong `editBookingModal`:
 
@@ -1789,7 +1789,7 @@ Trong `templates/rooms/timeline.html`, thay khối cột tiền cọc trong `edi
 
 Thêm `<input type="hidden" id="edit-deposit-original">` ngay cạnh `<input type="hidden" id="edit-booking-room-id">` để JS biết số cọc lúc mở modal.
 
-- [ ] **Step 6: Nối JS**
+- [x] **Step 6: Nối JS**
 
 Trong `static/js/timeline_manager.js`, thêm hàm:
 
@@ -1831,14 +1831,14 @@ và thêm vào object `data`:
             deposit_reason: depositReason,
 ```
 
-- [ ] **Step 7: Chạy test markup và toàn bộ suite**
+- [x] **Step 7: Chạy test markup và toàn bộ suite**
 
 Run: `venv/bin/python -m pytest tests/test_accessibility_markup.py tests/test_deposit_adjustment.py -q && node --check static/js/timeline_manager.js && venv/bin/python -m pytest -m "not mysql" -q`
 Expected: PASS
 
 > Nếu `test_accessibility_markup` đòi `<label for>` cho mọi control mới, ô `deposit-adjust-reason` ở Step 5 đã có sẵn nhãn liên kết.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add controllers/timeline_controller.py templates/rooms/timeline.html static/js/timeline_manager.js tests/test_deposit_adjustment.py
@@ -1862,7 +1862,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 **Interfaces:**
 - Produces: `room_availability_service.has_room_conflict(*, room_id, start_dt, end_dt, exclude_booking_room_id=None, now=None) -> bool`; `room_availability_service.occupied_room_ids(*, start_dt, end_dt, now=None) -> set[int]`. Cả hai nhận/so **giờ nghiệp vụ naive** và phải chạy trong app context có tenant.
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 Tạo `tests/test_room_availability_service.py`:
 
@@ -1991,12 +1991,12 @@ def test_occupied_room_ids_includes_the_overstaying_room(app, seed_hotels, froze
 
 > Cơ chế tenant: `services/tenant_service.py` đọc `g.hotel_id` (abort 404 nếu thiếu), nên `test_request_context()` + gán `g.hotel_id` là đủ — không cần đăng nhập. Đường dẫn trong `test_request_context` không quan trọng.
 
-- [ ] **Step 2: Chạy test để chắc chắn nó đỏ**
+- [x] **Step 2: Chạy test để chắc chắn nó đỏ**
 
 Run: `venv/bin/python -m pytest tests/test_room_availability_service.py -v`
 Expected: FAIL — `No module named 'services.room_availability_service'`
 
-- [ ] **Step 3: Tạo `services/room_availability_service.py`**
+- [x] **Step 3: Tạo `services/room_availability_service.py`**
 
 ```python
 """Nguồn chân lý duy nhất cho câu hỏi 'phòng này có bận không'.
@@ -2102,12 +2102,12 @@ def occupied_room_ids(*, start_dt, end_dt, now=None) -> set:
     return {row.room_id for row in _conflicting_rows(rows, start_dt, end_dt, now)}
 ```
 
-- [ ] **Step 4: Chạy test để xác nhận xanh**
+- [x] **Step 4: Chạy test để xác nhận xanh**
 
 Run: `venv/bin/python -m pytest tests/test_room_availability_service.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add services/room_availability_service.py tests/test_room_availability_service.py
@@ -2129,7 +2129,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 **Interfaces:**
 - Consumes: `room_availability_service.has_room_conflict`, `room_availability_service.occupied_room_ids` (Task 12).
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 Thêm vào `tests/test_room_availability_service.py`:
 
@@ -2184,12 +2184,12 @@ def test_group_booking_refuses_a_room_with_an_overstaying_guest(
 
 > Payload đúng theo `create_group_booking`: `customer` là dict (`phone`, `name`, `cccd`, `address`), ngày lấy 10 ký tự đầu rồi tự gán 14:00/12:00, và tiền cọc được kiểm tra **trước** vòng lặp xét từng phòng. Khi mọi phòng đều bận, endpoint trả `{'success': False, 'msg': 'Không đặt được phòng nào (trùng lịch hết)!'}`.
 
-- [ ] **Step 2: Chạy test để chắc chắn nó đỏ**
+- [x] **Step 2: Chạy test để chắc chắn nó đỏ**
 
 Run: `venv/bin/python -m pytest tests/test_room_availability_service.py -k "overstaying" -v`
 Expected: FAIL — cả hai đường đều nhận phòng đang có khách.
 
-- [ ] **Step 3: Rút ruột hai helper trong `controllers/timeline_controller.py`**
+- [x] **Step 3: Rút ruột hai helper trong `controllers/timeline_controller.py`**
 
 Giữ nguyên tên hàm (nhiều nơi đang gọi), chỉ ủy quyền vào service:
 
@@ -2221,7 +2221,7 @@ def _has_active_booking_conflict(room_id, check_in_dt, check_out_dt):
 
 Thêm `room_availability_service` vào khối `from services import (...)`.
 
-- [ ] **Step 4: Sửa đường đặt đoàn trong `controllers/booking_controller.py`**
+- [x] **Step 4: Sửa đường đặt đoàn trong `controllers/booking_controller.py`**
 
 Thay khối `is_taken = tenant_query(BookingRoom).filter(...)`:
 
@@ -2239,7 +2239,7 @@ Thay khối `is_taken = tenant_query(BookingRoom).filter(...)`:
 
 Thêm import `room_availability_service`.
 
-- [ ] **Step 5: Sửa đường tìm phòng trống trong `controllers/room_controller.py`**
+- [x] **Step 5: Sửa đường tìm phòng trống trong `controllers/room_controller.py`**
 
 Thay khối `occupied_room_ids = db.session.query(...)`:
 
@@ -2259,17 +2259,17 @@ Thay khối `occupied_room_ids = db.session.query(...)`:
 
 Thêm import `room_availability_service`.
 
-- [ ] **Step 6: Chạy test để xác nhận xanh**
+- [x] **Step 6: Chạy test để xác nhận xanh**
 
 Run: `venv/bin/python -m pytest tests/test_room_availability_service.py tests/test_room_search_api.py -v`
 Expected: PASS
 
-- [ ] **Step 7: Chạy toàn bộ suite**
+- [x] **Step 7: Chạy toàn bộ suite**
 
 Run: `venv/bin/python -m pytest -m "not mysql" -q`
 Expected: PASS
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add controllers/ tests/test_room_availability_service.py
@@ -2290,7 +2290,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 - Modify: `controllers/timeline_controller.py` (~1311-1332)
 - Test: `tests/test_room_availability_service.py`
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 Thêm vào `tests/test_room_availability_service.py`:
 
@@ -2334,12 +2334,12 @@ def test_update_without_status_still_checks_for_overlap(client, seed_hotels, log
     assert other.check_in_expected == datetime(2026, 8, 22, 14, 0)  # không bị đổi giờ
 ```
 
-- [ ] **Step 2: Chạy test để chắc chắn nó đỏ**
+- [x] **Step 2: Chạy test để chắc chắn nó đỏ**
 
 Run: `venv/bin/python -m pytest tests/test_room_availability_service.py -k without_status -v`
 Expected: FAIL — request thành công, `status` thành `None`.
 
-- [ ] **Step 3: Sửa cổng trạng thái trong `update_booking`**
+- [x] **Step 3: Sửa cổng trạng thái trong `update_booking`**
 
 Thay khối kiểm tra trùng và khối gán trạng thái:
 
@@ -2383,12 +2383,12 @@ Thay khối kiểm tra trùng và khối gán trạng thái:
         br.status = effective_status
 ```
 
-- [ ] **Step 4: Chạy test để xác nhận xanh**
+- [x] **Step 4: Chạy test để xác nhận xanh**
 
 Run: `venv/bin/python -m pytest tests/test_room_availability_service.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add controllers/timeline_controller.py tests/test_room_availability_service.py
@@ -2411,7 +2411,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 **Interfaces:**
 - Consumes: không. Đây là ngoại lệ có chủ ý của spec mục 6 — vendor toàn bộ CDN để đợt sau, nhưng pin thì làm ngay vì đúng lớp lỗi vis-timeline đã gãy một lần.
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 Thêm vào `tests/test_ui_regression.py`:
 
@@ -2427,12 +2427,12 @@ def test_external_scripts_are_version_pinned():
         assert "unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" in source
 ```
 
-- [ ] **Step 2: Chạy test để chắc chắn nó đỏ**
+- [x] **Step 2: Chạy test để chắc chắn nó đỏ**
 
 Run: `venv/bin/python -m pytest tests/test_ui_regression.py -k pinned -v`
 Expected: FAIL
 
-- [ ] **Step 3: Pin version ở cả hai template**
+- [x] **Step 3: Pin version ở cả hai template**
 
 Thay ở `templates/rooms/map.html` và `templates/rooms/timeline.html`:
 
@@ -2440,12 +2440,12 @@ Thay ở `templates/rooms/map.html` và `templates/rooms/timeline.html`:
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 ```
 
-- [ ] **Step 4: Chạy test để xác nhận xanh**
+- [x] **Step 4: Chạy test để xác nhận xanh**
 
 Run: `venv/bin/python -m pytest tests/test_ui_regression.py -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add templates/rooms/map.html templates/rooms/timeline.html tests/test_ui_regression.py
@@ -2458,7 +2458,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 
 ## Nghiệm thu
 
-- [ ] **Bước 1: Suite đầy đủ, hai lần, hai múi giờ**
+- [x] **Bước 1: Suite đầy đủ, hai lần, hai múi giờ**
 
 ```bash
 venv/bin/python -m pytest -m "not mysql" -q
@@ -2467,7 +2467,7 @@ TZ=Asia/Ho_Chi_Minh venv/bin/python -m pytest -m "not mysql" -q
 ```
 Expected: cả ba lần đều xanh với **cùng số test**. Đây là bằng chứng kết quả không còn phụ thuộc đồng hồ máy — trước đợt này chạy `TZ=UTC` sẽ đỏ.
 
-- [ ] **Bước 2: Bộ MySQL**
+- [x] **Bước 2: Bộ MySQL**
 
 ```bash
 set -a; source .env; set +a
@@ -2476,7 +2476,7 @@ TEST_MYSQL_DATABASE_URL="mysql+pymysql://root:${MYSQL_ROOT_PASSWORD}@127.0.0.1:3
 ```
 Expected: PASS
 
-- [ ] **Bước 3: Dựng lại stack và chạy bộ trình duyệt**
+- [x] **Bước 3: Dựng lại stack và chạy bộ trình duyệt**
 
 ```bash
 docker compose build web && docker compose up -d web && sleep 5
@@ -2487,14 +2487,14 @@ BROWSER_BASE_URL=http://127.0.0.1:8000 BROWSER_ADMIN_PASSWORD="$ADMIN_PASSWORD" 
 ```
 Expected: `200`, và 5/5 test trình duyệt xanh.
 
-- [ ] **Bước 4: Kiểm chứng tay trong container (đúng môi trường production)**
+- [x] **Bước 4: Kiểm chứng tay trong container (đúng môi trường production)**
 
 1. Tạo một booking với giờ nhận = giờ hiện tại → bấm **Nhận phòng** → phải vào được ngay (trước đây báo "chỉ được check-in sớm tối đa 3 giờ").
 2. Bấm **Thanh toán** phòng đó → hóa đơn **không** có dòng "Phụ thu phát sinh · Sớm 7.0h".
 3. Sửa cọc từ 5.000.000 xuống 500.000 → modal bắt nhập lý do; lưu xong xem Sổ Quỹ thấy dòng **Điều chỉnh cọc** kèm lý do, còn hóa đơn khách chỉ hiện số ròng.
 4. Để một khách quá giờ hẹn 1 phút → badge **Quá giờ** hiện ngay, và thử đặt phòng đó cho khung giờ chồng lấn → bị từ chối.
 
-- [ ] **Bước 5: Đóng dấu spec, push và theo dõi CI**
+- [x] **Bước 5: Đóng dấu spec, push và theo dõi CI**
 
 ```bash
 git push origin dev

@@ -1,5 +1,11 @@
 # Spec: Sửa lỗi múi giờ, XSS hóa đơn in, dấu vết cọc và thống nhất chống trùng phòng
 
+> **ĐÃ TRIỂN KHAI 20-08-2026** — 32 commit, 15 task, mỗi task qua review riêng + 1 review
+> toàn nhánh. Nghiệm thu: 495 unit (xanh ở cả 3 múi giờ) + 12 mysql (xanh cả VN lẫn UTC)
+> + 5 browser; CI xanh cả 3 job; kiểm chứng tay trong container UTC lúc 01:09 giờ VN.
+> Ghi chú: review toàn nhánh tìm thêm 1 lỗi Critical (modal ghi ngược giờ UTC vào cột giờ
+> nghiệp vụ, thu oan 500.000đ) mà 15 lần review từng-task đều không thấy — đã vá.
+
 **Nguồn:** audit đối kháng 17-08-2026 (6 lát cắt song song + phản biện). Mọi
 phát hiện dưới đây đã được kiểm chứng bằng code đọc trực tiếp; riêng giả định
 "container chạy UTC" đã xác minh **trên container đang chạy**:
