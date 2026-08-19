@@ -24,6 +24,7 @@ from services import (
     booking_state_service,
     business_operation_service,
     payment_service,
+    time_service,
 )
 from decorators import booking_reschedule_required
 
@@ -513,7 +514,7 @@ def create_booking():
         if r_type not in ['daily', 'hourly']:
             return jsonify({'success': False, 'msg': 'Loại thuê không hợp lệ.'})
 
-        now = datetime.now()
+        now = time_service.business_now_naive()
         if status == 'checked_in':
             max_early = check_in_dt - timedelta(hours=3)
             if now < max_early:

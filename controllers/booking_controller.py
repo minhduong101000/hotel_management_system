@@ -28,6 +28,7 @@ from services import (
     inventory_service,
     payment_service,
     room_checkout_service,
+    time_service,
 )
 from services import audit_service
 
@@ -154,13 +155,15 @@ def checkin_room():
     if room.status == 'occupied':
         return jsonify({'success': False, 'msg': 'Phòng đang có khách, không thể check-in thêm.'}), 400
 
-    now = datetime.now()
-    if booking_room.check_in_expected and booking_room.check_in_expected - now > timedelta(hours=3):
+    # Hai loại "bây giờ" khác nhau: so với giờ hẹn (VN) và ghi mốc thực tế (UTC)
+    now_business = time_service.business_now_naive()
+    now_utc = time_service.utc_now_naive()
+    if booking_room.check_in_expected and booking_room.check_in_expected - now_business > timedelta(hours=3):
         return jsonify({'success': False, 'msg': 'Chỉ được check-in sớm tối đa 3 giờ trước giờ booking.'}), 400
 
     booking_state_service.check_in_room(
         booking_room,
-        checked_in_at=now,
+        checked_in_at=now_utc,
     )
 
     audit_service.record_event(
