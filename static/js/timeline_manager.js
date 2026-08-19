@@ -1018,11 +1018,11 @@ function renderBookingDetailServices() {
         rows += bookingDetailRoomBreakdown.map((item) => {
             const amount = Number(item.amount || 0);
             total += amount;
-            const detailText = item.detail ? `<div class="small text-muted">${item.detail}</div>` : '';
+            const detailText = item.detail ? `<div class="small text-muted">${escapeHtml(item.detail)}</div>` : '';
             return `
                 <tr>
                     <td class="text-center">${stt++}</td>
-                    <td><strong>${item.label || 'Tiền phòng'}</strong>${detailText}</td>
+                    <td><strong>${escapeHtml(item.label || 'Tiền phòng')}</strong>${detailText}</td>
                     <td class="text-center">1</td>
                     <td class="text-end">${formatVND(amount)}</td>
                     <td class="text-end fw-bold">${formatVND(amount)}</td>
@@ -1035,7 +1035,7 @@ function renderBookingDetailServices() {
         rows += `
             <tr>
                 <td class="text-center">${stt++}</td>
-                <td><strong>${bookingDetailRoomLine.name || 'Tiền phòng'}</strong></td>
+                <td><strong>${escapeHtml(bookingDetailRoomLine.name || 'Tiền phòng')}</strong></td>
                 <td class="text-center">1</td>
                 <td class="text-end">${formatVND(roomAmount)}</td>
                 <td class="text-end fw-bold">${formatVND(roomAmount)}</td>
@@ -1336,7 +1336,7 @@ function renderBookingDetailRoomList(rooms, activeBookingRoomId) {
         return `
             <button type="button" class="${itemClass}" onclick="openBookingDetailModal(${Number(r.booking_room_id)})">
                 <div class="d-flex justify-content-between align-items-center">
-                    <strong>Phòng ${r.room_number || '---'}</strong>
+                    <strong>Phòng ${escapeHtml(r.room_number || '---')}</strong>
                     <small>${statusText}</small>
                 </div>
                 <div class="small opacity-75">Nhận: ${checkInText}</div>

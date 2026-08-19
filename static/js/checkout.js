@@ -99,8 +99,8 @@ function checkOut(roomNumber, bookingId = null) {
                     // Tạo dòng tr mới cho bảng
                     const row = `
                         <tr>
-                            <td class="fw-bold text-dark">${item.label}</td>
-                            <td class="text-muted small">${item.detail}</td>
+                            <td class="fw-bold text-dark">${escapeHtml(item.label)}</td>
+                            <td class="text-muted small">${escapeHtml(item.detail)}</td>
                             <td class="text-end fw-bold">${parseInt(item.amount).toLocaleString()} đ</td>
                         </tr>
                     `;
@@ -108,7 +108,7 @@ function checkOut(roomNumber, bookingId = null) {
                 });
             } else {
                 // Fallback nếu không có chi tiết (dùng message tóm tắt cũ)
-                feeTableBody.innerHTML = `<tr><td colspan="3" class="text-center text-muted">${data.duration_msg}</td></tr>`;
+                feeTableBody.innerHTML = `<tr><td colspan="3" class="text-center text-muted">${escapeHtml(data.duration_msg)}</td></tr>`;
             }
 
             // Cập nhật số tổng tiền phòng ở chân bảng (tfoot)

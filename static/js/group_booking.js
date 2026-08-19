@@ -85,7 +85,7 @@ function searchRoomsForGroup() {
     .then(response => response.json())
     .then(data => {
         if (!data.success) {
-            container.innerHTML = `<div class="alert alert-danger m-3 text-center">${data.msg}</div>`;
+            container.innerHTML = `<div class="alert alert-danger m-3 text-center">${escapeHtml(data.msg)}</div>`;
             return;
         }
 
@@ -119,7 +119,7 @@ function renderRoomList(groupedData) {
             <div class="col-12 mt-3 mb-2">
                 <div class="d-flex align-items-center border-bottom pb-2">
                     <h6 class="text-primary fw-bold m-0 text-uppercase">
-                        <i class="fas fa-layer-group me-2"></i>${type}
+                        <i class="fas fa-layer-group me-2"></i>${escapeHtml(type)}
                     </h6>
                     <span class="badge bg-light text-secondary ms-2 border">${rooms.length} phòng</span>
                 </div>
@@ -151,7 +151,7 @@ function renderRoomList(groupedData) {
                 <div class="col-6 col-md-4 col-lg-3">
                     <input type="checkbox" class="btn-check room-checkbox" id="gr_room_${room.id}" value="${room.id}" data-price="${rawPriceNum}" onchange="handleRoomSelectionChange()" autocomplete="off">
                     <label class="pos-room-card${specialClass}" for="gr_room_${room.id}">
-                        <span class="fw-bold" style="font-size: 15px;">${room.number}</span>
+                        <span class="fw-bold" style="font-size: 15px;">${escapeHtml(room.number)}</span>
                         ${priceDisplay}
                     </label>
                 </div>

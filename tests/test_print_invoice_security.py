@@ -82,3 +82,46 @@ def test_room_number_options_are_built_via_dom_api_not_html_attribute_interpolat
     assert "option.title = statusLabel" in body
     assert "option.textContent = r.room_number" in body
     assert "option.textContent = roomNumber" in body
+
+
+def test_price_rule_labels_are_escaped_before_innerhtml():
+    """item.label mang theo rule_tag = f" ({prices['rule_name']})" — tên rule
+    giá do admin nhập tự do (xem services/pricing_service.py). Nó xuất hiện ở
+    3 chỗ độc lập: bảng tiền phòng lúc checkout, bảng hóa đơn trên màn hình
+    chi tiết booking, và dòng "Tiền phòng" khi không có breakdown chi tiết."""
+    for rel, raw in (
+        ("static/js/checkout.js", "${item.label}"),
+        ("static/js/checkout.js", "${item.detail}"),
+        ("static/js/checkout.js", "${data.duration_msg}"),
+        ("static/js/timeline_manager.js", "${item.label || 'Tiền phòng'}"),
+        ("static/js/timeline_manager.js", "${item.detail}"),
+        ("static/js/timeline_manager.js", "${bookingDetailRoomLine.name || 'Tiền phòng'}"),
+    ):
+        assert raw not in _source(rel), f"{rel} còn nội suy thô {raw}"
+
+    checkout = _source("static/js/checkout.js")
+    assert "${escapeHtml(item.label)}" in checkout
+    assert "${escapeHtml(item.detail)}" in checkout
+    assert "${escapeHtml(data.duration_msg)}" in checkout
+
+    timeline = _source("static/js/timeline_manager.js")
+    assert "${escapeHtml(item.label || 'Tiền phòng')}" in timeline
+    assert "${escapeHtml(item.detail)}" in timeline
+    assert "${escapeHtml(bookingDetailRoomLine.name || 'Tiền phòng')}" in timeline
+
+
+def test_room_number_and_type_are_escaped_in_group_room_list_and_search():
+    """Số phòng và loại phòng (room_type) là chuỗi tự do admin nhập, dùng để
+    dựng danh sách chọn phòng khi đặt đoàn (group_booking.js) và danh sách
+    phòng của booking đoàn trong booking detail (timeline_manager.js)."""
+    group_booking = _source("static/js/group_booking.js")
+    assert "${room.number}" not in group_booking
+    assert "${escapeHtml(room.number)}" in group_booking
+    assert "${type}" not in group_booking
+    assert "${escapeHtml(type)}" in group_booking
+    assert "${data.msg}" not in group_booking
+    assert "${escapeHtml(data.msg)}" in group_booking
+
+    timeline = _source("static/js/timeline_manager.js")
+    assert "Phòng ${r.room_number || '---'}" not in timeline
+    assert "Phòng ${escapeHtml(r.room_number || '---')}" in timeline
