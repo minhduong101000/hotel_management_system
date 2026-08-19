@@ -78,13 +78,37 @@ def get_cashier_data():
             }
 
         # Xử lý Payment
+        #
+        # Phân loại total_received / total_refunded theo payment_type, KHÔNG
+        # theo dấu của amount. Trước Task 10 chỉ 'refund' mới âm nên gộp theo
+        # dấu vô tình đúng; từ khi có 'deposit_adjustment' (cũng âm nhưng
+        # KHÔNG phải hoàn tiền cho khách — là đính chính một khoản thu đã ghi
+        # sai) thì phải tách tường minh, nếu không KPI "Tổng hoàn cọc" sẽ lẫn
+        # hai nghiệp vụ khác hẳn nhau.
         for p in payments_query:
             amt = float(p.amount)
-            if amt >= 0:
-                total_received += amt
-            else:
+            if p.payment_type == 'refund':
                 total_refunded += abs(amt)
-                
+            elif p.payment_type == 'deposit_adjustment':
+                # Đính chính khoản đã thu bị ghi dư, không phải tiền hoàn cho
+                # khách: trừ thẳng vào total_received. net_amount không đổi
+                # về số học so với cách gộp theo dấu (received -X thay vì
+                # refunded +X), chỉ trả lại đúng ý nghĩa cho từng KPI thành phần.
+                total_received -= abs(amt)
+            elif amt < 0:
+                # Loại thanh toán âm chưa được phân loại tường minh ở trên
+                # (ví dụ một payment_type mới thêm sau này). Không được lặng
+                # lẽ rơi vào một trong hai nhánh — giữ hành vi cũ (tính vào
+                # Tổng hoàn) để không biến mất khỏi báo cáo, nhưng in cảnh báo
+                # để bắt buộc phải bổ sung nhánh tường minh khi gặp lại.
+                print(
+                    f"[cashier] payment_type âm chưa phân loại: "
+                    f"{p.payment_type!r} (payment id={p.id}) — tạm tính vào Tổng hoàn."
+                )
+                total_refunded += abs(amt)
+            else:
+                total_received += amt
+
             code = p.booking.code if p.booking else '--'
             customer_name = p.booking.customer.name if p.booking and p.booking.customer else 'Khách'
             
