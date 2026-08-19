@@ -562,7 +562,7 @@ function openEditModal(bookingRoomId, bookingId) {
         sel.innerHTML = '';
         let rooms = rData.rooms || rData; 
         rooms.forEach(r => {
-            sel.innerHTML += `<option value="${r.id}">${r.number || r.room_number}</option>`;
+            sel.innerHTML += `<option value="${r.id}">${escapeHtml(r.number || r.room_number)}</option>`;
         });
 
         // Bước 2: Lấy chi tiết BookingRoom (để điền giờ cụ thể của phòng này)
@@ -994,7 +994,7 @@ function renderBookingDetailServiceCatalog() {
         <div class="col-12">
             <div class="bd-service-item">
                 <div>
-                    <div class="fw-bold">${s.name || 'Dich vu'}</div>
+                    <div class="fw-bold">${escapeHtml(s.name || 'Dich vu')}</div>
                     <div class="small bd-service-price">${formatVND(s.price || 0)}</div>
                 </div>
                 <button type="button" class="btn btn-sm btn-outline-primary" onclick="bdAddServiceById(${Number(s.id)})" ${disabledAttr}>
@@ -1054,7 +1054,7 @@ function renderBookingDetailServices() {
             return `
                 <tr>
                     <td class="text-center">${stt++}</td>
-                    <td>${line.name || 'Dich vu'}</td>
+                    <td>${escapeHtml(line.name || 'Dich vu')}</td>
                     <td class="text-center">${qtyCell}</td>
                     <td class="text-end">${formatVND(line.price)}</td>
                     <td class="text-end">${formatVND(lineTotal)}</td>
@@ -1461,13 +1461,13 @@ async function openBookingDetailModal() {
         if (bookingRooms.length > 0) {
             bookingRooms.forEach(r => {
                 const statusLabel = r.status || '';
-                roomSelect.innerHTML += `<option value="${r.booking_room_id}" data-room-id="${r.room_id}" data-room-number="${r.room_number}" title="${statusLabel}">${r.room_number}</option>`;
+                roomSelect.innerHTML += `<option value="${r.booking_room_id}" data-room-id="${r.room_id}" data-room-number="${escapeHtml(r.room_number)}" title="${escapeHtml(statusLabel)}">${escapeHtml(r.room_number)}</option>`;
             });
             roomSelect.value = String(detail.id);
         } else {
             fallbackRooms.forEach(r => {
                 const roomNumber = r.number || r.room_number;
-                roomSelect.innerHTML += `<option value="${r.id}" data-room-id="${r.id}" data-room-number="${roomNumber}">${roomNumber}</option>`;
+                roomSelect.innerHTML += `<option value="${r.id}" data-room-id="${r.id}" data-room-number="${escapeHtml(roomNumber)}">${escapeHtml(roomNumber)}</option>`;
             });
             roomSelect.value = String(detail.room_id);
         }

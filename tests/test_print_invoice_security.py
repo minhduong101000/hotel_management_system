@@ -37,3 +37,20 @@ def test_print_invoice_escapes_every_interpolated_field():
     # Không được sao chép innerHTML của bảng: nó kế thừa mọi chỗ chưa escape
     assert "bd-invoice-table-body')?.innerHTML" not in body
     assert "buildPrintRows(" in body
+
+
+def test_service_and_room_names_are_escaped_before_innerhtml():
+    """Tên dịch vụ do admin nhập; tenant admin thù địch không được chạy JS
+    trong trình duyệt của mọi lễ tân."""
+    for rel, raw in (
+        ("static/js/checkout.js", "${item.name}"),
+        ("static/js/service.js", "${item.name}"),
+        ("static/js/timeline_manager.js", "${line.name || 'Dich vu'}"),
+    ):
+        assert raw not in _source(rel), f"{rel} còn nội suy thô {raw}"
+
+
+def test_checkout_uses_the_shared_escape_helper():
+    checkout = _source("static/js/checkout.js")
+    assert "function checkoutEscapeHtml" not in checkout
+    assert "escapeHtml(" in checkout

@@ -100,7 +100,7 @@ function renderServiceList(data) {
             <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center p-3" 
                  onclick="addToCart(${item.id})" style="cursor: pointer;">
                 <div>
-                    <div class="fw-bold text-dark">${item.name}</div>
+                    <div class="fw-bold text-dark">${escapeHtml(item.name)}</div>
                     <div class="small text-muted fw-bold">${priceFormatted} đ</div>
                 </div>
                 <button class="btn btn-sm btn-outline-primary rounded-circle" style="width: 32px; height: 32px;">
@@ -165,7 +165,7 @@ function renderCart() {
                 cartEl.innerHTML += `
                     <li class="list-group-item d-flex justify-content-between align-items-center">
                         <div style="flex: 1;">
-                            <div class="fw-bold small">${item.name}</div>
+                            <div class="fw-bold small">${escapeHtml(item.name)}</div>
                             <div class="text-muted extra-small">${priceFmt} x ${qty}</div>
                         </div>
                         <div class="d-flex align-items-center">

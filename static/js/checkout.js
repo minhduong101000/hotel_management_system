@@ -210,7 +210,7 @@ function renderServicesInternal(services) {
             htmlRows += `
                 <tr class="align-middle">
                     <td>
-                        <span class="fw-bold text-dark">${item.name}</span><br>
+                        <span class="fw-bold text-dark">${escapeHtml(item.name)}</span><br>
                         <small class="text-muted">${price} đ</small>
                     </td>
                     
@@ -384,12 +384,6 @@ let groupCheckoutIncludeTax = false;
 let currentGroupCheckoutQuote = null;
 let groupCheckoutSubmitting = false;
 
-function checkoutEscapeHtml(value) {
-    const element = document.createElement('div');
-    element.textContent = value == null ? '' : String(value);
-    return element.innerHTML;
-}
-
 function showGroupCheckoutStatus(message, level = 'info') {
     const status = document.getElementById('gc-checkout-status');
     if (!status) return;
@@ -515,7 +509,7 @@ function openGroupCheckout(passedBookingId = null) {
                     }
                     const serviceLines = (room.service_items || [])
                         .map(service => (
-                            `${checkoutEscapeHtml(service.name)} x${service.quantity}: `
+                            `${escapeHtml(service.name)} x${service.quantity}: `
                             + checkoutFormatVND(service.total)
                         ))
                         .join('<br>');
@@ -525,8 +519,8 @@ function openGroupCheckout(passedBookingId = null) {
                     tbody.insertAdjacentHTML('beforeend', `
                         <tr>
                             <td class="text-start">
-                                <div class="fw-bold text-primary">${checkoutEscapeHtml(room.room_name)}</div>
-                                <small class="badge ${statusBadgeClass(room.status)}">${checkoutEscapeHtml(room.status_label || room.status || '--')}</small>
+                                <div class="fw-bold text-primary">${escapeHtml(room.room_name)}</div>
+                                <small class="badge ${statusBadgeClass(room.status)}">${escapeHtml(room.status_label || room.status || '--')}</small>
                                 <div class="text-muted small">${scopeText}</div>
                             </td>
                             <td class="text-end">${checkoutFormatVND(room.room_fee - surchargeTotal)}</td>
@@ -536,7 +530,7 @@ function openGroupCheckout(passedBookingId = null) {
                             </td>
                             <td class="text-end">
                                 <div class="text-danger fw-bold">${checkoutFormatVND(surchargeTotal)}</div>
-                                <div class="text-muted small">${checkoutEscapeHtml(surchargeDetail)}</div>
+                                <div class="text-muted small">${escapeHtml(surchargeDetail)}</div>
                             </td>
                             <td class="text-end fw-bold text-dark">${checkoutFormatVND(room.subtotal)}</td>
                         </tr>
