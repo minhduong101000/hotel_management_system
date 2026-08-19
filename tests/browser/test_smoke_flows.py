@@ -76,3 +76,33 @@ def test_b4_add_room_button_reaches_real_endpoint(seeded, admin_page, base):
     page.wait_for_timeout(2_500)  # prompt -> fetch -> alert
     assert alerts, "Không nhận được phản hồi nào từ nút Thêm phòng"
     assert "Đã thêm phòng" in alerts[-1], alerts
+
+
+def test_b5_print_invoice_does_not_execute_injected_guest_name(admin_page, base):
+    """Tên khách độc hại không được chạy trong cửa sổ in.
+
+    bdPrintInvoice đọc textContent của #bd-customer-label rồi ghép thẳng vào
+    HTML, nên đặt textContent đúng bằng payload là tái lập chính xác đường đi
+    của tên khách do server trả về verbatim. Mở modal bằng JS như B2/B4.
+    """
+    page = admin_page
+    page.goto(f"{base}/{SLUG}/rooms/timeline-view")
+    page.evaluate(
+        "bootstrap.Modal.getOrCreateInstance("
+        "document.getElementById('bookingDetailModal')).show()"
+    )
+    page.wait_for_selector("#bookingDetailModal.show", timeout=8_000)
+    page.evaluate("window.__xssFired = false")
+    page.evaluate(
+        "document.getElementById('bd-customer-label').textContent ="
+        " '<img src=x onerror=\"window.opener.__xssFired = true\">'"
+    )
+
+    with page.expect_popup() as popup_info:
+        page.click('button[onclick="bdPrintInvoice()"]')
+    popup = popup_info.value
+    popup.wait_for_load_state()
+    page.wait_for_timeout(1_000)
+
+    assert page.evaluate("window.__xssFired") is False
+    popup.close()

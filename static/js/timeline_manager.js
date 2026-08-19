@@ -1110,6 +1110,38 @@ async function bdApplyLiveRoomPricing(detail) {
     }
 }
 
+// Dựng dòng hóa đơn từ DỮ LIỆU thay vì sao chép innerHTML của bảng đang hiển thị
+// — bản sao đó kế thừa mọi chỗ chưa escape của renderer.
+function buildPrintRows() {
+    const rows = [];
+    let stt = 1;
+    if (bookingDetailRoomLine && Number(bookingDetailRoomFee) > 0) {
+        rows.push(`
+            <tr>
+                <td>${stt++}</td>
+                <td>${escapeHtml(bookingDetailRoomLine.name)}</td>
+                <td>1</td>
+                <td>${escapeHtml(formatVND(bookingDetailRoomFee))}</td>
+                <td>${escapeHtml(formatVND(bookingDetailRoomFee))}</td>
+            </tr>
+        `);
+    }
+    bookingDetailServicesLines.forEach(line => {
+        const qty = Number(line.quantity || 0);
+        const lineTotal = qty * Number(line.price || 0);
+        rows.push(`
+            <tr>
+                <td>${stt++}</td>
+                <td>${escapeHtml(line.name || 'Dich vu')}</td>
+                <td>${qty}</td>
+                <td>${escapeHtml(formatVND(line.price))}</td>
+                <td>${escapeHtml(formatVND(lineTotal))}</td>
+            </tr>
+        `);
+    });
+    return rows.join('');
+}
+
 function bdPrintInvoice() {
     const bookingCode = document.getElementById('bd-booking-code')?.textContent || '-';
     const customer = document.getElementById('bd-customer-label')?.textContent || '-';
@@ -1118,7 +1150,7 @@ function bdPrintInvoice() {
     const checkOut = (document.getElementById('bd-checkout')?.value || '').replace('T', ' ');
     const total = document.getElementById('bd-invoice-total')?.textContent || '0 đ';
     const created = document.getElementById('bd-created-label')?.textContent || '-';
-    const tableHtml = document.getElementById('bd-invoice-table-body')?.innerHTML || '';
+    const tableHtml = buildPrintRows();
 
     const printWin = window.open('', '_blank', 'width=900,height=700');
     if (!printWin) {
@@ -1131,7 +1163,7 @@ function bdPrintInvoice() {
         <html>
         <head>
             <meta charset="utf-8">
-            <title>Hoa don ${bookingCode}</title>
+            <title>Hoa don ${escapeHtml(bookingCode)}</title>
             <style>
                 body { font-family: Arial, sans-serif; padding: 20px; color: #111; }
                 h2 { margin: 0 0 8px; }
@@ -1148,12 +1180,12 @@ function bdPrintInvoice() {
         <body>
             <h2>HOA DON TAM TINH</h2>
             <div class="meta">
-                <div><strong>Ma booking:</strong> ${bookingCode}</div>
-                <div><strong>Khach hang:</strong> ${customer}</div>
-                <div><strong>Phong:</strong> ${room}</div>
-                <div><strong>Nhan phong:</strong> ${checkIn || '-'}</div>
-                <div><strong>Tra phong:</strong> ${checkOut || '-'}</div>
-                <div><strong>Tao luc:</strong> ${created}</div>
+                <div><strong>Ma booking:</strong> ${escapeHtml(bookingCode)}</div>
+                <div><strong>Khach hang:</strong> ${escapeHtml(customer)}</div>
+                <div><strong>Phong:</strong> ${escapeHtml(room)}</div>
+                <div><strong>Nhan phong:</strong> ${escapeHtml(checkIn) || '-'}</div>
+                <div><strong>Tra phong:</strong> ${escapeHtml(checkOut) || '-'}</div>
+                <div><strong>Tao luc:</strong> ${escapeHtml(created)}</div>
             </div>
             <table>
                 <thead>
@@ -1167,7 +1199,7 @@ function bdPrintInvoice() {
                 </thead>
                 <tbody>${tableHtml}</tbody>
             </table>
-            <div class="total">Tong tien: ${total}</div>
+            <div class="total">Tong tien: ${escapeHtml(total)}</div>
             <script>
                 window.onload = function () { window.print(); };
             </script>

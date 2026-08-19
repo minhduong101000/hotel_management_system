@@ -1,7 +1,18 @@
 /**
+ * Escape dữ liệu người dùng trước khi ghép vào chuỗi HTML.
+ * Dùng khi buộc phải dựng HTML bằng chuỗi; nơi nào đặt được textContent thì
+ * ưu tiên textContent.
+ */
+function escapeHtml(value) {
+    const holder = document.createElement('div');
+    holder.textContent = value == null ? '' : String(value);
+    return holder.innerHTML;
+}
+
+/**
  * Helper function: Xây dựng đúng API URL theo hotel_slug hiện tại.
  * Ví dụ: api('/api/rooms') -> '/central/rooms/api/rooms'
- * 
+ *
  * Cách map URL:
  * /api/rooms* -> /<slug>/rooms/api/rooms*
  * /api/bookings* -> /<slug>/bookings/api/bookings*
