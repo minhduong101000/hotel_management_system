@@ -247,6 +247,10 @@ def calculate_complex_hotel_bill(check_in, check_out, room, rental_type='hourly'
     Hàm tính tiền chuẩn xác (Fix lỗi phụ thu hàng trăm giờ):
     1. Base Fee (Tiền phòng): Tính số ĐÊM dựa trên khoảng ngày rộng nhất (để thu đủ nếu ở lố ngày).
     2. Surcharge (Phụ thu): CHỈ tính số GIỜ lố trong ngày check-in/check-out thực tế.
+
+    HỢP ĐỒNG THỜI GIAN: mọi tham số datetime (check_in, check_out,
+    expected_check_in, expected_check_out) phải là GIỜ NGHIỆP VỤ VN dạng naive.
+    Người gọi chịu trách nhiệm quy đổi — xem build_checkout_quote.
     """
     
     # Cấu hình giờ chuẩn của khách sạn

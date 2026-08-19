@@ -300,7 +300,9 @@ def test_default_rate_update_changes_new_quote_but_not_existing_snapshot(
 ):
     hotel, _, admin, _, booking_room, _ = seed_hotels
     booking_room.status = "checked_in"
-    booking_room.check_in_actual = datetime(2030, 1, 1, 14, 0)
+    # check_in_actual là UTC-naive; 07:00 UTC = 14:00 VN.
+    booking_room.check_in_actual = datetime(2030, 1, 1, 7, 0)
+    # check_out_expected là giờ nghiệp vụ VN naive, không quy đổi.
     booking_room.check_out_expected = datetime(2030, 1, 2, 12, 0)
     booking_room.price_breakdown_snapshot = [
         {"business_date": "2030-01-01", "amount": 500000.0}
@@ -319,9 +321,10 @@ def test_default_rate_update_changes_new_quote_but_not_existing_snapshot(
         check_in=datetime(2030, 2, 1, 14, 0),
         check_out=datetime(2030, 2, 2, 12, 0),
     )
+    # checkout_at là mốc hệ thống UTC-naive; 05:00 UTC = 12:00 VN.
     existing_quote = booking_quote_service.build_checkout_quote(
         booking_room,
-        checkout_at=datetime(2030, 1, 2, 12, 0),
+        checkout_at=datetime(2030, 1, 2, 5, 0),
         include_tax=False,
     )
 

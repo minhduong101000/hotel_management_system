@@ -7,6 +7,7 @@ import json
 
 from models.booking_room import BookingRoom
 from models.booking_service import BookingService
+from services import time_service
 from services.pricing_service import calculate_complex_hotel_bill
 
 
@@ -140,15 +141,20 @@ def build_checkout_quote(
     include_tax: bool,
 ):
     checkout_at = checkout_at.replace(microsecond=0)
-    check_in = (
-        booking_room.check_in_actual
-        or booking_room.check_in_expected
-        or checkout_at
-    )
+
+    # pricing_service là hàm THUẦN giờ nghiệp vụ: quy đổi mọi mốc UTC tại đây.
+    # Lưu ý: checkout_at trả ra trong quote phải GIỮ NGUYÊN UTC vì nó dùng cho
+    # quote_fingerprint và được ghi vào check_out_actual.
+    if booking_room.check_in_actual:
+        check_in_business = time_service.to_business_naive(booking_room.check_in_actual)
+    else:
+        check_in_business = booking_room.check_in_expected or time_service.to_business_naive(checkout_at)
+    checkout_business = time_service.to_business_naive(checkout_at)
+
     room_quote = _room_quote(
         booking_room.room,
-        check_in,
-        checkout_at,
+        check_in_business,
+        checkout_business,
         booking_room.rental_type,
         expected_check_in=booking_room.check_in_expected,
         expected_check_out=booking_room.check_out_expected,
@@ -347,5 +353,5 @@ def build_group_checkout_quote(
 
 
 def is_expired(quote, now=None):
-    now = (now or datetime.now()).replace(microsecond=0)
+    now = (now or time_service.utc_now_naive()).replace(microsecond=0)
     return now > datetime.fromisoformat(quote["expires_at"])

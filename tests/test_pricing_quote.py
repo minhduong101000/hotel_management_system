@@ -8,7 +8,9 @@ from services import booking_quote_service
 def test_checkout_quote_contains_authoritative_money_components(seed_hotels):
     hotel, _, _, _, booking_room, _ = seed_hotels
     booking_room.status = "checked_in"
-    booking_room.check_in_actual = datetime(2030, 1, 1, 14, 0)
+    # check_in_actual là UTC-naive (hợp đồng thời gian); 07:00 UTC = 14:00 VN.
+    booking_room.check_in_actual = datetime(2030, 1, 1, 7, 0)
+    # check_out_expected là giờ nghiệp vụ VN naive, không quy đổi.
     booking_room.check_out_expected = datetime(2030, 1, 2, 12, 0)
     booking_room.price_breakdown_snapshot = [
         {"business_date": "2030-01-01", "amount": 500000.0}
@@ -28,9 +30,10 @@ def test_checkout_quote_contains_authoritative_money_components(seed_hotels):
     )
     db.session.commit()
 
+    # checkout_at là mốc hệ thống UTC-naive; 05:00 UTC = 12:00 VN (đúng giờ hẹn trả).
     quote = booking_quote_service.build_checkout_quote(
         booking_room,
-        checkout_at=datetime(2030, 1, 2, 12, 0),
+        checkout_at=datetime(2030, 1, 2, 5, 0),
         include_tax=True,
     )
 
@@ -52,7 +55,9 @@ def test_checkout_quote_contains_authoritative_money_components(seed_hotels):
         }
     ]
     assert len(quote["fingerprint"]) == 64
-    assert quote["checkout_at"] == "2030-01-02T12:00:00"
+    # checkout_at trong quote giữ nguyên UTC (không quy đổi) vì được dùng cho
+    # fingerprint và ghi vào check_out_actual.
+    assert quote["checkout_at"] == "2030-01-02T05:00:00"
     assert quote["expires_at"]
 
 
@@ -61,7 +66,9 @@ def test_existing_booking_quote_uses_snapshot_after_price_rule_changes(
 ):
     _, _, _, _, booking_room, _ = seed_hotels
     booking_room.status = "checked_in"
-    booking_room.check_in_actual = datetime(2031, 5, 1, 14, 0)
+    # check_in_actual là UTC-naive; 07:00 UTC = 14:00 VN.
+    booking_room.check_in_actual = datetime(2031, 5, 1, 7, 0)
+    # check_out_expected là giờ nghiệp vụ VN naive, không quy đổi.
     booking_room.check_out_expected = datetime(2031, 5, 2, 12, 0)
     booking_room.price_breakdown_snapshot = [
         {"business_date": "2031-05-01", "amount": 420000.0}
@@ -69,9 +76,10 @@ def test_existing_booking_quote_uses_snapshot_after_price_rule_changes(
     booking_room.room.price_per_night = 990000
     db.session.commit()
 
+    # checkout_at là mốc hệ thống UTC-naive; 05:00 UTC = 12:00 VN.
     quote = booking_quote_service.build_checkout_quote(
         booking_room,
-        checkout_at=datetime(2031, 5, 2, 12, 0),
+        checkout_at=datetime(2031, 5, 2, 5, 0),
         include_tax=False,
     )
 

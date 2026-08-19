@@ -364,8 +364,8 @@ def preview_checkout_room():
     if not booking_room:
         return jsonify({'success': False, 'msg': 'Không tìm thấy phòng đang check-in để thanh toán.'})
 
-    check_in_time = booking_room.check_in_actual or booking_room.check_in_expected or datetime.now()
-    check_out_time = datetime.now().replace(microsecond=0)
+    check_in_time = booking_room.check_in_actual or booking_room.check_in_expected or time_service.utc_now_naive()
+    check_out_time = time_service.utc_now_naive().replace(microsecond=0)
     quote = booking_quote_service.build_checkout_quote(
         booking_room,
         checkout_at=check_out_time,
@@ -530,7 +530,7 @@ def checkout_room():
 
     fresh_quote = booking_quote_service.build_checkout_quote(
         booking_room,
-        checkout_at=datetime.now().replace(microsecond=0),
+        checkout_at=time_service.utc_now_naive().replace(microsecond=0),
         include_tax=include_tax,
     )
     quote_fingerprint = str(data.get('quote_fingerprint') or '')
