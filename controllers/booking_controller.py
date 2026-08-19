@@ -1200,7 +1200,7 @@ def get_group_billing(booking_id):
 
         quote = booking_quote_service.build_group_checkout_quote(
             booking,
-            checkout_at=datetime.now().replace(microsecond=0),
+            checkout_at=time_service.utc_now_naive().replace(microsecond=0),
             include_tax=include_tax,
         )
         status_label_map = {
@@ -1376,7 +1376,7 @@ def process_group_checkout(booking_id):
 
     fresh_quote = booking_quote_service.build_group_checkout_quote(
         booking,
-        checkout_at=datetime.now().replace(microsecond=0),
+        checkout_at=time_service.utc_now_naive().replace(microsecond=0),
         include_tax=include_tax,
     )
     try:
