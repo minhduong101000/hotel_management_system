@@ -654,12 +654,19 @@ function toggleDepositReason() {
 
 // Chọn "đã trả tiền lại cho khách" thì khoá nút Lưu ngay tại chỗ — để lễ tân
 // biết mình đi nhầm đường trước khi bấm, chứ không phải sau khi nhận lỗi 400.
+//
+// Bỏ qua khoá khi trạng thái đang chọn là 'cancelled': nhánh hủy của
+// saveBookingChanges() không gửi deposit_change_type — nếu vẫn khoá vì một
+// lựa chọn "đã trả lại" còn sót từ trước, nút Lưu sẽ chết vĩnh viễn ngay cả
+// khi lễ tân đổi ý sang hủy phòng, không alert, không request, không lối ra
+// trừ đóng mở lại modal.
 function applyDepositChangeTypeState() {
+    const status = document.getElementById('edit-status')?.value;
     const picked = document.querySelector('input[name="deposit-change-type"]:checked')?.value || '';
     const warning = document.getElementById('deposit-returned-warning');
     const saveButton = document.getElementById('btn-save-booking');
     if (warning) warning.classList.toggle('d-none', picked !== 'returned_to_guest');
-    if (saveButton) saveButton.disabled = (picked === 'returned_to_guest');
+    if (saveButton) saveButton.disabled = (picked === 'returned_to_guest' && status !== 'cancelled');
 }
 
 function saveBookingChanges() {

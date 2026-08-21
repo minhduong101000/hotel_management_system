@@ -133,7 +133,7 @@
                 <div class="row g-3 mb-3">
                     <div class="col-md-6">
                         <label class="pos-label" for="edit-status">Trạng thái đặt phòng</label>
-                        <select class="form-select fw-bold" id="edit-status" onchange="toggleRefundSection()">
+                        <select class="form-select fw-bold" id="edit-status" onchange="toggleRefundSection(); applyDepositChangeTypeState();">
                             <option value="pending">Chờ cọc</option>
                             <option value="booked">Đã cọc (Đặt trước)</option>
                             <option value="checked_in">Đang ở</option>

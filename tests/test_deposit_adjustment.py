@@ -377,3 +377,43 @@ def test_edit_modal_js_blocks_before_the_request_is_sent():
 
     assert "function applyDepositChangeTypeState" in source
     assert "deposit_change_type" in source
+
+
+def test_switching_status_to_cancelled_re_evaluates_the_save_lock():
+    """Reviewer finding: applyDepositChangeTypeState() disables btn-save-booking
+    when 'returned_to_guest' is picked, but edit-status's onchange only called
+    toggleRefundSection() — so switching to Hủy never re-ran it and Save stayed
+    disabled forever, with no error and no way out short of reopening the modal.
+    """
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    html = (root / "templates/rooms/timeline.html").read_text(encoding="utf-8")
+
+    status_select_start = html.index('id="edit-status"')
+    onchange_start = html.index('onchange="', status_select_start)
+    onchange_end = html.index('"', onchange_start + len('onchange="'))
+    onchange_attr = html[onchange_start:onchange_end]
+
+    assert "toggleRefundSection()" in onchange_attr
+    assert "applyDepositChangeTypeState()" in onchange_attr
+
+
+def test_applying_deposit_change_type_state_never_locks_the_cancel_branch():
+    """The cancel branch of saveBookingChanges doesn't carry the deposit
+    change intent at all, so applyDepositChangeTypeState() must not disable
+    Save just because a stale 'returned_to_guest' radio is still checked when
+    the operator switches status to Hủy."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    source = (root / "static/js/timeline_manager.js").read_text(encoding="utf-8")
+
+    marker = "function applyDepositChangeTypeState("
+    start = source.index(marker)
+    rest = source[start + 1:]
+    end = rest.find("\nfunction ")
+    body = rest if end == -1 else rest[:end]
+
+    assert "edit-status" in body, "applyDepositChangeTypeState phải đọc trạng thái hiện tại"
+    assert "cancelled" in body, "applyDepositChangeTypeState phải bỏ qua khoá khi đang Hủy"
