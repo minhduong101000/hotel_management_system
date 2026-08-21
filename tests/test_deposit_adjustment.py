@@ -423,3 +423,27 @@ def test_applying_deposit_change_type_state_never_locks_the_cancel_branch():
 
     assert "edit-status" in body, "applyDepositChangeTypeState phải đọc trạng thái hiện tại"
     assert "cancelled" in body, "applyDepositChangeTypeState phải bỏ qua khoá khi đang Hủy"
+
+
+def test_deposit_method_buttons_hide_while_lowering_a_deposit():
+    """Fix 6: 'Phương thức nhận thêm cọc' ngồi ngay trên các radio "vì sao
+    giảm cọc?" — nhưng record_deposit_adjustment không hề đọc
+    deposit_payment_method. Để nguyên nút sáng là gây hiểu lầm trên đúng màn
+    hình có mục đích là buộc lễ tân khai thật chuyện gì đã xảy ra."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    html = (root / "templates/rooms/timeline.html").read_text(encoding="utf-8")
+    assert 'id="edit-deposit-method-group"' in html, (
+        "nhóm nút phương thức trong modal sửa booking cần một id để JS ẩn/hiện được"
+    )
+
+    source = (root / "static/js/timeline_manager.js").read_text(encoding="utf-8")
+    marker = "function toggleDepositReason("
+    start = source.index(marker)
+    rest = source[start + 1:]
+    end = rest.find("\nfunction ")
+    body = rest if end == -1 else rest[:end]
+    assert "edit-deposit-method-group" in body, (
+        "toggleDepositReason() phải ẩn/hiện nhóm nút phương thức theo việc đang tăng hay giảm cọc"
+    )

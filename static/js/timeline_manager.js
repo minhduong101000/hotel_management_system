@@ -643,6 +643,11 @@ function toggleDepositReason() {
     const original = Number(document.getElementById('edit-deposit-original')?.value || 0);
     const lowering = current < original;
     block.style.display = lowering ? 'block' : 'none';
+    // record_deposit_adjustment không đọc deposit_payment_method — để nút
+    // "Phương thức nhận thêm cọc" sáng trong lúc giảm cọc là gây hiểu lầm
+    // ngay trên màn hình có mục đích buộc lễ tân khai thật chuyện gì đã xảy ra.
+    const methodGroup = document.getElementById('edit-deposit-method-group');
+    if (methodGroup) methodGroup.style.display = lowering ? 'none' : '';
     if (!lowering) {
         // Thôi giảm cọc thì xoá lựa chọn cũ, tránh gửi nhầm ở lần lưu sau.
         document.querySelectorAll('input[name="deposit-change-type"]').forEach(radio => {
