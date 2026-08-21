@@ -17,6 +17,21 @@ def _to_decimal_amount(amount) -> Decimal:
     return Decimal(str(amount))
 
 
+DEPOSIT_PAYMENT_METHODS = ("cash", "banking", "credit_card")
+
+
+def normalize_payment_method(value, *, default: str = "cash") -> str:
+    """Chuẩn hoá phương thức thanh toán do client gửi lên.
+
+    Giá trị lạ bị quy về mặc định thay vì ném lỗi: đây là nhãn kế toán, không
+    phải điều kiện an toàn — chặn cứng sẽ làm hỏng thao tác của lễ tân vì một
+    lỗi gõ, trong khi hậu quả tệ nhất của việc quy về mặc định chỉ là một nhãn
+    cần sửa sau.
+    """
+    candidate = str(value or "").strip().lower()
+    return candidate if candidate in DEPOSIT_PAYMENT_METHODS else default
+
+
 def _now(dt: Optional[datetime]) -> datetime:
     # Hợp đồng thời gian 14-08-2026: dòng tiền ghi UTC-naive qua time_service
     from services import time_service
