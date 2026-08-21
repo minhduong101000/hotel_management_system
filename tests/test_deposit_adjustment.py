@@ -148,7 +148,7 @@ def test_cashier_report_kpi_classifies_adjustment_by_type_not_sign(
     assert data["net_amount"] == 500000.0        # số ròng không đổi
 
 
-def _update_payload(br, deposit, reason=None):
+def _update_payload(br, deposit, reason=None, change_type=None):
     payload = {
         "booking_id": br.booking_id,
         "booking_room_id": br.id,
@@ -160,6 +160,8 @@ def _update_payload(br, deposit, reason=None):
     }
     if reason is not None:
         payload["deposit_reason"] = reason
+    if change_type is not None:
+        payload["deposit_change_type"] = change_type
     return payload
 
 
@@ -173,7 +175,7 @@ def test_lowering_a_deposit_without_a_reason_is_rejected(client, seed_hotels, lo
 
     response = client.post(
         f"/{hotel.slug}/timeline/api/bookings/update",
-        json=_update_payload(br, 500000),
+        json=_update_payload(br, 500000, change_type="correction"),
     )
 
     body = response.get_json()
@@ -193,7 +195,7 @@ def test_lowering_a_deposit_with_a_reason_leaves_a_trace(client, seed_hotels, lo
 
     response = client.post(
         f"/{hotel.slug}/timeline/api/bookings/update",
-        json=_update_payload(br, 500000, reason="gõ nhầm số 0"),
+        json=_update_payload(br, 500000, reason="gõ nhầm số 0", change_type="correction"),
     )
 
     assert response.get_json()["success"] is True, response.get_json()
@@ -237,7 +239,9 @@ def test_lowering_a_deposit_to_zero_still_keeps_the_original_mark(
 
     response = client.post(
         f"/{hotel.slug}/timeline/api/bookings/update",
-        json=_update_payload(br, 0, reason="Gõ nhầm số 0 khi nhận cọc"),
+        json=_update_payload(
+            br, 0, reason="Gõ nhầm số 0 khi nhận cọc", change_type="correction"
+        ),
     )
 
     assert response.get_json()["success"] is True, response.get_json()
@@ -246,3 +250,96 @@ def test_lowering_a_deposit_to_zero_still_keeps_the_original_mark(
     assert float(br.room_deposit_original) == 5000000.0
     adjustment = Payment.query.filter_by(payment_type="deposit_adjustment").one()
     assert float(adjustment.amount) == -5000000.0
+
+
+def test_lowering_a_deposit_without_stating_the_intent_is_rejected(
+    client, seed_hotels, login_as
+):
+    """Có lý do bằng chữ vẫn chưa đủ: phải nói rõ tiền có rời két hay không."""
+    hotel, _, admin, _, br, _ = seed_hotels
+    br.room_deposit_amount = 5000000
+    br.room_deposit_original = 5000000
+    db.session.commit()
+    login_as(client, admin)
+    payments_before = Payment.query.count()
+
+    response = client.post(
+        f"/{hotel.slug}/timeline/api/bookings/update",
+        json=_update_payload(br, 500000, reason="gõ nhầm số 0"),
+    )
+
+    body = response.get_json()
+    assert body["success"] is False
+    assert body["error_code"] == "deposit_change_type_required"
+    db.session.refresh(br)
+    assert float(br.room_deposit_amount) == 5000000.0     # không đổi gì
+    assert Payment.query.count() == payments_before
+
+
+def test_money_returned_to_the_guest_is_pushed_to_the_refund_flow(
+    client, seed_hotels, login_as
+):
+    """Điều chỉnh cọc không có trần cứng và không hiện trên hóa đơn khách, nên
+    nó không được dùng làm đường cho tiền rời két."""
+    hotel, _, admin, _, br, _ = seed_hotels
+    br.room_deposit_amount = 5000000
+    br.room_deposit_original = 5000000
+    db.session.commit()
+    login_as(client, admin)
+    payments_before = Payment.query.count()
+
+    response = client.post(
+        f"/{hotel.slug}/timeline/api/bookings/update",
+        json=_update_payload(
+            br, 0, reason="khách hủy, đã đưa lại tiền", change_type="returned_to_guest"
+        ),
+    )
+
+    body = response.get_json()
+    assert body["success"] is False
+    assert body["error_code"] == "use_refund_flow"
+    assert "Hoàn tiền" in body["msg"]
+    db.session.refresh(br)
+    assert float(br.room_deposit_amount) == 5000000.0
+    assert Payment.query.count() == payments_before
+
+
+def test_an_unknown_change_type_is_rejected_like_a_missing_one(
+    client, seed_hotels, login_as
+):
+    hotel, _, admin, _, br, _ = seed_hotels
+    br.room_deposit_amount = 5000000
+    br.room_deposit_original = 5000000
+    db.session.commit()
+    login_as(client, admin)
+
+    response = client.post(
+        f"/{hotel.slug}/timeline/api/bookings/update",
+        json=_update_payload(
+            br, 500000, reason="gõ nhầm", change_type="something_else"
+        ),
+    )
+
+    assert response.get_json()["error_code"] == "deposit_change_type_required"
+
+
+def test_the_audit_trail_keeps_the_stated_intent(client, seed_hotels, login_as):
+    """Đối soát về sau phải đọc được mục đích, không chỉ câu chữ tự do."""
+    from models.audit_event import AuditEvent
+
+    hotel, _, admin, _, br, _ = seed_hotels
+    br.room_deposit_amount = 5000000
+    br.room_deposit_original = 5000000
+    db.session.commit()
+    login_as(client, admin)
+
+    client.post(
+        f"/{hotel.slug}/timeline/api/bookings/update",
+        json=_update_payload(
+            br, 500000, reason="gõ nhầm số 0", change_type="correction"
+        ),
+    )
+
+    event = AuditEvent.query.filter_by(action="deposit_adjustment").one()
+    assert event.after_data["change_type"] == "correction"
+    assert event.after_data["reason"] == "gõ nhầm số 0"

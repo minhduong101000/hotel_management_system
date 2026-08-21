@@ -1277,6 +1277,31 @@ def update_booking():
                     created_by=current_user.id,
                 )
             elif room_deposit < old_deposit:
+                # Giảm cọc nghĩa là tiền CÓ THỂ đã rời két. Bắt khai rõ mục đích:
+                # đính chính số ghi sai thì ghi bút toán đối ứng; đã trả tiền cho
+                # khách thì phải đi qua luồng Hoàn tiền — nơi có trần cứng và
+                # hiện dòng hoàn trên hóa đơn của khách.
+                change_type = (data.get('deposit_change_type') or '').strip().lower()
+                if change_type == 'returned_to_guest':
+                    return jsonify({
+                        'success': False,
+                        'error_code': 'use_refund_flow',
+                        'msg': (
+                            'Tiền đã đưa lại cho khách phải ghi qua chức năng Hoàn tiền '
+                            'ở màn Hóa đơn cũ, để có trần kiểm soát và hiện trên hóa đơn '
+                            'của khách.'
+                        ),
+                    }), 400
+                if change_type != 'correction':
+                    return jsonify({
+                        'success': False,
+                        'error_code': 'deposit_change_type_required',
+                        'msg': (
+                            'Cho biết vì sao giảm cọc: sửa số nhập sai, hay đã trả tiền '
+                            'lại cho khách.'
+                        ),
+                    }), 400
+
                 # Giảm cọc là sửa số đã ghi nhận -> bắt buộc có lý do và để lại
                 # bút toán đối ứng. Sổ tiền append-only: không sửa dòng cũ.
                 deposit_reason = (data.get('deposit_reason') or '').strip()
@@ -1300,7 +1325,11 @@ def update_booking():
                     entity_type='booking_room',
                     entity_id=br.id,
                     before_data={'room_deposit_amount': old_deposit},
-                    after_data={'room_deposit_amount': room_deposit, 'reason': deposit_reason},
+                    after_data={
+                        'room_deposit_amount': room_deposit,
+                        'reason': deposit_reason,
+                        'change_type': change_type,
+                    },
                 )
 
             br.room_deposit_amount = room_deposit
