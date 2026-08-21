@@ -256,12 +256,15 @@ def test_lowering_a_deposit_without_stating_the_intent_is_rejected(
     client, seed_hotels, login_as
 ):
     """Có lý do bằng chữ vẫn chưa đủ: phải nói rõ tiền có rời két hay không."""
+    from models.audit_event import AuditEvent
+
     hotel, _, admin, _, br, _ = seed_hotels
     br.room_deposit_amount = 5000000
     br.room_deposit_original = 5000000
     db.session.commit()
     login_as(client, admin)
     payments_before = Payment.query.count()
+    audit_before = AuditEvent.query.count()
 
     response = client.post(
         f"/{hotel.slug}/timeline/api/bookings/update",
@@ -274,6 +277,7 @@ def test_lowering_a_deposit_without_stating_the_intent_is_rejected(
     db.session.refresh(br)
     assert float(br.room_deposit_amount) == 5000000.0     # không đổi gì
     assert Payment.query.count() == payments_before
+    assert AuditEvent.query.count() == audit_before   # từ chối thì không ghi nhật ký
 
 
 def test_money_returned_to_the_guest_is_pushed_to_the_refund_flow(
@@ -281,12 +285,15 @@ def test_money_returned_to_the_guest_is_pushed_to_the_refund_flow(
 ):
     """Điều chỉnh cọc không có trần cứng và không hiện trên hóa đơn khách, nên
     nó không được dùng làm đường cho tiền rời két."""
+    from models.audit_event import AuditEvent
+
     hotel, _, admin, _, br, _ = seed_hotels
     br.room_deposit_amount = 5000000
     br.room_deposit_original = 5000000
     db.session.commit()
     login_as(client, admin)
     payments_before = Payment.query.count()
+    audit_before = AuditEvent.query.count()
 
     response = client.post(
         f"/{hotel.slug}/timeline/api/bookings/update",
@@ -302,6 +309,7 @@ def test_money_returned_to_the_guest_is_pushed_to_the_refund_flow(
     db.session.refresh(br)
     assert float(br.room_deposit_amount) == 5000000.0
     assert Payment.query.count() == payments_before
+    assert AuditEvent.query.count() == audit_before   # từ chối thì không ghi nhật ký
 
 
 def test_an_unknown_change_type_is_rejected_like_a_missing_one(
