@@ -151,16 +151,52 @@ def test_all_three_deposit_modals_offer_the_payment_method_choice():
         assert "setDepositPaymentMethod" in source, f"{rel} chưa nối hàm chọn"
 
 
+def test_each_deposit_button_writes_to_its_own_modal_hidden_input():
+    """Đấu nhầm dây giữa ba modal là lỗi im lặng: nút vẫn sáng, nhưng phương
+    thức rơi vào input ẩn của modal khác và payload gửi đi giá trị mặc định."""
+    cases = (
+        ("templates/rooms/_booking_modal.html", "bk-deposit-method"),
+        ("templates/rooms/_group_booking_modal.html", "group-deposit-method"),
+        ("templates/rooms/timeline.html", "edit-deposit-method"),
+    )
+    all_ids = {input_id for _, input_id in cases}
+    for rel, input_id in cases:
+        source = _source(rel)
+        for method in ("cash", "banking", "credit_card"):
+            expected = f"setDepositPaymentMethod('{method}', this, '{input_id}')"
+            assert expected in source, f"{rel}: nút {method} chưa trỏ đúng {input_id}"
+        for wrong in all_ids - {input_id}:
+            assert f"this, '{wrong}')" not in source, f"{rel}: có nút trỏ nhầm sang {wrong}"
+
+
 def test_shared_deposit_method_helper_lives_in_main_js():
     assert "function setDepositPaymentMethod(" in _source("static/js/main.js")
 
 
+def _function_body(source, name):
+    """Cắt thân một hàm khai báo ở cấp cao nhất.
+
+    Bốn hàm gửi payload đều là `function X(` ở cột 0, nên cắt tới `\nfunction `
+    kế tiếp là đủ. Phải khớp cả dấu `(` — `saveBookingChangesFromDetail` có tiền
+    tố trùng với `saveBookingChanges` và sẽ cắt nhầm nếu bỏ dấu ngoặc.
+    """
+    marker = f"function {name}("
+    start = source.index(marker)
+    rest = source[start + 1:]
+    end = rest.find("\nfunction ")
+    return rest if end == -1 else rest[:end]
+
+
 def test_every_booking_path_sends_the_deposit_method():
-    """Có HAI hàm submitFullBooking — Timeline và Sơ đồ phòng. Sửa sót một cái
-    thì luồng kia vẫn âm thầm ghi tiền mặt."""
-    for rel in (
-        "static/js/timeline_manager.js",
-        "static/js/room.js",
-        "static/js/group_booking.js",
-    ):
-        assert "deposit_payment_method" in _source(rel), f"{rel} chưa gửi phương thức"
+    """Bốn nơi dựng payload, nằm rải ở ba file — trong đó `timeline_manager.js`
+    có hai. Kiểm theo từng hàm chứ không grep cả file: grep cả file sẽ xanh ngay
+    cả khi một trong hai hàm bị bỏ sót."""
+    cases = (
+        ("static/js/timeline_manager.js", "submitFullBooking"),
+        ("static/js/timeline_manager.js", "saveBookingChanges"),
+        ("static/js/room.js", "submitFullBooking"),
+        ("static/js/group_booking.js", "submitGroupBooking"),
+    )
+    for rel, func in cases:
+        body = _function_body(_source(rel), func)
+        assert "deposit_payment_method" in body, f"{rel}::{func} chưa gửi phương thức"
