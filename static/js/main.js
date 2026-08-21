@@ -38,8 +38,13 @@ function setDepositPaymentMethod(method, button, inputId) {
 function resetDepositPaymentMethod(inputId) {
     const input = document.getElementById(inputId);
     if (input) input.value = 'cash';
-    const group = input?.previousElementSibling;
-    if (group && group.getAttribute('role') === 'group') {
+    // Nhóm nút tự khai nó thuộc input nào, thay vì suy ra từ vị trí trong DOM.
+    // Suy theo vị trí (anh em liền trước, hoặc "nhóm duy nhất trong vùng chứa")
+    // hỏng lặng lẽ khi ai đó chèn thẻ hoặc thêm một [role="group"] thứ hai —
+    // và cái hỏng lặng lẽ ở đây là nút "Chuyển khoản" vẫn sáng trong khi payload
+    // đã gửi 'cash', tức dán nhãn sai đúng thứ mà nhánh này sinh ra để sửa.
+    const group = document.querySelector(`[data-method-input="${inputId}"]`);
+    if (group) {
         group.querySelectorAll('.pos-method-btn').forEach(button => {
             button.classList.toggle('active', button.dataset.method === 'cash');
         });

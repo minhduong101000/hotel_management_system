@@ -47,7 +47,10 @@ function renderCashierTableState(kind, title, description = '', allowRetry = fal
     const row = document.createElement('tr');
     row.className = 'data-table-state-row';
     const cell = document.createElement('td');
-    cell.colSpan = 7;
+    // Đếm từ chính bảng thay vì ghi cứng: dòng trạng thái này thay chỗ dòng
+    // trong template ở MỌI lần tải, nên số cột sai là thấy ngay. Ghi cứng đã
+    // lệch một lần rồi khi thêm cột Phương thức.
+    cell.colSpan = tbody?.closest('table')?.querySelectorAll('thead th').length || 9;
     const state = document.createElement('div');
     state.className = `data-state data-state--${kind}`;
     state.setAttribute('role', kind === 'error' ? 'alert' : 'status');

@@ -87,7 +87,7 @@
                                         <button type="button" class="pos-chip" onclick="calculateQuickDeposit(0.5)">Cọc 50%</button>
                                         <button type="button" class="pos-chip" onclick="calculateQuickDeposit(1)">Cọc 100%</button>
                                     </div>
-                                    <div class="d-flex gap-2 mt-2" role="group" aria-label="Phương thức nhận cọc">
+                                    <div class="d-flex gap-2 mt-2" role="group" data-method-input="bk-deposit-method" aria-label="Phương thức nhận cọc">
                                         <button type="button" class="pos-method-btn active" data-method="cash" onclick="setDepositPaymentMethod('cash', this, 'bk-deposit-method')">Tiền mặt</button>
                                         <button type="button" class="pos-method-btn" data-method="banking" onclick="setDepositPaymentMethod('banking', this, 'bk-deposit-method')">Chuyển khoản</button>
                                         <button type="button" class="pos-method-btn" data-method="credit_card" onclick="setDepositPaymentMethod('credit_card', this, 'bk-deposit-method')">Thẻ</button>

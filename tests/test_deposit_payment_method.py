@@ -170,6 +170,31 @@ def test_each_deposit_button_writes_to_its_own_modal_hidden_input():
             assert f"this, '{wrong}')" not in source, f"{rel}: có nút trỏ nhầm sang {wrong}"
 
 
+def test_each_method_group_declares_which_input_it_resets():
+    """`resetDepositPaymentMethod` tìm nhóm nút qua `data-method-input`.
+
+    Trước đó nó suy ra nhóm từ vị trí trong DOM (thẻ anh em liền trước). Suy theo
+    vị trí hỏng lặng lẽ khi ai đó chèn thêm thẻ vào giữa: input ẩn vẫn về 'cash'
+    nhưng nút "Chuyển khoản" vẫn sáng — dán nhãn sai đúng thứ nhánh này sinh ra
+    để sửa. Thuộc tính liên kết tường minh làm phép tìm không phụ thuộc bố cục.
+    """
+    cases = (
+        ("templates/rooms/_booking_modal.html", "bk-deposit-method"),
+        ("templates/rooms/_group_booking_modal.html", "group-deposit-method"),
+        ("templates/rooms/timeline.html", "edit-deposit-method"),
+    )
+    for rel, input_id in cases:
+        assert f'data-method-input="{input_id}"' in _source(rel), (
+            f"{rel}: nhóm nút chưa khai nó thuộc input {input_id}"
+        )
+
+    main_js = _source("static/js/main.js")
+    assert "data-method-input" in main_js, "main.js chưa tìm nhóm qua thuộc tính liên kết"
+    assert "previousElementSibling" not in _function_body(
+        main_js, "resetDepositPaymentMethod"
+    ), "vẫn còn suy nhóm nút theo vị trí trong DOM"
+
+
 def test_shared_deposit_method_helper_lives_in_main_js():
     assert "function setDepositPaymentMethod(" in _source("static/js/main.js")
 
