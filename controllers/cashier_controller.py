@@ -5,6 +5,7 @@ from flask_login import login_required
 
 from decorators import admin_required
 from models.payment import Payment
+from services import payment_service
 from services.reporting_service import resolve_report_period
 from services.tenant_service import tenant_query
 
@@ -143,7 +144,19 @@ def get_cashier_data():
                 badge_color = 'dark'
             else:
                 type_label = 'Khác'
-            
+
+            # Nhãn phương thức hiển thị trên Sổ Quỹ (spec 21-08 §5.1/§7.4):
+            # 'deposit_adjustment' là bút toán đính chính — không có tiền thật
+            # di chuyển, nên KHÔNG được gắn một phương thức thật (payment_method
+            # mặc định 'cash' ở tầng ghi sổ) mà phải hiện nhãn trung tính, nếu
+            # không Sổ Quỹ sẽ bịa ra một khoản tiền mặt chưa từng rời két.
+            if p.payment_type == 'deposit_adjustment':
+                payment_method_label = '—'
+            else:
+                payment_method_label = payment_service.PAYMENT_METHOD_LABELS.get(
+                    p.payment_method, p.payment_method or '—'
+                )
+
             records.append({
                 'id': f"p_{p.id}",
                 'time_dt': p.created_at,
@@ -156,6 +169,8 @@ def get_cashier_data():
                 'type_raw': p.payment_type,
                 'type_label': type_label,
                 'badge_color': badge_color,
+                'payment_method': p.payment_method,
+                'payment_method_label': payment_method_label,
                 'is_reversed': p.id in reversed_ids,
                 'reverses_payment_id': p.reverses_payment_id,
                 'collected_by': collector_names.get(p.created_by, ''),

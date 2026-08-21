@@ -220,6 +220,7 @@ function renderCashierTable(records) {
             createCashierCell(`#${record.booking_code || '--'}`, 'fw-bold'),
             createCashierCell(record.customer_name || 'Khách'),
             typeCell,
+            createCashierCell(record.payment_method_label || '—'),
             createCashierCell(record.collected_by || '—', 'text-muted'),
             noteCell,
             amountCell,

@@ -19,6 +19,14 @@ def _to_decimal_amount(amount) -> Decimal:
 
 DEPOSIT_PAYMENT_METHODS = ("cash", "banking", "credit_card")
 
+# Nhãn tiếng Việt hiển thị cho từng phương thức — dùng ở Sổ Quỹ và các nơi
+# khác cần diễn giải payment_method cho người đọc thay vì mã nội bộ.
+PAYMENT_METHOD_LABELS = {
+    "cash": "Tiền mặt",
+    "banking": "Chuyển khoản",
+    "credit_card": "Thẻ",
+}
+
 
 def normalize_payment_method(value, *, default: str = "cash") -> str:
     """Chuẩn hoá phương thức thanh toán do client gửi lên.

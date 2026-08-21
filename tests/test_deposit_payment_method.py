@@ -5,6 +5,7 @@ Trước đợt này cả ba nơi ghi cọc đều cứng hoá 'cash': dữ li�
 đếm két sẽ thiếu đúng những khoản đó.
 """
 
+from decimal import Decimal
 from pathlib import Path
 
 from extensions import db
@@ -171,6 +172,66 @@ def test_each_deposit_button_writes_to_its_own_modal_hidden_input():
 
 def test_shared_deposit_method_helper_lives_in_main_js():
     assert "function setDepositPaymentMethod(" in _source("static/js/main.js")
+
+
+def test_cashier_report_labels_each_deposit_with_its_own_method(
+    client, seed_hotels, login_as
+):
+    """Spec 21-08 §5.1: sổ quỹ nhóm đúng theo phương thức — tạo hai khoản cọc
+    khác phương thức, gọi endpoint sổ quỹ, khẳng định mỗi dòng mang đúng nhãn.
+
+    Trước fix này server ghi đúng payment_method vào Payment nhưng không trả
+    lại giá trị đó trong response — chủ khách sạn mở Sổ Quỹ vẫn không thấy vì
+    sao két thiếu tiền.
+    """
+    hotel, _, admin, _, br, _ = seed_hotels
+    payment_service.record_deposit(
+        booking_id=br.booking_id,
+        amount=Decimal("500000"),
+        payment_method="cash",
+        note="Nhận cọc tiền mặt",
+    )
+    payment_service.record_deposit(
+        booking_id=br.booking_id,
+        amount=Decimal("700000"),
+        payment_method="banking",
+        note="Nhận cọc chuyển khoản",
+    )
+    db.session.commit()
+    login_as(client, admin)
+
+    response = client.get(f"/{hotel.slug}/cashier/api/reports/cashier?period=week")
+
+    assert response.status_code == 200
+    records = response.get_json()["data"]["records"]
+    by_note = {row["note"]: row for row in records}
+    assert by_note["Nhận cọc tiền mặt"]["payment_method"] == "cash"
+    assert by_note["Nhận cọc tiền mặt"]["payment_method_label"] == "Tiền mặt"
+    assert by_note["Nhận cọc chuyển khoản"]["payment_method"] == "banking"
+    assert by_note["Nhận cọc chuyển khoản"]["payment_method_label"] == "Chuyển khoản"
+
+
+def test_cashier_report_shows_a_neutral_label_for_a_deposit_correction(
+    client, seed_hotels, login_as
+):
+    """Fix 5: một đính chính không phải tiền thật di chuyển — không được gắn
+    nhãn phương thức thật (mặc định 'cash') vào một dòng không có tiền rời két."""
+    hotel, _, admin, _, br, _ = seed_hotels
+    payment_service.record_deposit_adjustment(
+        booking_id=br.booking_id,
+        amount=Decimal("-100000"),
+        note="Điều chỉnh cọc: gõ nhầm số 0",
+    )
+    db.session.commit()
+    login_as(client, admin)
+
+    response = client.get(f"/{hotel.slug}/cashier/api/reports/cashier?period=week")
+
+    row = next(
+        r for r in response.get_json()["data"]["records"] if r["type_raw"] == "deposit_adjustment"
+    )
+    assert row["payment_method_label"] not in ("Tiền mặt", "cash")
+    assert row["payment_method_label"] == "—"
 
 
 def _function_body(source, name):
