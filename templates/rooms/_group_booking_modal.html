@@ -81,6 +81,12 @@
                                 <button class="pos-chip flex-none" type="button" onclick="calculateGroupQuickDeposit(1)">100%</button>
                             </div>
                             <small class="text-muted d-block mt-1" id="group-deposit-hint"></small>
+                            <div class="d-flex gap-2 mt-2" role="group" aria-label="Phương thức nhận cọc đoàn">
+                                <button type="button" class="pos-method-btn active" data-method="cash" onclick="setDepositPaymentMethod('cash', this, 'group-deposit-method')">Tiền mặt</button>
+                                <button type="button" class="pos-method-btn" data-method="banking" onclick="setDepositPaymentMethod('banking', this, 'group-deposit-method')">Chuyển khoản</button>
+                                <button type="button" class="pos-method-btn" data-method="credit_card" onclick="setDepositPaymentMethod('credit_card', this, 'group-deposit-method')">Thẻ</button>
+                            </div>
+                            <input type="hidden" id="group-deposit-method" value="cash">
                         </div>
                         <div class="col-md-6">
                             <label class="pos-label" for="group_note">Ghi chú</label>

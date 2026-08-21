@@ -471,6 +471,7 @@ function submitFullBooking(status) {
         check_in: rentalType === 'daily' ? document.getElementById('bk-daily-in').value : document.getElementById('bk-hourly-in').value,
         check_out: rentalType === 'daily' ? document.getElementById('bk-daily-out').value : document.getElementById('bk-hourly-out').value,
         deposit: document.getElementById('bk-deposit').value,
+        deposit_payment_method: document.getElementById('bk-deposit-method')?.value || 'cash',
         quote_fingerprint: currentBookingQuote?.fingerprint || null,
         note: document.getElementById('bk-note').value
     };
@@ -699,6 +700,7 @@ function saveBookingChanges() {
             check_in: document.getElementById('edit-checkin').value,
             check_out: document.getElementById('edit-checkout').value,
             deposit: document.getElementById('edit-deposit').value,
+            deposit_payment_method: document.getElementById('edit-deposit-method')?.value || 'cash',
             deposit_reason: depositReason,
             customer_name: document.getElementById('edit-customer').value,
             customer_cccd: document.getElementById('edit-cccd').value,

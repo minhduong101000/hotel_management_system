@@ -10,6 +10,22 @@ function escapeHtml(value) {
 }
 
 /**
+ * Chọn phương thức nhận cọc trong các modal đặt phòng.
+ * Giá trị lưu vào input ẩn để payload đọc được; nút được tô đậm để lễ tân thấy
+ * mình đang chọn gì.
+ */
+function setDepositPaymentMethod(method, button, inputId) {
+    const input = document.getElementById(inputId);
+    if (input) input.value = method;
+    const group = button?.closest('[role="group"]');
+    if (group) {
+        group.querySelectorAll('.pos-method-btn').forEach(b => {
+            b.classList.toggle('active', b === button);
+        });
+    }
+}
+
+/**
  * Helper function: Xây dựng đúng API URL theo hotel_slug hiện tại.
  * Ví dụ: api('/api/rooms') -> '/central/rooms/api/rooms'
  *

@@ -144,6 +144,12 @@
                         <label class="pos-label" for="edit-deposit">Tiền đặt cọc (VNĐ)</label>
                         <input type="number" class="form-control fw-bold" id="edit-deposit" placeholder="0" oninput="toggleDepositReason()">
                         <small class="text-muted d-block mt-1">Khoản cọc được trừ trực tiếp khi thanh toán.</small>
+                        <div class="d-flex gap-2 mt-2" role="group" aria-label="Phương thức nhận thêm cọc">
+                            <button type="button" class="pos-method-btn active" data-method="cash" onclick="setDepositPaymentMethod('cash', this, 'edit-deposit-method')">Tiền mặt</button>
+                            <button type="button" class="pos-method-btn" data-method="banking" onclick="setDepositPaymentMethod('banking', this, 'edit-deposit-method')">Chuyển khoản</button>
+                            <button type="button" class="pos-method-btn" data-method="credit_card" onclick="setDepositPaymentMethod('credit_card', this, 'edit-deposit-method')">Thẻ</button>
+                        </div>
+                        <input type="hidden" id="edit-deposit-method" value="cash">
                         <div id="deposit-adjust-block" class="mt-2" style="display: none;">
                             <label class="pos-label" for="deposit-adjust-reason">Lý do giảm cọc <span class="text-danger" aria-hidden="true">*</span></label>
                             <input type="text" class="form-control form-control-sm" id="deposit-adjust-reason" autocomplete="off" placeholder="Ví dụ: gõ nhầm số 0">

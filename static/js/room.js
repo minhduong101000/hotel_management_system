@@ -325,6 +325,7 @@ function submitFullBooking(status) {
             check_in: checkIn,
             check_out: checkOut,
             deposit: document.getElementById('bk-deposit').value,
+            deposit_payment_method: document.getElementById('bk-deposit-method')?.value || 'cash',
             quote_fingerprint: currentBookingQuote?.fingerprint || null
         })
     })

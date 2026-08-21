@@ -5,9 +5,17 @@ Trước đợt này cả ba nơi ghi cọc đều cứng hoá 'cash': dữ li�
 đếm két sẽ thiếu đúng những khoản đó.
 """
 
+from pathlib import Path
+
 from extensions import db
 from models import Payment
 from services import payment_service
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def _source(rel):
+    return (ROOT / rel).read_text(encoding="utf-8")
 
 
 def test_normalize_accepts_the_three_supported_methods():
@@ -127,3 +135,32 @@ def test_deposit_defaults_to_cash_when_the_client_sends_nothing(client, seed_hot
     )
 
     assert Payment.query.filter_by(payment_type="deposit").one().payment_method == "cash"
+
+
+def test_all_three_deposit_modals_offer_the_payment_method_choice():
+    cases = (
+        ("templates/rooms/_booking_modal.html", "bk-deposit-method"),
+        ("templates/rooms/_group_booking_modal.html", "group-deposit-method"),
+        ("templates/rooms/timeline.html", "edit-deposit-method"),
+    )
+    for rel, input_id in cases:
+        source = _source(rel)
+        assert f'id="{input_id}"' in source, f"{rel} thiếu input ẩn {input_id}"
+        for method in ("cash", "banking", "credit_card"):
+            assert f'data-method="{method}"' in source, f"{rel} thiếu nút {method}"
+        assert "setDepositPaymentMethod" in source, f"{rel} chưa nối hàm chọn"
+
+
+def test_shared_deposit_method_helper_lives_in_main_js():
+    assert "function setDepositPaymentMethod(" in _source("static/js/main.js")
+
+
+def test_every_booking_path_sends_the_deposit_method():
+    """Có HAI hàm submitFullBooking — Timeline và Sơ đồ phòng. Sửa sót một cái
+    thì luồng kia vẫn âm thầm ghi tiền mặt."""
+    for rel in (
+        "static/js/timeline_manager.js",
+        "static/js/room.js",
+        "static/js/group_booking.js",
+    ):
+        assert "deposit_payment_method" in _source(rel), f"{rel} chưa gửi phương thức"

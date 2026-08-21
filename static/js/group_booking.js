@@ -326,6 +326,7 @@ function submitGroupBooking() {
         check_in: checkInPayload,
         check_out: checkOutPayload,
         deposit: deposit,
+        deposit_payment_method: document.getElementById('group-deposit-method')?.value || 'cash',
         quote_fingerprint: currentGroupBookingQuote?.fingerprint || null,
         note: note
     };
