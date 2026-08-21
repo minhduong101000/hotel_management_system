@@ -515,6 +515,9 @@ def create_booking():
 
         estimated_amount = _estimate_booking_amount(room, r_type, check_in_dt, check_out_dt)
         deposit_amount = float(data.get('deposit') or 0)
+        deposit_method = payment_service.normalize_payment_method(
+            data.get('deposit_payment_method')
+        )
         if not _is_valid_deposit_by_ratio(deposit_amount, estimated_amount):
             return jsonify({'success': False, 'msg': 'Tiền cọc bắt buộc phải đúng 50% hoặc 100% tổng tiền phòng dự kiến.'})
 
@@ -587,7 +590,7 @@ def create_booking():
             payment_service.record_deposit(
                 booking_id=new_booking.id,
                 amount=deposit_amount,
-                payment_method='cash',
+                payment_method=deposit_method,
                 note=f"Tiền cọc đặt phòng {room.room_number}",
                 flush=True,
                 created_by=current_user.id,
@@ -1267,7 +1270,9 @@ def update_booking():
                 payment_service.record_deposit(
                     booking_id=br.booking_id,
                     amount=room_deposit - old_deposit,
-                    payment_method='cash',
+                    payment_method=payment_service.normalize_payment_method(
+                        data.get('deposit_payment_method')
+                    ),
                     note=f"Nộp thêm cọc cho phòng {br.room.room_number if br.room else br.room_id} (Cập nhật đơn)",
                     created_by=current_user.id,
                 )

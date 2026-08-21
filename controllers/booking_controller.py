@@ -823,6 +823,9 @@ def create_group_booking():
         check_in_str = data.get('check_in')
         check_out_str = data.get('check_out')
         total_deposit = float(data.get('deposit', 0))
+        deposit_method = payment_service.normalize_payment_method(
+            data.get('deposit_payment_method')
+        )
         note = data.get('note', '')
 
         if not room_ids or not customer_info.get('phone'):
@@ -897,7 +900,7 @@ def create_group_booking():
             payment_service.record_deposit(
                 booking_id=new_booking.id,
                 amount=total_deposit,
-                payment_method='cash',
+                payment_method=deposit_method,
                 note=f"Nhận cọc đặt đoàn {booking_code} ({len(room_ids)} phòng)",
                 flush=True,
                 created_by=current_user.id,
