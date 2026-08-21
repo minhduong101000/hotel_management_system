@@ -26,6 +26,27 @@ function setDepositPaymentMethod(method, button, inputId) {
 }
 
 /**
+ * Đưa lựa chọn phương thức nhận cọc về mặc định 'cash' khi mở/khởi tạo lại
+ * một modal. Không reset thì nút bấm còn sáng từ booking trước dính sang
+ * booking sau — cùng loại lỗi ghi sai nhãn phương thức mà cả tính năng này
+ * tồn tại để sửa, chỉ khác chiều.
+ *
+ * Nhóm nút nằm ngay trước input ẩn trong DOM ở cả ba modal hiện có
+ * (booking mới, đặt đoàn, sửa booking) — cùng cấu trúc setDepositPaymentMethod
+ * dựa vào ('[role="group"]').
+ */
+function resetDepositPaymentMethod(inputId) {
+    const input = document.getElementById(inputId);
+    if (input) input.value = 'cash';
+    const group = input?.previousElementSibling;
+    if (group && group.getAttribute('role') === 'group') {
+        group.querySelectorAll('.pos-method-btn').forEach(button => {
+            button.classList.toggle('active', button.dataset.method === 'cash');
+        });
+    }
+}
+
+/**
  * Helper function: Xây dựng đúng API URL theo hotel_slug hiện tại.
  * Ví dụ: api('/api/rooms') -> '/central/rooms/api/rooms'
  *

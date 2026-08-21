@@ -21,6 +21,7 @@ document.getElementById('groupBookingModal').addEventListener('show.bs.modal', f
     if (hint) hint.innerText = '';
     selectedGroupDepositRatio = null;
     currentGroupBookingQuote = null;
+    resetDepositPaymentMethod('group-deposit-method');
     
     // Lấy ngày hiện tại (Local Time)
     const now = new Date();

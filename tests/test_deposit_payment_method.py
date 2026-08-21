@@ -261,3 +261,45 @@ def test_every_booking_path_sends_the_deposit_method():
     for rel, func in cases:
         body = _function_body(_source(rel), func)
         assert "deposit_payment_method" in body, f"{rel}::{func} chưa gửi phương thức"
+
+
+def _listener_body(source, marker):
+    """Cắt thân một listener ẩn danh đăng ký bằng addEventListener(...).
+
+    Không có tên hàm để tìm '\\nfunction ' kế tiếp như _function_body, nên cắt
+    tới dòng đóng '});' ở cột 0 — cách các listener trong codebase này kết thúc.
+    """
+    start = source.index(marker)
+    rest = source[start + len(marker):]
+    end = rest.find("\n});")
+    return rest if end == -1 else rest[:end]
+
+
+def test_shared_reset_helper_lives_in_main_js():
+    assert "function resetDepositPaymentMethod(" in _source("static/js/main.js")
+
+
+def test_every_modal_opener_resets_the_deposit_method_to_cash():
+    """Bug sign-flipped của chính vấn đề branch này sửa: nút Chuyển khoản còn
+    sáng từ booking trước ám vào booking cash tiếp theo, két bị dư đúng số đó.
+
+    Kiểm theo từng hàm/listener mở modal, không grep cả file: một hàm bị bỏ sót
+    vẫn phải bị bắt.
+    """
+    function_cases = (
+        ("static/js/room.js", "openBookingModal"),
+        ("static/js/timeline_manager.js", "openCreateModal"),
+        ("static/js/timeline_manager.js", "openEditModal"),
+    )
+    for rel, func in function_cases:
+        body = _function_body(_source(rel), func)
+        assert "resetDepositPaymentMethod" in body, f"{rel}::{func} chưa reset phương thức cọc"
+
+    group_source = _source("static/js/group_booking.js")
+    listener_body = _listener_body(
+        group_source,
+        "addEventListener('show.bs.modal', function () {",
+    )
+    assert "resetDepositPaymentMethod" in listener_body, (
+        "group_booking.js: listener mở modal chưa reset group-deposit-method"
+    )

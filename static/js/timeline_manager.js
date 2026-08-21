@@ -414,6 +414,7 @@ function openCreateModal(roomId, time) {
     let hintText = document.getElementById('deposit-hint');
     if (hintText) hintText.innerText = '';
     selectedDepositRatio = null;
+    resetDepositPaymentMethod('bk-deposit-method');
     // ==========================================
 
     // Tự động set giờ (+2 tiếng) cho Tab Theo Giờ
@@ -588,6 +589,7 @@ function openEditModal(bookingRoomId, bookingId) {
         document.getElementById('edit-deposit').value = data.deposit;
         const depositOriginal = document.getElementById('edit-deposit-original');
         if (depositOriginal) depositOriginal.value = data.deposit || 0;
+        resetDepositPaymentMethod('edit-deposit-method');
         toggleDepositReason();
 
         // CCCD & Địa chỉ

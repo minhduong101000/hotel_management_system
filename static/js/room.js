@@ -238,6 +238,7 @@ function openBookingModal(roomNumber) {
     if(document.getElementById('bk-cccd')) document.getElementById('bk-cccd').value = '';
     if(document.getElementById('bk-address')) document.getElementById('bk-address').value = '';
     if(document.getElementById('bk-note')) document.getElementById('bk-note').value = '';
+    resetDepositPaymentMethod('bk-deposit-method');
     setRentalType('daily');
     bootstrap.Tab.getOrCreateInstance(document.getElementById('tab-daily')).show();
     
