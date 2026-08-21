@@ -1,5 +1,22 @@
 # Spec: Đường đi của tiền cọc — ghi đúng phương thức và buộc khai rõ mục đích khi giảm
 
+> **ĐÃ TRIỂN KHAI 21-08-2026** — nhánh `dev`, 15 commit từ `1d58f5f` tới `79741c9`.
+> Plan: `docs/superpowers/plans/2026-08-21-deposit-money-trail.md`.
+> Nghiệm thu: 520 test xanh ở cả ba múi giờ (local / UTC / Asia/Ho_Chi_Minh) với
+> cùng số lượng; 12 test MySQL xanh ở hai múi giờ; 5 test trình duyệt xanh; hai
+> đường bị từ chối đã kiểm tay trên container thật (gọi thẳng API, bỏ qua giao
+> diện) và xác nhận không đổi một dòng dữ liệu nào.
+>
+> **Một sai lệch so với spec đã được sửa trong đợt review cuối:** plan ban đầu bỏ
+> sót yêu cầu §5.1 (Sổ Quỹ mang nhãn phương thức). Đã bổ sung ở `d0fa041`.
+>
+> **Một câu hỏi nghiệp vụ còn treo, chưa quyết:** §3.3 chỉ lễ tân sang luồng Hoàn
+> tiền khi chọn "đã trả tiền lại cho khách", nhưng `billing_controller.py:45` lọc
+> danh sách hóa đơn cũ theo `checked_out`/`cancelled`, nên **đơn đang ở không hiện
+> ra**. Đợt này chỉ sửa câu chữ cho đúng sự thật (nêu cả hai lối có thật). Việc có
+> nên cho hoàn cọc giữa kỳ mà không cần hủy đơn hay không là quyết định của chủ
+> dự án, chưa làm.
+
 **Nguồn:** rà soát nghiệp vụ 21-08-2026, sau đợt sửa hợp đồng thời gian / XSS / dấu vết cọc.
 **Chủ khách sạn đã chốt:** với việc giảm cọc, đi theo hướng **bắt chọn mục đích** — chọn
 "đã trả tiền lại cho khách" thì hệ thống chặn và chỉ sang luồng Hoàn tiền.
