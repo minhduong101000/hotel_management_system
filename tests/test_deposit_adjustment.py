@@ -306,6 +306,12 @@ def test_money_returned_to_the_guest_is_pushed_to_the_refund_flow(
     assert body["success"] is False
     assert body["error_code"] == "use_refund_flow"
     assert "Hoàn tiền" in body["msg"]
+    # Fix 4: chỉ đúng khi booking đã trả phòng/hủy — Hóa đơn cũ không liệt kê
+    # booking còn hoạt động (billing_controller lọc theo checked_out/cancelled),
+    # nên thông báo phải nói rõ cả hai đường thay vì chỉ trỏ tới một màn hình
+    # mà booking đang xét không nằm trong đó.
+    assert "trả phòng" in body["msg"]
+    assert "hủy" in body["msg"]
     db.session.refresh(br)
     assert float(br.room_deposit_amount) == 5000000.0
     assert Payment.query.count() == payments_before

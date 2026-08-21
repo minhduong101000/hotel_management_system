@@ -722,7 +722,11 @@ function saveBookingChanges() {
                 return;
             }
             if (depositChangeType === 'returned_to_guest') {
-                alert('Tiền đã đưa lại cho khách phải ghi qua chức năng Hoàn tiền ở màn Hóa đơn cũ.');
+                alert(
+                    'Tiền đã đưa lại cho khách phải ghi qua chức năng Hoàn tiền ở màn ' +
+                    'Hóa đơn cũ — dùng được khi booking đã trả phòng hoặc đã hủy. Nếu ' +
+                    'khách còn đang ở, khoản cọc sẽ tự trừ vào hóa đơn lúc trả phòng.'
+                );
                 return;
             }
             if (!depositReason) {

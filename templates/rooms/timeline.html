@@ -168,13 +168,14 @@
                                            onchange="applyDepositChangeTypeState()">
                                     <label class="form-check-label" for="deposit-change-returned">
                                         Đã trả tiền lại cho khách
-                                        <small class="text-muted d-block">Phải ghi qua chức năng Hoàn tiền</small>
+                                        <small class="text-muted d-block">Đã trả phòng/hủy: dùng Hoàn tiền. Còn đang ở: cọc tự trừ vào hóa đơn lúc trả phòng.</small>
                                     </label>
                                 </div>
                             </fieldset>
                             <div id="deposit-returned-warning" class="alert alert-warning py-2 px-2 small d-none" role="alert">
                                 Tiền đã đưa lại cho khách phải ghi qua chức năng <strong>Hoàn tiền</strong> ở màn
-                                <strong>Hóa đơn cũ</strong> — ở đó có trần kiểm soát và khoản hoàn sẽ hiện trên hóa đơn của khách.
+                                <strong>Hóa đơn cũ</strong> — dùng được khi booking đã trả phòng hoặc đã hủy. Nếu khách
+                                còn đang ở, khoản cọc sẽ tự trừ vào hóa đơn lúc trả phòng, không cần thao tác gì thêm ở đây.
                             </div>
                             <label class="pos-label" for="deposit-adjust-reason">Lý do giảm cọc <span class="text-danger" aria-hidden="true">*</span></label>
                             <input type="text" class="form-control form-control-sm" id="deposit-adjust-reason" autocomplete="off" placeholder="Ví dụ: gõ nhầm số 0">

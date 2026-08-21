@@ -1288,8 +1288,9 @@ def update_booking():
                         'error_code': 'use_refund_flow',
                         'msg': (
                             'Tiền đã đưa lại cho khách phải ghi qua chức năng Hoàn tiền '
-                            'ở màn Hóa đơn cũ, để có trần kiểm soát và hiện trên hóa đơn '
-                            'của khách.'
+                            'ở màn Hóa đơn cũ — dùng được sau khi booking đã trả phòng '
+                            'hoặc đã hủy. Nếu khách còn đang ở, khoản cọc sẽ tự trừ vào '
+                            'hóa đơn lúc trả phòng, không cần thao tác gì thêm ở đây.'
                         ),
                     }), 400
                 if change_type != 'correction':
