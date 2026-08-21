@@ -351,3 +351,29 @@ def test_the_audit_trail_keeps_the_stated_intent(client, seed_hotels, login_as):
     event = AuditEvent.query.filter_by(action="deposit_adjustment").one()
     assert event.after_data["change_type"] == "correction"
     assert event.after_data["reason"] == "gõ nhầm số 0"
+
+
+def test_edit_modal_offers_the_two_intents_with_linked_labels():
+    from pathlib import Path
+
+    source = (
+        Path(__file__).resolve().parents[1] / "templates/rooms/timeline.html"
+    ).read_text(encoding="utf-8")
+
+    for control_id in ("deposit-change-correction", "deposit-change-returned"):
+        assert f'id="{control_id}"' in source
+        assert f'for="{control_id}"' in source          # nhãn phải liên kết
+    assert 'value="correction"' in source
+    assert 'value="returned_to_guest"' in source
+    assert 'id="btn-save-booking"' in source            # JS cần khoá được nút này
+
+
+def test_edit_modal_js_blocks_before_the_request_is_sent():
+    from pathlib import Path
+
+    source = (
+        Path(__file__).resolve().parents[1] / "static/js/timeline_manager.js"
+    ).read_text(encoding="utf-8")
+
+    assert "function applyDepositChangeTypeState" in source
+    assert "deposit_change_type" in source

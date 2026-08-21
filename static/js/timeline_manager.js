@@ -639,7 +639,25 @@ function toggleDepositReason() {
     if (!block) return;
     const current = Number(document.getElementById('edit-deposit')?.value || 0);
     const original = Number(document.getElementById('edit-deposit-original')?.value || 0);
-    block.style.display = current < original ? 'block' : 'none';
+    const lowering = current < original;
+    block.style.display = lowering ? 'block' : 'none';
+    if (!lowering) {
+        // Thôi giảm cọc thì xoá lựa chọn cũ, tránh gửi nhầm ở lần lưu sau.
+        document.querySelectorAll('input[name="deposit-change-type"]').forEach(radio => {
+            radio.checked = false;
+        });
+    }
+    applyDepositChangeTypeState();
+}
+
+// Chọn "đã trả tiền lại cho khách" thì khoá nút Lưu ngay tại chỗ — để lễ tân
+// biết mình đi nhầm đường trước khi bấm, chứ không phải sau khi nhận lỗi 400.
+function applyDepositChangeTypeState() {
+    const picked = document.querySelector('input[name="deposit-change-type"]:checked')?.value || '';
+    const warning = document.getElementById('deposit-returned-warning');
+    const saveButton = document.getElementById('btn-save-booking');
+    if (warning) warning.classList.toggle('d-none', picked !== 'returned_to_guest');
+    if (saveButton) saveButton.disabled = (picked === 'returned_to_guest');
 }
 
 function saveBookingChanges() {
@@ -686,10 +704,23 @@ function saveBookingChanges() {
         const depositNow = Number(document.getElementById('edit-deposit').value || 0);
         const depositWas = Number(document.getElementById('edit-deposit-original')?.value || 0);
         const depositReason = document.getElementById('deposit-adjust-reason')?.value.trim() || '';
-        if (depositNow < depositWas && !depositReason) {
-            alert('Giảm tiền cọc phải có lý do để đối soát.');
-            document.getElementById('deposit-adjust-reason')?.focus();
-            return;
+        let depositChangeType = '';
+        if (depositNow < depositWas) {
+            depositChangeType = document.querySelector('input[name="deposit-change-type"]:checked')?.value || '';
+            if (!depositChangeType) {
+                alert('Cho biết vì sao giảm cọc: sửa số nhập sai, hay đã trả tiền lại cho khách.');
+                document.getElementById('deposit-change-correction')?.focus();
+                return;
+            }
+            if (depositChangeType === 'returned_to_guest') {
+                alert('Tiền đã đưa lại cho khách phải ghi qua chức năng Hoàn tiền ở màn Hóa đơn cũ.');
+                return;
+            }
+            if (!depositReason) {
+                alert('Giảm tiền cọc phải có lý do để đối soát.');
+                document.getElementById('deposit-adjust-reason')?.focus();
+                return;
+            }
         }
 
         const data = {
@@ -702,6 +733,7 @@ function saveBookingChanges() {
             deposit: document.getElementById('edit-deposit').value,
             deposit_payment_method: document.getElementById('edit-deposit-method')?.value || 'cash',
             deposit_reason: depositReason,
+            deposit_change_type: depositChangeType,
             customer_name: document.getElementById('edit-customer').value,
             customer_cccd: document.getElementById('edit-cccd').value,
             customer_address: document.getElementById('edit-address').value

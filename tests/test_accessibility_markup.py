@@ -360,6 +360,8 @@ def test_group_booking_and_timeline_editor_keep_labels_linked_to_controls():
         "edit-checkout",
         "edit-deposit",
         "deposit-adjust-reason",
+        "deposit-change-correction",
+        "deposit-change-returned",
         "refund-reason",
         "bd-service-search",
         "bd-note",
