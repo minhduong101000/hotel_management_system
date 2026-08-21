@@ -321,11 +321,15 @@ def test_money_returned_to_the_guest_is_pushed_to_the_refund_flow(
 def test_an_unknown_change_type_is_rejected_like_a_missing_one(
     client, seed_hotels, login_as
 ):
+    from models.audit_event import AuditEvent
+
     hotel, _, admin, _, br, _ = seed_hotels
     br.room_deposit_amount = 5000000
     br.room_deposit_original = 5000000
     db.session.commit()
     login_as(client, admin)
+    payments_before = Payment.query.count()
+    audit_before = AuditEvent.query.count()
 
     response = client.post(
         f"/{hotel.slug}/timeline/api/bookings/update",
@@ -335,6 +339,10 @@ def test_an_unknown_change_type_is_rejected_like_a_missing_one(
     )
 
     assert response.get_json()["error_code"] == "deposit_change_type_required"
+    # Cùng mức kiểm với hai láng giềng: một regression trả đúng error_code
+    # NHƯNG SAU KHI đã ghi dòng điều chỉnh vẫn phải bị bắt ở đây.
+    assert Payment.query.count() == payments_before
+    assert AuditEvent.query.count() == audit_before
 
 
 def test_the_audit_trail_keeps_the_stated_intent(client, seed_hotels, login_as):
