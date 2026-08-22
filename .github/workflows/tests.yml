@@ -10,8 +10,8 @@ jobs:
     name: "Bộ thường (SQLite, không mysql-marker)"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -35,8 +35,8 @@ jobs:
           --health-timeout=3s
           --health-retries=30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -54,7 +54,7 @@ jobs:
     env:
       COMPOSE: docker compose -f docker-compose.yml -f docker-compose.ci.yml
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Tạo .env cho CI (giá trị dùng một lần, không phải secrets thật)
         run: |
@@ -95,7 +95,7 @@ jobs:
           curl -fsS http://127.0.0.1:8000/healthz
           curl -fsS -o /dev/null http://127.0.0.1:8000/central/login
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
