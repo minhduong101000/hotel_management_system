@@ -1,5 +1,24 @@
 # Spec: Cảnh báo vận hành qua Telegram
 
+> **ĐÃ TRIỂN KHAI 22-08-2026** — nhánh `dev`, 22 commit từ `7712d86` tới `a645364`.
+> Plan: `docs/superpowers/plans/2026-08-22-telegram-alerts.md`. CI xanh cả 3 job.
+>
+> **Review tổng bắt được một lỗi Critical** mà 7 lượt review từng task đều không
+> thấy: container chạy uid 1001 nhưng `/state` không có trong image, nên Docker
+> tạo volume thuộc root và bộ canh **không ghi được trạng thái** — lỗi bị nuốt
+> bởi `except` rộng của vòng lặp. Hệ quả: cảnh báo web chết **không bao giờ kêu
+> được**, tin sáng gửi ~200 lần/ngày. Đã sửa ở `36a0ae1` và kiểm chứng bằng cách
+> chạy container thật ba nhịp liên tiếp.
+>
+> **Đã kiểm chứng trong container thật:** dừng `web` → nhịp 1 đếm 1 (chưa kêu,
+> đúng thiết kế chống báo giả), nhịp 2 đạt ngưỡng và chuyển `fail`, bật lại web
+> → về 0. Trạng thái sống qua từng lần chạy riêng biệt.
+>
+> **Chưa gửi được tin thật** cho tới khi chủ dự án điền `TELEGRAM_BOT_TOKEN` và
+> `TELEGRAM_CHAT_ID` vào `.env` trên VPS — để trống là **tắt hẳn theo thiết kế**.
+> Xem `docs/runbooks/telegram-alerts.md`, gồm cả mục "Nâng cấp từ bản cũ": volume
+> `/state` tạo bởi image cũ thuộc root và **không tự sửa** khi build lại.
+
 **Nguồn:** rà soát vận hành 22-08-2026. Hiện tại chủ khách sạn biết có sự cố bằng
 cách lễ tân gọi điện — không có kênh nào khác.
 
