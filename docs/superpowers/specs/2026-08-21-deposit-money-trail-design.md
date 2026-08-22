@@ -10,12 +10,14 @@
 > **Một sai lệch so với spec đã được sửa trong đợt review cuối:** plan ban đầu bỏ
 > sót yêu cầu §5.1 (Sổ Quỹ mang nhãn phương thức). Đã bổ sung ở `d0fa041`.
 >
-> **Một câu hỏi nghiệp vụ còn treo, chưa quyết:** §3.3 chỉ lễ tân sang luồng Hoàn
-> tiền khi chọn "đã trả tiền lại cho khách", nhưng `billing_controller.py:45` lọc
-> danh sách hóa đơn cũ theo `checked_out`/`cancelled`, nên **đơn đang ở không hiện
-> ra**. Đợt này chỉ sửa câu chữ cho đúng sự thật (nêu cả hai lối có thật). Việc có
-> nên cho hoàn cọc giữa kỳ mà không cần hủy đơn hay không là quyết định của chủ
-> dự án, chưa làm.
+> **Đã đóng — không phải việc cần làm.** Review tổng nêu lo ngại rằng
+> `billing_controller.py:45` lọc hóa đơn cũ theo `checked_out`/`cancelled` nên đơn
+> đang ở không hiện trong màn Hoàn tiền, và coi đó là "bịt lối trung thực". Chủ
+> khách sạn bác bỏ tiền đề: **không có nghiệp vụ hoàn cọc khi khách còn đang ở**.
+> Khách đi sớm thì trả phòng sớm, cọc trừ vào hóa đơn lúc đó. Ba lối ra tiền có
+> thật đều đã có đường đi — hủy trước khi đến → Hoàn tiền; đã trả phòng → Hoàn
+> tiền; đang ở → trừ vào hóa đơn khi trả phòng. Câu chữ hiện tại đã nói đúng cả
+> ba, không cần sửa gì thêm.
 
 **Nguồn:** rà soát nghiệp vụ 21-08-2026, sau đợt sửa hợp đồng thời gian / XSS / dấu vết cọc.
 **Chủ khách sạn đã chốt:** với việc giảm cọc, đi theo hướng **bắt chọn mục đích** — chọn
