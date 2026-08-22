@@ -1,4 +1,4 @@
-"""Chặn đồng hồ máy quay lại controllers/services/models.
+"""Chặn đồng hồ máy quay lại controllers/services/models/scripts.
 
 Đây là lưới giữ cho lớp lỗi 17-08 không tái phát. Mọi lời gọi "bây giờ" không
 tham số đều lấy giờ đồng hồ tiến trình nên sai CẢ HAI vế của hợp đồng thời
@@ -49,7 +49,7 @@ def _scan(folders=FOLDERS):
     return offenders
 
 
-def test_no_ambient_clock_in_controllers_services_and_models():
+def test_no_ambient_clock_in_the_scanned_folders():
     offenders = _scan()
 
     assert not offenders, (

@@ -22,8 +22,23 @@ from services import telegram_service, time_service
 
 
 def _touch_backup(folder: Path, name: str, *, age_seconds: float, size_bytes: int = 9_400) -> Path:
+    """Tạo một tệp giống bản sao lưu, tuổi đặt được.
+
+    `size_bytes=0` cho ra tệp 2 byte (chỉ magic gzip), KHÔNG phải tệp rỗng —
+    các test dùng nó đều khẳng định theo TUỔI chứ không theo kích thước. Muốn
+    kiểm ca tệp rỗng thật thì dùng `_touch_empty_backup`.
+    """
     path = folder / name
-    path.write_bytes(b"\x1f\x8b" + b"0" * (size_bytes - 2))  # đủ giả gzip header
+    path.write_bytes(b"\x1f\x8b" + b"0" * max(0, size_bytes - 2))
+    stamp = time.time() - age_seconds
+    os.utime(path, (stamp, stamp))
+    return path
+
+
+def _touch_empty_backup(folder: Path, name: str, *, age_seconds: float) -> Path:
+    """Tệp 0 byte thật — cái mà `mysqldump` chết ngay từ đầu để lại."""
+    path = folder / name
+    path.write_bytes(b"")
     stamp = time.time() - age_seconds
     os.utime(path, (stamp, stamp))
     return path
@@ -223,6 +238,23 @@ def test_disk_used_percent_matches_df_not_the_filesystem_reserve(monkeypatch, tm
     result = alert_watch._disk_used_percent(tmp_path)
 
     assert result == pytest.approx(70 / 90 * 100)
+
+
+def test_the_unconfigured_marker_still_matches_what_telegram_service_returns():
+    """Nối hai đầu của một mối ghép bằng chuỗi.
+
+    `_send` lọc log bằng cách so `_TELEGRAM_NOT_CONFIGURED` với `outcome.reason`
+    do `telegram_service` trả về. Hai hằng số đó nằm ở hai module khác nhau và
+    không có gì buộc chúng khớp — hai test dưới đây đều monkeypatch chuỗi nên
+    chúng vẫn xanh nếu ai đó đổi câu chữ bên `telegram_service`, và hậu quả là
+    log nhiễu quay lại mà cả suite không hé răng.
+
+    Ca này gọi HÀM THẬT với cấu hình rỗng, nên nó đứt ngay khi câu chữ trôi.
+    """
+    outcome = telegram_service.send_message("tin thử", bot_token="", chat_id="")
+
+    assert outcome.delivered is False
+    assert alert_watch._TELEGRAM_NOT_CONFIGURED in outcome.reason
 
 
 def test_send_does_not_log_when_telegram_is_simply_unconfigured(monkeypatch, capsys):

@@ -64,8 +64,14 @@ def _save_state(path: Path, state: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(state, ensure_ascii=False, indent=2)
     tmp_path = path.with_name(f"{path.name}.tmp-{os.getpid()}")
-    tmp_path.write_text(payload, encoding="utf-8")
-    os.replace(tmp_path, path)
+    try:
+        tmp_path.write_text(payload, encoding="utf-8")
+        os.replace(tmp_path, path)
+    except OSError:
+        # Dọn tệp tạm dang dở rồi mới ném tiếp. Ca hỏng chính ở đây là ENOSPC —
+        # để lại rác đúng lúc đĩa đã đầy thì góp thêm vào chính vấn đề đang báo.
+        tmp_path.unlink(missing_ok=True)
+        raise
 
 
 def _save_state_safely(path: Path, state: dict) -> None:
@@ -78,7 +84,12 @@ def _save_state_safely(path: Path, state: dict) -> None:
     try:
         _save_state(path, state)
     except OSError as exc:                        # noqa: BLE001
-        print(f"[alerts] ghi trạng thái lỗi: {type(exc).__name__}", flush=True)
+        # Nêu cả strerror và đường dẫn: đây là TÍN HIỆU DUY NHẤT của lỗi này, và
+        # riêng "OSError" thì không nói được gì. Hai ca hay gặp cần phân biệt
+        # ngay từ log: ENOSPC (đĩa đầy) và EACCES (volume /state thuộc root vì
+        # đã tạo bởi bản image cũ — xem runbook mục Nâng cấp).
+        detail = exc.strerror or type(exc).__name__
+        print(f"[alerts] ghi trạng thái lỗi: {detail} — {path}", flush=True)
 
 
 def _probe_web(url: str) -> bool:

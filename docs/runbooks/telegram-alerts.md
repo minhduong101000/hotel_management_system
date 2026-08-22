@@ -30,6 +30,38 @@
    ```
    Phải thấy `alerts.json` tồn tại, chứa cả ba mục `web`/`backup`/`disk`.
 
+## Nâng cấp từ bản cũ — đọc trước khi deploy lại
+
+Một bản dựng trước đây tạo volume `/state` **thuộc root**, trong khi container
+chạy bằng người dùng `app`. Docker chỉ gán quyền từ image khi volume **còn
+rỗng**, nên `docker compose build && up -d` **không sửa** một volume đã tồn tại.
+
+Hậu quả nếu bỏ qua: bộ canh chạy, log không có gì bất thường với người không để
+ý, nhưng nó **không ghi được trạng thái**. Khi đó cảnh báo web chết **không bao
+giờ kêu** (bộ đếm luôn về 0), còn tin sáng gửi lại mỗi 5 phút.
+
+Nếu máy đã từng chạy bộ canh trước ngày 22-08-2026, xoá volume trạng thái một
+lần rồi dựng lại:
+
+```bash
+docker compose stop alerts
+docker volume rm hotel_management_system_alert_state
+docker compose up -d alerts
+```
+
+Mất lịch sử chống trùng lặp là chuyện nhỏ — cùng lắm nhận lại một tin cho mỗi
+sự cố đang mở.
+
+**Sau MỌI lần nâng cấp**, chạy lại bước 7 ở trên. Nó là bước duy nhất chứng minh
+trạng thái ghi được; `--test-message` không đụng tới trạng thái nên vẫn báo thành
+công kể cả khi mọi thứ đang hỏng.
+
+Dấu hiệu trong log khi trúng lỗi này:
+
+```
+[alerts] ghi trạng thái lỗi: Permission denied — /state/alerts.json
+```
+
 ## Ba thứ nó canh
 
 | Canh gì | Kêu khi |
