@@ -14,6 +14,8 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pytest
+
 from scripts import alert_watch
 from services import alert_service as alerts
 from services import telegram_service, time_service
@@ -198,3 +200,58 @@ def test_a_failed_send_is_retried_every_cycle_until_it_succeeds(tmp_path, monkey
 
     disk_alerts = [text for text in sender.sent if "Đĩa" in text]
     assert len(disk_alerts) == 2, "gửi lỗi thì chu kỳ sau phải thử lại, không được coi như đã báo"
+
+
+# --- Fix 6: ba việc nhỏ ---
+
+
+def test_disk_used_percent_matches_df_not_the_filesystem_reserve(monkeypatch, tmp_path):
+    """`shutil.disk_usage().total` gồm cả khối dự trữ mà `df` không tính vào
+    mẫu số — chia cho `total` đọc cao hơn `df` vài điểm phần trăm. Công thức
+    đúng là `used / (used + free)`, khớp với lệnh runbook bảo chủ khách sạn
+    chạy tay để đối chiếu."""
+    import shutil as shutil_module
+    from collections import namedtuple
+
+    Usage = namedtuple("Usage", "total used free")
+    # total=100 nhưng used(70)+free(20)=90 -> 10 "dự trữ" filesystem không ai
+    # dùng được. used/total = 70%, used/(used+free) = 77.78%.
+    monkeypatch.setattr(
+        shutil_module, "disk_usage", lambda path: Usage(total=100, used=70, free=20)
+    )
+
+    result = alert_watch._disk_used_percent(tmp_path)
+
+    assert result == pytest.approx(70 / 90 * 100)
+
+
+def test_send_does_not_log_when_telegram_is_simply_unconfigured(monkeypatch, capsys):
+    """Chưa điền TELEGRAM_BOT_TOKEN/CHAT_ID là trạng thái BÌNH THƯỜNG trên máy
+    dev và CI — log nó ra ở MỖI lần thông báo mỗi chu kỳ là nhiễu thuần túy."""
+    monkeypatch.setattr(
+        telegram_service,
+        "send_message",
+        lambda text, **kw: telegram_service.SendOutcome(
+            False, "chưa cấu hình Telegram — bỏ qua"
+        ),
+    )
+
+    ok = alert_watch._send("tin thử", _base_config(Path("/unused")))
+
+    assert ok is False
+    assert capsys.readouterr().out == ""
+
+
+def test_send_still_logs_a_real_delivery_failure(monkeypatch, capsys):
+    """Ngược lại: một lỗi gửi THẬT (mạng, token sai, HTTP 4xx/5xx) vẫn phải lên
+    log — chỉ riêng lý do 'chưa cấu hình' mới là tín hiệu bình thường."""
+    monkeypatch.setattr(
+        telegram_service,
+        "send_message",
+        lambda text, **kw: telegram_service.SendOutcome(False, "Telegram trả về HTTP 401"),
+    )
+
+    ok = alert_watch._send("tin thử", _base_config(Path("/unused")))
+
+    assert ok is False
+    assert "HTTP 401" in capsys.readouterr().out

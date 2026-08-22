@@ -22,7 +22,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-FOLDERS = ("controllers", "services", "models")
+FOLDERS = ("controllers", "services", "models", "scripts")
 
 # Chỉ bắt lời gọi TRẦN: có tham số (datetime.now(timezone.utc)) là hợp lệ.
 AMBIENT_CLOCK = re.compile(

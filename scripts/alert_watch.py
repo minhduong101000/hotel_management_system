@@ -165,15 +165,30 @@ def _newest_backup(folder: Path, state: dict, *, min_age_seconds: float = 120):
 
 
 def _disk_used_percent(path: Path) -> float:
+    """`used / (used + free)`, KHÔNG PHẢI `used / total`.
+
+    `shutil.disk_usage().total` gồm cả khối dự trữ của filesystem (mặc định
+    ext4 dành 5% cho root) mà `used`/`free` không đụng tới, nên chia cho
+    `total` luôn đọc cao hơn vài điểm phần trăm so với `df` — chính lệnh mà
+    runbook bảo chủ khách sạn chạy tay để đối chiếu. Đổi công thức để hai bên
+    khớp nhau.
+    """
     usage = shutil.disk_usage(path if path.exists() else path.parent)
-    return usage.used / usage.total * 100
+    return usage.used / (usage.used + usage.free) * 100
+
+
+_TELEGRAM_NOT_CONFIGURED = "chưa cấu hình Telegram"
 
 
 def _send(text: str, config: dict) -> bool:
     outcome = telegram_service.send_message(
         text, bot_token=config["bot_token"], chat_id=config["chat_id"]
     )
-    if not outcome.delivered:
+    # Không log khi lý do là "chưa cấu hình Telegram": đó là trạng thái BÌNH
+    # THƯỜNG trên máy dev và trong CI, và mọi lần thông báo mỗi chu kỳ đều đi
+    # qua đây — log ra thì chỉ là nhiễu cho một điều kiện mà spec coi là bình
+    # thường, không phải lỗi.
+    if not outcome.delivered and _TELEGRAM_NOT_CONFIGURED not in outcome.reason:
         print(f"[alerts] không gửi được: {outcome.reason}", flush=True)
     return outcome.delivered
 
