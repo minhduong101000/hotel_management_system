@@ -34,6 +34,7 @@ def _config() -> dict:
         "web_threshold": int(_env("ALERT_WEB_FAIL_THRESHOLD", "2")),
         "backup_dir": Path(_env("ALERT_BACKUP_DIR", "/backups")),
         "backup_max_age_hours": float(_env("ALERT_BACKUP_MAX_AGE_HOURS", "26")),
+        "backup_min_age_seconds": float(_env("ALERT_BACKUP_MIN_AGE_SECONDS", "120")),
         "disk_threshold": float(_env("ALERT_DISK_THRESHOLD_PERCENT", "85")),
         "repeat_hours": float(_env("ALERT_REPEAT_HOURS", "6")),
         "summary_hour": int(_env("ALERT_SUMMARY_HOUR", "7")),
@@ -98,12 +99,21 @@ def _gzip_intact(path: Path) -> bool:
         return False
 
 
-def _newest_backup(folder: Path, state: dict):
-    """Tệp `.sql.gz` mới nhất, kèm kết quả kiểm gzip.
+def _newest_backup(folder: Path, state: dict, *, min_age_seconds: float = 120):
+    """Tệp `.sql.gz` mới nhất ĐÃ QUA cửa sổ ân hạn, kèm kết quả kiểm gzip.
+
+    `backup.sh` chạy `mysqldump ... | gzip > "$file"` — shell tạo tệp TRƯỚC
+    khi có byte nào tới. Một chu kỳ rơi đúng vào cửa sổ đó thấy tệp mới nhất
+    hoặc 0 byte hoặc cụt giữa chừng — giống hệt một bản dump CHẾT thật sự. Bản
+    dở dang và bản chết không byte nào phân biệt được; chỉ TUỔI phân biệt
+    được. Nên bỏ qua mọi ứng viên còn non hơn `min_age_seconds`, rơi xuống ứng
+    viên kế tiếp — hoặc "chưa có bản sao lưu nào" nếu đó là ứng viên duy nhất.
 
     Kiểm gzip phải đọc hết tệp, nên chỉ làm lại khi (tên, kích thước, mtime)
     khác với lần trước — ghi nhớ trong trạng thái. Đọc lại bản dump lớn mỗi 5
-    phút là phí I/O vô ích.
+    phút là phí I/O vô ích. KHÔNG cache phán quyết của một tệp còn non tuổi:
+    nó có thể vẫn đang được ghi, nên `gzip_ok=False` lúc này không nói lên
+    điều gì về tệp đó sau khi ghi xong.
     """
     try:
         candidates = sorted(
@@ -112,17 +122,25 @@ def _newest_backup(folder: Path, state: dict):
     except OSError:
         return None, state
 
-    if not candidates:
+    now = time.time()
+    newest = None
+    stat = None
+    for candidate in candidates:
+        try:
+            # Cùng một guard với glob/sort ở trên: nếu vòng xoay backup xóa
+            # tệp này đúng lúc này, `stat()` cũng phải rơi vào nhánh "thử ứng
+            # viên kế tiếp" thay vì ném ra ngoài `run_cycle` và mất cả chu kỳ.
+            candidate_stat = candidate.stat()
+        except OSError:
+            continue
+        if now - candidate_stat.st_mtime < min_age_seconds:
+            continue
+        newest, stat = candidate, candidate_stat
+        break
+
+    if newest is None:
         return None, state
 
-    newest = candidates[0]
-    try:
-        # Cùng một guard với glob/sort ở trên: nếu vòng xoay backup xóa tệp
-        # này đúng lúc này, `stat()` cũng phải rơi vào nhánh "chưa có bản sao
-        # lưu nào" thay vì ném ra ngoài `run_cycle` và mất cả chu kỳ.
-        stat = newest.stat()
-    except OSError:
-        return None, state
     fingerprint = [newest.name, stat.st_size, stat.st_mtime]
 
     cached = state.get("backup_gzip_cache") or {}
@@ -169,7 +187,9 @@ def run_cycle(config: dict) -> None:
     )
     state = {**state, "web_consecutive_failures": consecutive}
 
-    newest, state = _newest_backup(config["backup_dir"], state)
+    newest, state = _newest_backup(
+        config["backup_dir"], state, min_age_seconds=config["backup_min_age_seconds"]
+    )
     now = time_service.utc_now_naive()
 
     results = [

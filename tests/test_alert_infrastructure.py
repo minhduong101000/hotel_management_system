@@ -79,6 +79,7 @@ def test_env_example_documents_every_alert_key():
         "ALERT_WEB_FAIL_THRESHOLD",
         "ALERT_BACKUP_DIR",
         "ALERT_BACKUP_MAX_AGE_HOURS",
+        "ALERT_BACKUP_MIN_AGE_SECONDS",
         "ALERT_DISK_THRESHOLD_PERCENT",
         "ALERT_REPEAT_HOURS",
         "ALERT_SUMMARY_HOUR",
