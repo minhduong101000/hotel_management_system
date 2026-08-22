@@ -95,3 +95,140 @@ def test_disk_fails_exactly_at_the_threshold():
 def test_disk_detail_shows_the_percentage():
     result = alerts.evaluate_disk(used_percent=42.3, threshold_percent=85)
     assert "42" in result.detail
+
+
+# --- máy trạng thái ---
+
+def _state(check, *, status, notified_status, last_notified_at=None):
+    state = alerts.empty_state()
+    state["checks"][check] = {
+        "status": status,
+        "notified_status": notified_status,
+        "last_notified_at": last_notified_at.isoformat() if last_notified_at else None,
+    }
+    return state
+
+
+def test_a_healthy_check_that_stays_healthy_sends_nothing():
+    state = _state(alerts.CHECK_DISK, status=alerts.OK, notified_status=alerts.OK)
+    results = [alerts.evaluate_disk(used_percent=42, threshold_percent=85)]
+
+    notes = alerts.decide_notifications(
+        state=state, results=results, now=NOW, repeat_after_hours=6
+    )
+
+    assert notes == []
+
+
+def test_going_from_ok_to_fail_sends_an_alert():
+    state = _state(alerts.CHECK_DISK, status=alerts.OK, notified_status=alerts.OK)
+    results = [alerts.evaluate_disk(used_percent=91, threshold_percent=85)]
+
+    notes = alerts.decide_notifications(
+        state=state, results=results, now=NOW, repeat_after_hours=6
+    )
+
+    assert len(notes) == 1
+    assert notes[0].check == alerts.CHECK_DISK
+    assert "🔴" in notes[0].text
+
+
+def test_recovering_sends_a_green_message():
+    state = _state(alerts.CHECK_DISK, status=alerts.FAIL, notified_status=alerts.FAIL)
+    results = [alerts.evaluate_disk(used_percent=40, threshold_percent=85)]
+
+    notes = alerts.decide_notifications(
+        state=state, results=results, now=NOW, repeat_after_hours=6
+    )
+
+    assert len(notes) == 1
+    assert "🟢" in notes[0].text
+
+
+def test_a_still_failing_check_stays_quiet_until_the_repeat_window():
+    """Kêu mỗi 5 phút thì bị tắt thông báo, và bot bị tắt thông báo thì vô dụng
+    y như không có."""
+    state = _state(
+        alerts.CHECK_DISK,
+        status=alerts.FAIL,
+        notified_status=alerts.FAIL,
+        last_notified_at=NOW - timedelta(hours=5, minutes=59),
+    )
+    results = [alerts.evaluate_disk(used_percent=91, threshold_percent=85)]
+
+    notes = alerts.decide_notifications(
+        state=state, results=results, now=NOW, repeat_after_hours=6
+    )
+
+    assert notes == []
+
+
+def test_a_still_failing_check_reminds_after_the_repeat_window():
+    state = _state(
+        alerts.CHECK_DISK,
+        status=alerts.FAIL,
+        notified_status=alerts.FAIL,
+        last_notified_at=NOW - timedelta(hours=6, minutes=1),
+    )
+    results = [alerts.evaluate_disk(used_percent=91, threshold_percent=85)]
+
+    notes = alerts.decide_notifications(
+        state=state, results=results, now=NOW, repeat_after_hours=6
+    )
+
+    assert len(notes) == 1
+
+
+def test_a_failed_send_is_retried_on_the_next_cycle():
+    """TEST QUAN TRỌNG NHẤT của plan này.
+
+    Chu kỳ trước đã quan sát ra 'fail' (nên `status` = fail) nhưng Telegram lỗi
+    mạng nên chưa báo được (`notified_status` vẫn = ok). Chu kỳ này PHẢI gửi
+    lại. Nếu code ghi `notified_status` trước khi gửi, cảnh báo đó mất vĩnh
+    viễn và hệ thống trông vẫn khoẻ mạnh.
+
+    `last_notified_at` được đặt gần đây (còn trong cửa sổ nhắc lại) một cách
+    cố ý: nếu để None, nhánh "vẫn đang fail, tới hạn nhắc" sẽ tự gửi lại vì
+    chưa từng có mốc thời gian nào — che mất lỗi nếu code so `status` thay vì
+    `notified_status`. Đặt gần đây buộc chỉ có đường so `notified_status` mới
+    gửi được, đúng cái bất biến cần chứng minh.
+    """
+    state = _state(
+        alerts.CHECK_DISK,
+        status=alerts.FAIL,
+        notified_status=alerts.OK,
+        last_notified_at=NOW - timedelta(minutes=1),
+    )
+    results = [alerts.evaluate_disk(used_percent=91, threshold_percent=85)]
+
+    notes = alerts.decide_notifications(
+        state=state, results=results, now=NOW, repeat_after_hours=6
+    )
+
+    assert len(notes) == 1, "cảnh báo chưa gửi được phải được thử lại"
+
+
+def test_observe_updates_status_but_never_notified_status():
+    state = _state(alerts.CHECK_DISK, status=alerts.OK, notified_status=alerts.OK)
+    results = [alerts.evaluate_disk(used_percent=91, threshold_percent=85)]
+
+    updated = alerts.observe(state=state, results=results)
+
+    assert updated["checks"][alerts.CHECK_DISK]["status"] == alerts.FAIL
+    assert updated["checks"][alerts.CHECK_DISK]["notified_status"] == alerts.OK
+
+
+def test_acknowledge_advances_notified_status_and_the_timestamp():
+    state = _state(alerts.CHECK_DISK, status=alerts.FAIL, notified_status=alerts.OK)
+
+    updated = alerts.acknowledge(state=state, check=alerts.CHECK_DISK, now=NOW)
+
+    entry = updated["checks"][alerts.CHECK_DISK]
+    assert entry["notified_status"] == alerts.FAIL
+    assert entry["last_notified_at"] == NOW.isoformat()
+
+
+def test_empty_state_is_json_serialisable():
+    import json
+
+    json.dumps(alerts.empty_state())

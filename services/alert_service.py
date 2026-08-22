@@ -115,3 +115,99 @@ def evaluate_disk(*, used_percent: float, threshold_percent: float) -> CheckResu
             f"đã dùng {used_percent:.0f}% (ngưỡng {threshold_percent:g}%)",
         )
     return CheckResult(CHECK_DISK, OK, f"đã dùng {used_percent:.0f}%")
+
+
+@dataclass(frozen=True)
+class Notification:
+    check: Optional[str]      # None = tin tóm tắt
+    text: str
+
+
+ALL_CHECKS = (CHECK_WEB, CHECK_BACKUP, CHECK_DISK)
+
+_LABELS = {
+    CHECK_WEB: "Web",
+    CHECK_BACKUP: "Backup",
+    CHECK_DISK: "Đĩa",
+}
+
+
+def empty_state() -> dict:
+    return {
+        "checks": {
+            name: {"status": OK, "notified_status": OK, "last_notified_at": None}
+            for name in ALL_CHECKS
+        },
+        "web_consecutive_failures": 0,
+        "last_summary_date": None,
+    }
+
+
+def _entry(state: dict, check: str) -> dict:
+    return state.get("checks", {}).get(check) or {
+        "status": OK,
+        "notified_status": OK,
+        "last_notified_at": None,
+    }
+
+
+def format_alert(result: CheckResult) -> str:
+    mark = "🟢" if result.ok else "🔴"
+    verb = "đã trở lại bình thường" if result.ok else "CÓ VẤN ĐỀ"
+    return f"{mark} {_LABELS[result.name]} {verb}: {result.detail}"
+
+
+def observe(*, state: dict, results: list[CheckResult]) -> dict:
+    """Ghi nhận quan sát mới.
+
+    LUÔN cập nhật `status`. KHÔNG đụng `notified_status` — cái đó chỉ nhúc nhích
+    sau khi gửi thành công (xem `acknowledge`).
+    """
+    updated = {**state, "checks": {**state.get("checks", {})}}
+    for result in results:
+        entry = dict(_entry(state, result.name))
+        entry["status"] = result.status
+        updated["checks"][result.name] = entry
+    return updated
+
+
+def decide_notifications(
+    *,
+    state: dict,
+    results: list[CheckResult],
+    now: datetime,
+    repeat_after_hours: float,
+) -> list[Notification]:
+    """Gửi khi trạng thái lệch với cái đã báo, hoặc khi đã tới hạn nhắc lại.
+
+    So với `notified_status` chứ không với `status`, nên một lần gửi hỏng sẽ tự
+    được thử lại ở chu kỳ sau.
+    """
+    notifications = []
+    for result in results:
+        entry = _entry(state, result.name)
+
+        if result.status != entry.get("notified_status", OK):
+            notifications.append(Notification(result.name, format_alert(result)))
+            continue
+
+        if result.status == FAIL:
+            stamp = entry.get("last_notified_at")
+            due = stamp is None or (
+                now - datetime.fromisoformat(stamp)
+                >= timedelta(hours=repeat_after_hours)
+            )
+            if due:
+                notifications.append(Notification(result.name, format_alert(result)))
+
+    return notifications
+
+
+def acknowledge(*, state: dict, check: str, now: datetime) -> dict:
+    """Chỉ gọi SAU KHI Telegram nhận tin thành công."""
+    updated = {**state, "checks": {**state.get("checks", {})}}
+    entry = dict(_entry(state, check))
+    entry["notified_status"] = entry.get("status", OK)
+    entry["last_notified_at"] = now.isoformat()
+    updated["checks"][check] = entry
+    return updated
