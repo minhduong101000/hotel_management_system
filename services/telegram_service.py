@@ -7,6 +7,7 @@ Dùng `urllib.request` của thư viện chuẩn: repo cố ý không có `reque
 from __future__ import annotations
 
 import json
+import urllib.error
 import urllib.request
 from dataclasses import dataclass
 
@@ -23,8 +24,14 @@ def _urllib_transport(url: str, payload: bytes, timeout: float) -> int:
     request = urllib.request.Request(
         url, data=payload, headers={"Content-Type": "application/json"}
     )
-    with urllib.request.urlopen(request, timeout=timeout) as response:
-        return response.status
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return response.status
+    except urllib.error.HTTPError as exc:
+        # urlopen NÉM với 4xx/5xx thay vì trả mã. Không bắt ở đây thì mọi lỗi
+        # thật (401 sai token, 400 sai chat_id, 429 quá tần suất) đều rơi vào
+        # nhánh chung và mất mã — mà mã chính là thứ phân biệt chúng.
+        return exc.code
 
 
 def send_message(
@@ -46,11 +53,11 @@ def send_message(
     if not bot_token or not chat_id:
         return SendOutcome(False, "chưa cấu hình Telegram — bỏ qua")
 
-    payload = json.dumps({"chat_id": chat_id, "text": text}).encode("utf-8")
-    url = f"{API_BASE}/bot{bot_token}/sendMessage"
     send = transport or _urllib_transport
 
     try:
+        payload = json.dumps({"chat_id": chat_id, "text": text}).encode("utf-8")
+        url = f"{API_BASE}/bot{bot_token}/sendMessage"
         status = send(url, payload, timeout)
     except Exception as exc:                     # noqa: BLE001 — vòng lặp không được chết
         return SendOutcome(False, f"không gửi được ({type(exc).__name__})")

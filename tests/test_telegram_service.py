@@ -108,6 +108,45 @@ def test_the_token_never_leaks_into_the_failure_reason(transport):
     assert secret not in outcome.reason
 
 
+def test_an_unserialisable_message_returns_instead_of_raising():
+    """Bất biến của module là KHÔNG BAO GIỜ ném. `json.dumps` từng nằm ngoài
+    `try`, nên một giá trị không tuần tự hoá được sẽ thoát thẳng ra ngoài và
+    giết vòng lặp — tức là làm im lặng đúng hệ thống sinh ra để chống im lặng."""
+    outcome = telegram_service.send_message(
+        object(), bot_token=TOKEN, chat_id=CHAT, transport=lambda u, p, t: 200
+    )
+
+    assert not outcome.delivered
+
+
+def test_the_default_transport_reports_the_http_status_from_an_error_response(monkeypatch):
+    """Đường này test transport giả không chạm tới được.
+
+    HTTPError mang theo URL — mà URL chứa token — nên ca này khoá luôn cả việc
+    mã trạng thái đi ra ngoài còn token thì không.
+    """
+    import urllib.error
+    import urllib.request
+
+    def raise_unauthorized(request, timeout=None):
+        raise urllib.error.HTTPError(
+            url=f"https://api.telegram.org/bot{TOKEN}/sendMessage",
+            code=401,
+            msg="Unauthorized",
+            hdrs=None,
+            fp=None,
+        )
+
+    monkeypatch.setattr(urllib.request, "urlopen", raise_unauthorized)
+
+    outcome = telegram_service.send_message("xin chào", bot_token=TOKEN, chat_id=CHAT)
+
+    assert not outcome.delivered
+    assert "401" in outcome.reason
+    assert TOKEN not in outcome.reason
+    assert TOKEN.split(":")[0] not in outcome.reason
+
+
 def test_send_message_adds_no_third_party_dependency():
     """requirements.txt không có requests/httpx — cố ý. Dùng urllib của thư viện
     chuẩn, đúng như healthcheck trong docker-compose.yml."""
