@@ -36,12 +36,24 @@ def _alerts_block():
     return match.group(1)
 
 
-def test_alerts_waits_only_for_web_to_start_not_to_be_healthy():
-    """`condition: service_healthy` sẽ khiến bộ canh KHÔNG BAO GIỜ khởi động
-    đúng vào lúc web hỏng ngay từ đầu — ca đáng báo nhất."""
+def test_alerts_has_no_depends_on():
+    """`depends_on: web: service_started` từng có ở đây, nhưng vô dụng: Compose
+    resolve `depends_on` BẮC CẦU, nên nó vẫn kéo theo `db: service_healthy` và
+    `migrate: service_completed_successfully` của `web`. Một migration lỗi hay
+    db không lên khoẻ khiến `docker compose up -d` bỏ cuộc TRƯỚC KHI `alerts`
+    từng khởi động — đúng lúc deploy hỏng thì bộ canh im lặng luôn.
+
+    Đừng "sửa" lại bằng cách thêm `depends_on` khác (kể cả `service_started`
+    trần): `_probe_web` đã tự chịu được target chưa lên, và ngưỡng lỗi liên
+    tiếp đã hấp thụ cửa sổ khởi động. Không có `depends_on` MỚI LÀ đúng.
+
+    Tìm đúng KHOÁ YAML (dòng thụt 4 dấu cách rồi `depends_on:`), không phải
+    chuỗi con bất kỳ — để chừa chỗ cho dòng chú thích giải thích lý do phía
+    trên, thứ có nhắc tới từ "depends_on" mà không phải là khai báo thật."""
+    import re
+
     block = _alerts_block()
-    assert "service_started" in block
-    assert "service_healthy" not in block
+    assert re.search(r"\n {4}depends_on:", block) is None
 
 
 def test_alerts_mounts_the_backup_folder_read_only():

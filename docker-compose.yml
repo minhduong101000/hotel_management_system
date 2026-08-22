@@ -128,9 +128,15 @@ services:
     volumes:
       - ./backups:/backups:ro
       - alert_state:/state
-    depends_on:
-      web:
-        condition: service_started
+    # KHÔNG depends_on: `web` transitively kéo theo `db: service_healthy` và
+    # `migrate: service_completed_successfully`, nên Compose resolve luôn cả
+    # hai điều kiện đó trước khi khởi động `alerts` — dù ở đây chỉ khai
+    # `service_started`. Một migration lỗi hay db không lên khoẻ khiến
+    # `docker compose up -d` BỎ CUỘC trước khi `alerts` từng chạy, tức là
+    # đúng lúc deploy hỏng thì bộ canh im lặng luôn — phát hiện được sớm nhất
+    # là sáng hôm sau khi tin tóm tắt không tới. `_probe_web` đã tự chịu được
+    # target chưa lên (trả `False`), và ngưỡng lỗi liên tiếp (mặc định 2) đã
+    # hấp thụ cửa sổ khởi động — nên đừng thêm lại `depends_on` ở đây.
     restart: unless-stopped
     logging: *default-logging
 
