@@ -5,7 +5,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 ENV FLASK_APP=app.py APP_ENV=production
 # Không chạy root: một lỗ RCE trong app không chiếm trọn container
-RUN useradd --create-home --uid 1001 app && chown -R app:app /app
+RUN useradd --create-home --uid 1001 app && mkdir -p /state && chown -R app:app /app /state
 USER app
 EXPOSE 8000
 # Migration KHÔNG chạy ở đây — service `migrate` one-shot đảm nhiệm (chống race)

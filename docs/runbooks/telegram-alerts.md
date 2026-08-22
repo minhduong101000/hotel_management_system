@@ -19,6 +19,16 @@
    docker compose run --rm alerts python -m scripts.alert_watch --test-message
    ```
    Không thấy tin thì xem log: `docker compose logs alerts`.
+7. `--test-message` KHÔNG đọc/ghi trạng thái, nên nó không chứng minh được là
+   volume `/state` thật sự ghi được — nếu quyền sai, mọi chu kỳ sau đó âm thầm
+   chạy lại từ trạng thái rỗng (không ngưỡng dồn lỗi web, báo lại mỗi 5 phút
+   cho backup/đĩa, spam tin sáng cả ngày) mà bước 6 vẫn xanh. Chạy thêm một chu
+   kỳ thật rồi soi trạng thái đã ghi:
+   ```bash
+   docker compose run --rm alerts python -m scripts.alert_watch --once
+   docker compose run --rm alerts sh -c 'ls -l /state && cat /state/alerts.json'
+   ```
+   Phải thấy `alerts.json` tồn tại, chứa cả ba mục `web`/`backup`/`disk`.
 
 ## Ba thứ nó canh
 
