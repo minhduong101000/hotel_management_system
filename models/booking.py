@@ -1,4 +1,5 @@
 from extensions import db
+from services.time_service import utc_now_naive
 
 class Booking(db.Model):
     __tablename__ = 'bookings' # Lưu ý: SQL bạn để là bookings (số nhiều)
@@ -24,8 +25,8 @@ class Booking(db.Model):
     note = db.Column(db.String(1000), nullable=True)
     source = db.Column(db.String(50), default='walk_in')
     
-    created_at = db.Column(db.DateTime, default=db.func.now())
-    updated_at = db.Column(db.DateTime, default=db.func.now(), onupdate=db.func.now())
+    created_at = db.Column(db.DateTime, default=utc_now_naive)
+    updated_at = db.Column(db.DateTime, default=utc_now_naive, onupdate=utc_now_naive)
     # Mốc hoàn tất nghiệp vụ (UTC-naive); chỉ booking_state_service được set
     completed_at = db.Column(db.DateTime, nullable=True)
 

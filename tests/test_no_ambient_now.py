@@ -60,6 +60,51 @@ def test_no_ambient_clock_in_controllers_services_and_models():
     )
 
 
+DB_SERVER_CLOCK = re.compile(r"db\.func\.now\(\s*\)")
+
+
+def _scan_db_clock():
+    offenders = []
+    for path in sorted((ROOT / "models").rglob("*.py")):
+        rel = path.relative_to(ROOT).as_posix()
+        for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if DB_SERVER_CLOCK.search(line):
+                offenders.append(f"{rel}:{lineno}: {line.strip()}")
+    return offenders
+
+
+def test_no_database_server_clock_in_models():
+    """`db.func.now()` lấy giờ của MÁY CHỦ MYSQL, không phải của ứng dụng.
+
+    Hôm nay nó đúng, nhưng đúng do trùng hợp: container `db` và container `web`
+    tình cờ cùng chạy UTC, và không có gì ghim hay kiểm điều đó. Đặt `TZ` cho
+    container db, hay chuyển sang MySQL dịch vụ ở vùng khác, là 15 cột lặng lẽ
+    lệch vài giờ — trong đó `payments.created_at` quyết định ranh giới ngày của
+    Sổ Quỹ và trần hoàn tiền.
+
+    Hợp đồng thời gian nói `time_service` là nguồn DUY NHẤT. Một nguồn thứ hai
+    nằm ngoài tiến trình Python thì không còn là duy nhất nữa.
+    """
+    offenders = _scan_db_clock()
+
+    assert not offenders, (
+        "Giờ máy chủ MySQL không phải nguồn thời gian. Dùng "
+        "time_service.utc_now_naive cho cột timestamp hệ thống, "
+        "time_service.business_today cho cột NGÀY nghiệp vụ.\n"
+        + "\n".join(offenders)
+    )
+
+
+def test_the_db_clock_grid_matches_the_real_spelling():
+    """Lưới chỉ có giá trị nếu nó khớp đúng cách viết đã từng có trong repo."""
+    for snippet in (
+        "    created_at = db.Column(db.DateTime, default=db.func.now())",
+        "    updated_at = db.Column(db.DateTime, onupdate=db.func.now())",
+        "    created_at = db.Column(db.DateTime, default=db.func.now( ))",
+    ):
+        assert DB_SERVER_CLOCK.search(snippet), f"lưới bỏ lọt {snippet.strip()}"
+
+
 def test_the_grid_recognises_every_forbidden_spelling():
     """Lưới chỉ có giá trị nếu nó thật sự khớp từng cách viết bị cấm."""
     for snippet in (

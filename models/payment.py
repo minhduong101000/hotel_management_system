@@ -1,4 +1,5 @@
 from extensions import db
+from services.time_service import utc_now_naive
 from services.time_service import format_business as _format_business
 
 class Payment(db.Model):
@@ -39,7 +40,7 @@ class Payment(db.Model):
     payment_method = db.Column(db.String(50), default='cash')
     payment_type = db.Column(db.String(50), default='settlement') # deposit, settlement
     note = db.Column(db.Text, nullable=True)
-    created_at = db.Column(db.DateTime, default=db.func.now())
+    created_at = db.Column(db.DateTime, default=utc_now_naive)
 
     # Relationship
     booking = db.relationship('Booking', back_populates='payments')

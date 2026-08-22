@@ -1,4 +1,5 @@
 from extensions import db
+from services.time_service import utc_now_naive
 
 class Hotel(db.Model):
     __tablename__ = 'hotels'
@@ -10,7 +11,7 @@ class Hotel(db.Model):
     email = db.Column(db.String(100))
     logo_url = db.Column(db.String(255))
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=db.func.now())
+    created_at = db.Column(db.DateTime, default=utc_now_naive)
 
     # Quan hệ
     users = db.relationship('User', backref='hotel', lazy=True)

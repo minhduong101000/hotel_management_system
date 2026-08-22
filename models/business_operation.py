@@ -1,4 +1,5 @@
 from extensions import db
+from services.time_service import utc_now_naive
 
 
 class BusinessOperation(db.Model):
@@ -18,7 +19,7 @@ class BusinessOperation(db.Model):
     status = db.Column(db.String(20), nullable=False, default='processing')
     request_fingerprint = db.Column(db.String(64), nullable=True)
     result_snapshot = db.Column(db.JSON, nullable=True)
-    created_at = db.Column(db.DateTime, nullable=False, default=db.func.now())
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now_naive)
     completed_at = db.Column(db.DateTime, nullable=True)
 
     payments = db.relationship(

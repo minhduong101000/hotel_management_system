@@ -1,4 +1,5 @@
 from extensions import db
+from services.time_service import utc_now_naive
 
 class PriceRule(db.Model):
     __tablename__ = 'price_rules'
@@ -15,8 +16,8 @@ class PriceRule(db.Model):
     
     price_daily = db.Column(db.Numeric(10, 2), nullable=False)
         
-    created_at = db.Column(db.DateTime, default=db.func.now())
-    updated_at = db.Column(db.DateTime, default=db.func.now(), onupdate=db.func.now())
+    created_at = db.Column(db.DateTime, default=utc_now_naive)
+    updated_at = db.Column(db.DateTime, default=utc_now_naive, onupdate=utc_now_naive)
 
     def __repr__(self):
         return f'<PriceRule {self.name} - {self.room_type}>'

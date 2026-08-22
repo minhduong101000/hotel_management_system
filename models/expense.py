@@ -1,4 +1,5 @@
 from extensions import db
+from services.time_service import business_today, utc_now_naive
 
 class Expense(db.Model):
     __tablename__ = 'expenses'
@@ -8,9 +9,9 @@ class Expense(db.Model):
     category = db.Column(db.String(50), nullable=False)  # Điện nước, Lương, Mua sắm, Sửa chữa, Khác
     description = db.Column(db.String(255), nullable=False)
     amount = db.Column(db.Numeric(15, 2), nullable=False)
-    expense_date = db.Column(db.Date, nullable=False, default=db.func.now())
+    expense_date = db.Column(db.Date, nullable=False, default=business_today)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    created_at = db.Column(db.DateTime, default=db.func.now())
+    created_at = db.Column(db.DateTime, default=utc_now_naive)
     is_voided = db.Column(db.Boolean, nullable=False, default=False)
     void_reason = db.Column(db.String(255), nullable=True)
     voided_at = db.Column(db.DateTime, nullable=True)

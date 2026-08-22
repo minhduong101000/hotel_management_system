@@ -1,4 +1,5 @@
 from extensions import db
+from services.time_service import utc_now_naive
 
 
 class BookingServiceBatchAllocation(db.Model):
@@ -17,7 +18,7 @@ class BookingServiceBatchAllocation(db.Model):
     booking_service_id = db.Column(db.Integer, db.ForeignKey('booking_services.id'), nullable=False, index=True)
     batch_id = db.Column(db.Integer, db.ForeignKey('inventory_batches.id'), nullable=False, index=True)
     quantity = db.Column(db.Integer, nullable=False)
-    created_at = db.Column(db.DateTime, nullable=False, default=db.func.now())
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now_naive)
 
     booking_service = db.relationship('BookingService', back_populates='batch_allocations')
     batch = db.relationship('InventoryBatch', backref='service_allocations')

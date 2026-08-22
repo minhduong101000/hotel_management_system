@@ -1,4 +1,5 @@
 from extensions import db
+from services.time_service import utc_now_naive
 
 
 class AuditEvent(db.Model):
@@ -18,4 +19,4 @@ class AuditEvent(db.Model):
     operation_key = db.Column(db.String(120), nullable=True)
     before_data = db.Column(db.JSON, nullable=True)
     after_data = db.Column(db.JSON, nullable=True)
-    created_at = db.Column(db.DateTime, nullable=False, default=db.func.now())
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now_naive)

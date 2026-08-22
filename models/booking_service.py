@@ -1,4 +1,5 @@
 from extensions import db
+from services.time_service import utc_now_naive
 from services.time_service import format_business as _format_business
 
 
@@ -15,7 +16,7 @@ class BookingService(db.Model):
     
     quantity = db.Column(db.Integer, default=1)
     price_at_booking = db.Column(db.Numeric(10, 2), nullable=False)
-    created_at = db.Column(db.DateTime, default=db.func.now())
+    created_at = db.Column(db.DateTime, default=utc_now_naive)
 
     # Relationship
     booking = db.relationship('Booking', back_populates='services')

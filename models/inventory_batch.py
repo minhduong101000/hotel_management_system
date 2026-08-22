@@ -1,4 +1,5 @@
 from extensions import db
+from services.time_service import utc_now_naive
 
 
 class InventoryBatch(db.Model):
@@ -16,7 +17,7 @@ class InventoryBatch(db.Model):
     unit_cost = db.Column(db.Numeric(15, 2), nullable=False, default=0)
     status = db.Column(db.String(20), nullable=False, default='active')
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    created_at = db.Column(db.DateTime, nullable=False, default=db.func.now())
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now_naive)
 
     __table_args__ = (
         db.UniqueConstraint('hotel_id', 'batch_code', name='_hotel_inventory_batch_code_uc'),

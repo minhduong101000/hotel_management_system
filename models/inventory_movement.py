@@ -1,4 +1,5 @@
 from extensions import db
+from services.time_service import utc_now_naive
 
 
 class InventoryMovement(db.Model):
@@ -15,7 +16,7 @@ class InventoryMovement(db.Model):
     reason = db.Column(db.String(100), nullable=False)
     note = db.Column(db.String(500), nullable=True)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    created_at = db.Column(db.DateTime, nullable=False, default=db.func.now())
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now_naive)
 
     item = db.relationship('InventoryItem', back_populates='movements')
     batch = db.relationship('InventoryBatch', backref='movements')

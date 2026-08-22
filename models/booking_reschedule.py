@@ -1,4 +1,5 @@
 from extensions import db
+from services.time_service import utc_now_naive
 
 
 class BookingReschedule(db.Model):
@@ -16,4 +17,4 @@ class BookingReschedule(db.Model):
     reason = db.Column(db.String(255), nullable=False)
     price_mode = db.Column(db.String(20), nullable=False)
     actor_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, nullable=False, default=db.func.now())
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now_naive)
