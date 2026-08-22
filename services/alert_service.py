@@ -144,11 +144,10 @@ def empty_state() -> dict:
 
 
 def _entry(state: dict, check: str) -> dict:
-    return state.get("checks", {}).get(check) or {
-        "status": OK,
-        "notified_status": OK,
-        "last_notified_at": None,
-    }
+    return state.get("checks", {}).get(
+        check,
+        {"status": OK, "notified_status": OK, "last_notified_at": None},
+    )
 
 
 def format_alert(result: CheckResult) -> str:

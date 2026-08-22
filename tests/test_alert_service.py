@@ -228,6 +228,39 @@ def test_acknowledge_advances_notified_status_and_the_timestamp():
     assert entry["last_notified_at"] == NOW.isoformat()
 
 
+def test_acknowledge_copies_the_observed_status_rather_than_assuming_failure():
+    """Bổ sung sau review: mọi test khác chỉ ghi nhận phép kiểm ĐANG HỎNG, nên
+    một bản cài đặt ghi cứng `notified_status = FAIL` vẫn xanh hết. Ca này khoá
+    việc `acknowledge` phải CHÉP trạng thái vừa quan sát.
+
+    Nó chạy ở đường hồi phục thật: hỏng → đã báo hỏng → nay ổn trở lại, gửi tin
+    🟢 xong thì ghi nhận là ĐÃ BÁO ỔN.
+    """
+    state = _state(alerts.CHECK_DISK, status=alerts.OK, notified_status=alerts.FAIL)
+
+    updated = alerts.acknowledge(state=state, check=alerts.CHECK_DISK, now=NOW)
+
+    assert updated["checks"][alerts.CHECK_DISK]["notified_status"] == alerts.OK
+
+
+def test_the_repeat_window_fires_exactly_on_the_boundary():
+    """Biên dùng `>=`: đúng 6 giờ là nhắc lại. Hai test lân cận để margin 1 phút
+    nên không bắt được nếu ai đó đổi `>=` thành `>`."""
+    state = _state(
+        alerts.CHECK_DISK,
+        status=alerts.FAIL,
+        notified_status=alerts.FAIL,
+        last_notified_at=NOW - timedelta(hours=6),
+    )
+    results = [alerts.evaluate_disk(used_percent=91, threshold_percent=85)]
+
+    notes = alerts.decide_notifications(
+        state=state, results=results, now=NOW, repeat_after_hours=6
+    )
+
+    assert len(notes) == 1
+
+
 def test_empty_state_is_json_serialisable():
     import json
 
