@@ -108,6 +108,32 @@ services:
     restart: unless-stopped
     logging: *default-logging
 
+  alerts:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    command: ["python", "-m", "scripts.alert_watch"]
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      ALERT_INTERVAL_SECONDS: ${ALERT_INTERVAL_SECONDS:-300}
+      ALERT_WEB_URL: ${ALERT_WEB_URL:-http://web:8000/healthz}
+      ALERT_WEB_FAIL_THRESHOLD: ${ALERT_WEB_FAIL_THRESHOLD:-2}
+      ALERT_BACKUP_DIR: ${ALERT_BACKUP_DIR:-/backups}
+      ALERT_BACKUP_MAX_AGE_HOURS: ${ALERT_BACKUP_MAX_AGE_HOURS:-26}
+      ALERT_DISK_THRESHOLD_PERCENT: ${ALERT_DISK_THRESHOLD_PERCENT:-85}
+      ALERT_REPEAT_HOURS: ${ALERT_REPEAT_HOURS:-6}
+      ALERT_SUMMARY_HOUR: ${ALERT_SUMMARY_HOUR:-7}
+      ALERT_STATE_FILE: ${ALERT_STATE_FILE:-/state/alerts.json}
+    volumes:
+      - ./backups:/backups:ro
+      - alert_state:/state
+    depends_on:
+      web:
+        condition: service_started
+    restart: unless-stopped
+    logging: *default-logging
+
   adminer:
     image: adminer
     ports:
@@ -119,3 +145,4 @@ volumes:
   dbdata:
   caddy_data:
   caddy_config:
+  alert_state:
