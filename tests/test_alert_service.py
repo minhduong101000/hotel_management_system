@@ -4,7 +4,7 @@ Mọi hàm ở đây nhận `now` làm tham số. Đó là điều kiện để 
 ra cùng kết quả dưới mọi TZ.
 """
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from services import alert_service as alerts
 
@@ -265,3 +265,132 @@ def test_empty_state_is_json_serialisable():
     import json
 
     json.dumps(alerts.empty_state())
+
+
+# --- tin tóm tắt ---
+
+BUSINESS_DAY = date(2026, 8, 22)
+
+
+def _all_ok():
+    return [
+        alerts.evaluate_web(consecutive_failures=0, threshold=2),
+        alerts.evaluate_backup(newest=_backup(hours_old=3), now=NOW, max_age_hours=26),
+        alerts.evaluate_disk(used_percent=42, threshold_percent=85),
+    ]
+
+
+def test_no_summary_before_the_configured_hour():
+    note = alerts.decide_summary(
+        state=alerts.empty_state(),
+        results=_all_ok(),
+        business_now_dt=datetime(2026, 8, 22, 6, 59),
+        business_date=BUSINESS_DAY,
+        summary_hour=7,
+    )
+    assert note is None
+
+
+def test_summary_is_sent_once_the_hour_arrives():
+    note = alerts.decide_summary(
+        state=alerts.empty_state(),
+        results=_all_ok(),
+        business_now_dt=datetime(2026, 8, 22, 7, 0),
+        business_date=BUSINESS_DAY,
+        summary_hour=7,
+    )
+    assert note is not None
+    assert note.check is None
+    assert "22/08/2026" in note.text
+
+
+def test_summary_is_not_repeated_the_same_day():
+    state = alerts.acknowledge_summary(state=alerts.empty_state(), business_date=BUSINESS_DAY)
+
+    note = alerts.decide_summary(
+        state=state,
+        results=_all_ok(),
+        business_now_dt=datetime(2026, 8, 22, 11, 0),
+        business_date=BUSINESS_DAY,
+        summary_hour=7,
+    )
+    assert note is None
+
+
+def test_a_late_start_still_gets_the_summary():
+    """Container tắt lúc 7h, bật lại lúc 9h — vẫn phải gửi bù, không mất ngày.
+
+    Không có tin sáng nghĩa là bot chết; nếu bỏ qua chỉ vì lỡ giờ thì tín hiệu
+    'bot còn sống' trở thành tín hiệu giả."""
+    note = alerts.decide_summary(
+        state=alerts.empty_state(),
+        results=_all_ok(),
+        business_now_dt=datetime(2026, 8, 22, 9, 30),
+        business_date=BUSINESS_DAY,
+        summary_hour=7,
+    )
+    assert note is not None
+
+
+def test_the_summary_resumes_the_next_day():
+    """Bổ sung sau khi soi lại: bốn test trên đều xanh với một bản cài đặt hỏng.
+
+    Nếu ai đó viết `if state.get("last_summary_date") is not None: return None`
+    thay vì so với ngày HÔM NAY, thì bot gửi đúng MỘT tin sáng duy nhất trong
+    đời rồi im mãi mãi — và không test nào ở trên bắt được, vì tất cả đều chỉ
+    xét trong phạm vi một ngày.
+
+    Đó đúng là kiểu hỏng mà tính năng này sinh ra để chống: im lặng trông y hệt
+    khoẻ mạnh. Ca này khoá việc mốc đã gửi phải được so theo NGÀY.
+    """
+    state = alerts.acknowledge_summary(
+        state=alerts.empty_state(), business_date=BUSINESS_DAY
+    )
+
+    note = alerts.decide_summary(
+        state=state,
+        results=_all_ok(),
+        business_now_dt=datetime(2026, 8, 23, 7, 0),
+        business_date=date(2026, 8, 23),      # hôm sau
+        summary_hour=7,
+    )
+
+    assert note is not None, "tin sáng phải tiếp tục vào ngày hôm sau"
+    assert "23/08/2026" in note.text
+
+
+def test_summary_lists_all_three_checks_with_their_state():
+    text = alerts.format_summary(results=_all_ok(), business_date=BUSINESS_DAY)
+    assert "Web" in text
+    assert "Backup" in text
+    assert "Đĩa" in text
+    assert text.count("✅") == 3
+
+
+def test_summary_marks_a_failing_check():
+    results = [
+        alerts.evaluate_web(consecutive_failures=0, threshold=2),
+        alerts.evaluate_backup(newest=None, now=NOW, max_age_hours=26),
+        alerts.evaluate_disk(used_percent=42, threshold_percent=85),
+    ]
+    text = alerts.format_summary(results=results, business_date=BUSINESS_DAY)
+    assert "❌" in text
+    assert text.count("✅") == 2
+
+
+def test_the_summary_hour_is_read_in_business_time_not_utc(monkeypatch):
+    """Kiểm phần NỐI DÂY, không phải phần thuần.
+
+    07:00 giờ Việt Nam là 00:00 UTC. Nếu ai đó nối `decide_summary` với
+    `utc_now()` thay vì `business_now()`, tin sáng sẽ tới lúc 2h chiều.
+    """
+    from datetime import timezone
+
+    from services import time_service
+
+    monkeypatch.setattr(
+        time_service, "utc_now", lambda: datetime(2026, 8, 22, 0, 5, tzinfo=timezone.utc)
+    )
+
+    assert time_service.business_now().hour == 7
+    assert time_service.business_today() == BUSINESS_DAY

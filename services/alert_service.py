@@ -10,7 +10,7 @@ không cần I/O nào để kiểm.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Optional
 
 OK = "ok"
@@ -210,3 +210,40 @@ def acknowledge(*, state: dict, check: str, now: datetime) -> dict:
     entry["last_notified_at"] = now.isoformat()
     updated["checks"][check] = entry
     return updated
+
+
+def format_summary(*, results: list[CheckResult], business_date: date) -> str:
+    lines = [f"☀️ Hotel POS — {business_date.strftime('%d/%m/%Y')}"]
+    for result in results:
+        mark = "✅" if result.ok else "❌"
+        lines.append(f"{mark} {_LABELS[result.name]}: {result.detail}")
+    return "\n".join(lines)
+
+
+def decide_summary(
+    *,
+    state: dict,
+    results: list[CheckResult],
+    business_now_dt: datetime,
+    business_date: date,
+    summary_hour: int,
+) -> Optional[Notification]:
+    """Một tin mỗi ngày nghiệp vụ, kể từ `summary_hour`.
+
+    Dùng `>=` chứ không `==` để container bật muộn vẫn gửi bù: mục đích của tin
+    này là chứng minh bot còn sống, nên bỏ qua chỉ vì lỡ giờ sẽ biến nó thành
+    tín hiệu giả.
+
+    `business_now_dt` và `business_date` do lớp gọi tính sẵn từ `time_service`,
+    để hàm này thuần và test chạy giống nhau ở mọi TZ.
+    """
+    if business_now_dt.hour < summary_hour:
+        return None
+    if state.get("last_summary_date") == business_date.isoformat():
+        return None
+    return Notification(None, format_summary(results=results, business_date=business_date))
+
+
+def acknowledge_summary(*, state: dict, business_date: date) -> dict:
+    """Chỉ gọi SAU KHI Telegram nhận tin thành công."""
+    return {**state, "last_summary_date": business_date.isoformat()}
