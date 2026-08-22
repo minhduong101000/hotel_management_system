@@ -376,21 +376,3 @@ def test_summary_marks_a_failing_check():
     text = alerts.format_summary(results=results, business_date=BUSINESS_DAY)
     assert "❌" in text
     assert text.count("✅") == 2
-
-
-def test_the_summary_hour_is_read_in_business_time_not_utc(monkeypatch):
-    """Kiểm phần NỐI DÂY, không phải phần thuần.
-
-    07:00 giờ Việt Nam là 00:00 UTC. Nếu ai đó nối `decide_summary` với
-    `utc_now()` thay vì `business_now()`, tin sáng sẽ tới lúc 2h chiều.
-    """
-    from datetime import timezone
-
-    from services import time_service
-
-    monkeypatch.setattr(
-        time_service, "utc_now", lambda: datetime(2026, 8, 22, 0, 5, tzinfo=timezone.utc)
-    )
-
-    assert time_service.business_now().hour == 7
-    assert time_service.business_today() == BUSINESS_DAY

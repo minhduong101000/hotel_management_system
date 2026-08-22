@@ -8,6 +8,7 @@ mạng — để khoá đúng cái mà lớp thuần không thấy được: I/O
 
 from __future__ import annotations
 
+import gzip
 import os
 import time
 from datetime import datetime, timezone
@@ -24,6 +25,60 @@ def _touch_backup(folder: Path, name: str, *, age_seconds: float, size_bytes: in
     stamp = time.time() - age_seconds
     os.utime(path, (stamp, stamp))
     return path
+
+
+def _write_healthy_backup(folder: Path, name: str, *, age_seconds: float) -> Path:
+    """Một bản `.sql.gz` THẬT SỰ giải nén được — dùng cho các test không nhắm
+    vào chính phép kiểm backup, để phép kiểm đó luôn ra OK và không gây nhiễu."""
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / name
+    path.write_bytes(gzip.compress(b"-- fake mysqldump output\n" * 50))
+    stamp = time.time() - age_seconds
+    os.utime(path, (stamp, stamp))
+    return path
+
+
+def _base_config(tmp_path, **overrides) -> dict:
+    config = {
+        "bot_token": "123:abc",
+        "chat_id": "-1",
+        "web_url": "http://web:8000/healthz",
+        "web_threshold": 2,
+        "backup_dir": tmp_path / "backups",
+        "backup_max_age_hours": 26.0,
+        "backup_min_age_seconds": 120.0,
+        "disk_threshold": 85.0,
+        "repeat_hours": 6.0,
+        "summary_hour": 7,
+        "state_file": tmp_path / "state" / "alerts.json",
+    }
+    config.update(overrides)
+    return config
+
+
+class _FakeSender:
+    """Ghi lại mọi tin đã 'gửi' thay vì gọi Telegram thật."""
+
+    def __init__(self, *, delivered: bool = True):
+        self.delivered = delivered
+        self.sent: list[str] = []
+
+    def __call__(self, text, *, bot_token, chat_id, transport=None, timeout=10):
+        self.sent.append(text)
+        return telegram_service.SendOutcome(
+            self.delivered, "đã gửi" if self.delivered else "mô phỏng lỗi mạng"
+        )
+
+
+def _freeze_business_hour(monkeypatch, *, bangkok_hour: int) -> None:
+    """Cố định đồng hồ ở giờ Bangkok cho trước, tránh tin sáng chen vào các
+    test không nhắm tới nó. UTC = Bangkok - 7."""
+    utc_hour = (bangkok_hour - 7) % 24
+    monkeypatch.setattr(
+        time_service,
+        "utc_now",
+        lambda: datetime(2026, 1, 1, utc_hour, 0, tzinfo=timezone.utc),
+    )
 
 
 # --- Fix 4: race giữa chu kỳ kiểm và mysqldump đang chạy dở ---
@@ -76,3 +131,70 @@ def test_newest_backup_accepts_a_file_past_the_grace_window(tmp_path):
 
     assert result is not None
     assert result.name == older.name
+
+
+# --- Fix 5: run_cycle nối dây thật — không còn test nào chạm tới nó trước đây ---
+
+
+def test_web_alert_only_fires_after_two_consecutive_failed_cycles(tmp_path, monkeypatch):
+    """Test hồi quy CHO FIX 1: nếu trạng thái không sống sót qua hai lần gọi
+    `run_cycle` (ví dụ vì `_save_state` ghi vào một `/state` không có quyền
+    ghi), `web_consecutive_failures` không bao giờ vượt quá 1 và cảnh báo web
+    — quan trọng nhất trong ba phép kiểm — không bao giờ kêu."""
+    config = _base_config(tmp_path)
+    _write_healthy_backup(config["backup_dir"], "hotel-ok.sql.gz", age_seconds=3600)
+    _freeze_business_hour(monkeypatch, bangkok_hour=3)  # tránh tin sáng chen vào
+
+    monkeypatch.setattr(alert_watch, "_probe_web", lambda url: False)
+    monkeypatch.setattr(alert_watch, "_disk_used_percent", lambda path: 10.0)
+    sender = _FakeSender(delivered=True)
+    monkeypatch.setattr(telegram_service, "send_message", sender)
+
+    alert_watch.run_cycle(config)
+    assert sender.sent == [], "nhịp hỏng ĐẦU TIÊN chưa tới ngưỡng, không được báo"
+
+    alert_watch.run_cycle(config)
+    assert len(sender.sent) == 1, "nhịp hỏng THỨ HAI đạt ngưỡng 2, phải báo đúng một lần"
+    assert "🔴" in sender.sent[0]
+    assert "Web" in sender.sent[0]
+
+
+def test_summary_hour_is_read_in_business_time_not_utc(tmp_path, monkeypatch):
+    """00:05 UTC = 07:05 giờ Bangkok. Nếu `run_cycle` bị nối nhầm với
+    `time_service.utc_now()` thay vì `business_now()`, tin sáng sẽ không tới
+    lúc 07:05 UTC+7 mà tới lúc 00:05 UTC+7 (tức 17:05 hôm trước theo giờ Bangkok)."""
+    config = _base_config(tmp_path)
+    # Cố ý KHÔNG tạo backup nào: chỉ cần tin tóm tắt có xuất hiện, không cần
+    # mọi phép kiểm đều OK.
+    monkeypatch.setattr(
+        time_service, "utc_now", lambda: datetime(2026, 1, 1, 0, 5, tzinfo=timezone.utc)
+    )
+    monkeypatch.setattr(alert_watch, "_probe_web", lambda url: True)
+    monkeypatch.setattr(alert_watch, "_disk_used_percent", lambda path: 10.0)
+    sender = _FakeSender(delivered=True)
+    monkeypatch.setattr(telegram_service, "send_message", sender)
+
+    assert time_service.business_now().hour == 7
+
+    alert_watch.run_cycle(config)
+
+    assert any("☀️" in text for text in sender.sent), "tin sáng phải được gửi lúc 07:05 giờ Bangkok"
+
+
+def test_a_failed_send_is_retried_every_cycle_until_it_succeeds(tmp_path, monkeypatch):
+    """Telegram lỗi mạng không được phép làm mất cảnh báo: chạy hai chu kỳ với
+    gửi tin luôn thất bại thì cảnh báo phải được thử gửi lại CẢ HAI lần."""
+    config = _base_config(tmp_path)
+    _write_healthy_backup(config["backup_dir"], "hotel-ok.sql.gz", age_seconds=3600)
+    _freeze_business_hour(monkeypatch, bangkok_hour=3)
+
+    monkeypatch.setattr(alert_watch, "_probe_web", lambda url: True)
+    monkeypatch.setattr(alert_watch, "_disk_used_percent", lambda path: 91.0)  # FAIL: >= 85
+    sender = _FakeSender(delivered=False)
+    monkeypatch.setattr(telegram_service, "send_message", sender)
+
+    alert_watch.run_cycle(config)
+    alert_watch.run_cycle(config)
+
+    disk_alerts = [text for text in sender.sent if "Đĩa" in text]
+    assert len(disk_alerts) == 2, "gửi lỗi thì chu kỳ sau phải thử lại, không được coi như đã báo"
