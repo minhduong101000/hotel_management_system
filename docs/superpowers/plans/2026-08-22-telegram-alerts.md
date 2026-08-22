@@ -394,7 +394,7 @@ def evaluate_disk(*, used_percent: float, threshold_percent: float) -> CheckResu
 - [ ] **Step 4: Chạy test để xác nhận xanh**
 
 Run: `venv/bin/python -m pytest tests/test_alert_service.py -v`
-Expected: PASS (13 test)
+Expected: PASS (12 test)
 
 - [ ] **Step 5: Commit**
 
@@ -679,7 +679,7 @@ def acknowledge(*, state: dict, check: str, now: datetime) -> dict:
 - [ ] **Step 4: Chạy test để xác nhận xanh**
 
 Run: `venv/bin/python -m pytest tests/test_alert_service.py -v`
-Expected: PASS (22 test)
+Expected: PASS (21 test — 12 của Task 2 + 9 mới)
 
 - [ ] **Step 5: Chứng minh bất biến "chỉ ghi sau khi gửi thành công" thật sự được canh**
 
@@ -897,7 +897,7 @@ def acknowledge_summary(*, state: dict, business_date: date) -> dict:
 - [ ] **Step 4: Chạy test để xác nhận xanh**
 
 Run: `venv/bin/python -m pytest tests/test_alert_service.py -v`
-Expected: PASS (29 test)
+Expected: PASS (28 test — 21 của Task 3 + 7 mới)
 
 - [ ] **Step 5: Xác nhận không phụ thuộc múi giờ**
 
@@ -1111,7 +1111,7 @@ def send_message(
 - [ ] **Step 4: Chạy test để xác nhận xanh**
 
 Run: `venv/bin/python -m pytest tests/test_telegram_service.py -v`
-Expected: PASS (7 test)
+Expected: PASS (6 test — `token_never_leaks` chạy 2 tham số)
 
 - [ ] **Step 5: Chứng minh test rò token thật sự cắn**
 
