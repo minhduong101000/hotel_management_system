@@ -51,8 +51,33 @@ def _load_state(path: Path) -> dict:
 
 
 def _save_state(path: Path, state: dict) -> None:
+    """Ghi NGUYÊN TỬ: tệp tạm cùng thư mục rồi `os.replace()`.
+
+    `Path.write_text` cắt tệp trước khi ghi. Chết giữa chừng (hết đĩa, container
+    bị restart) để lại tệp CỤT — `_load_state` đọc ra `ValueError` rồi coi như
+    chưa từng có trạng thái, và vòng lặp tự spam lại từ đầu đúng lúc đĩa đầy là
+    lúc cảnh báo cần chạy đúng nhất. `os.replace()` trên cùng filesystem là
+    nguyên tử ở POSIX: tệp đích hoặc là bản cũ nguyên vẹn, hoặc là bản mới
+    nguyên vẹn, không bao giờ nửa vời.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
+    payload = json.dumps(state, ensure_ascii=False, indent=2)
+    tmp_path = path.with_name(f"{path.name}.tmp-{os.getpid()}")
+    tmp_path.write_text(payload, encoding="utf-8")
+    os.replace(tmp_path, path)
+
+
+def _save_state_safely(path: Path, state: dict) -> None:
+    """Bọc `_save_state`: lỗi ghi (ví dụ ENOSPC) chỉ log, không văng khỏi chu kỳ.
+
+    Chu kỳ đã gửi Telegram thành công trước đó rồi — để một `OSError` ở bước
+    ghi cuối cùng phá luôn phần đã làm là mất công vô ích, và (tệ hơn) làm
+    `run_cycle` ném ra ngoài, rơi vào nhánh `except` chung của vòng lặp.
+    """
+    try:
+        _save_state(path, state)
+    except OSError as exc:                        # noqa: BLE001
+        print(f"[alerts] ghi trạng thái lỗi: {type(exc).__name__}", flush=True)
 
 
 def _probe_web(url: str) -> bool:
@@ -194,7 +219,7 @@ def run_cycle(config: dict) -> None:
     if summary is not None and _send(summary.text, config):
         state = alerts.acknowledge_summary(state=state, business_date=business_date)
 
-    _save_state(config["state_file"], state)
+    _save_state_safely(config["state_file"], state)
 
 
 def main(argv=None) -> int:
