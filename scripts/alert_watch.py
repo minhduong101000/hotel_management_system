@@ -91,7 +91,13 @@ def _newest_backup(folder: Path, state: dict):
         return None, state
 
     newest = candidates[0]
-    stat = newest.stat()
+    try:
+        # Cùng một guard với glob/sort ở trên: nếu vòng xoay backup xóa tệp
+        # này đúng lúc này, `stat()` cũng phải rơi vào nhánh "chưa có bản sao
+        # lưu nào" thay vì ném ra ngoài `run_cycle` và mất cả chu kỳ.
+        stat = newest.stat()
+    except OSError:
+        return None, state
     fingerprint = [newest.name, stat.st_size, stat.st_mtime]
 
     cached = state.get("backup_gzip_cache") or {}
@@ -157,11 +163,20 @@ def run_cycle(config: dict) -> None:
     notifications = alerts.decide_notifications(
         state=state, results=results, now=now, repeat_after_hours=config["repeat_hours"]
     )
+
+    # Đọc đồng hồ MỘT lần rồi dùng chung: `decide_summary` và
+    # `acknowledge_summary` phải nói về cùng một ngày. Gọi `business_today()`
+    # hai lần thì giữa chúng có cả vòng gửi thông báo (mỗi lần timeout tới 10
+    # giây), và nếu vắt qua nửa đêm thì mốc đã-gửi bị đóng dấu sang NGÀY MAI —
+    # nuốt trọn tin sáng hôm sau, tức mất đúng tín hiệu "bot còn sống".
+    business_now_dt = time_service.business_now()
+    business_date = business_now_dt.date()
+
     summary = alerts.decide_summary(
         state=state,
         results=results,
-        business_now_dt=time_service.business_now(),
-        business_date=time_service.business_today(),
+        business_now_dt=business_now_dt,
+        business_date=business_date,
         summary_hour=config["summary_hour"],
     )
 
@@ -177,9 +192,7 @@ def run_cycle(config: dict) -> None:
             state = alerts.acknowledge(state=state, check=note.check, now=now)
 
     if summary is not None and _send(summary.text, config):
-        state = alerts.acknowledge_summary(
-            state=state, business_date=time_service.business_today()
-        )
+        state = alerts.acknowledge_summary(state=state, business_date=business_date)
 
     _save_state(config["state_file"], state)
 
