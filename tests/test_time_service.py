@@ -99,10 +99,14 @@ def test_utc_naive_from_timestamp_ignores_the_machine_timezone(monkeypatch):
     stamp = datetime(2026, 8, 22, 1, 30, tzinfo=timezone.utc).timestamp()
     expected = datetime(2026, 8, 22, 1, 30)
 
-    for zone in ("UTC", "Asia/Ho_Chi_Minh", "America/New_York"):
-        monkeypatch.setenv("TZ", zone)
+    try:
+        for zone in ("UTC", "Asia/Ho_Chi_Minh", "America/New_York"):
+            monkeypatch.setenv("TZ", zone)
+            time_module.tzset()
+            assert time_service.utc_naive_from_timestamp(stamp) == expected
+    finally:
+        # monkeypatch khôi phục biến môi trường nhưng KHÔNG biết gì về tzset(),
+        # nên phải tự đồng bộ lại — kể cả khi assert ở trên đã đỏ. Bỏ qua bước
+        # này là để lại giờ hệ thống lệch cho mọi test chạy sau.
+        monkeypatch.undo()
         time_module.tzset()
-        assert time_service.utc_naive_from_timestamp(stamp) == expected
-
-    monkeypatch.delenv("TZ", raising=False)
-    time_module.tzset()
