@@ -70,3 +70,39 @@ def test_business_naive_to_utc_is_the_exact_inverse(app):
             time_service.business_naive_to_utc(business)
         ) == business
         assert time_service.business_naive_to_utc(None) is None
+
+
+def test_utc_naive_from_timestamp_converts_a_posix_stamp():
+    from datetime import datetime, timezone
+
+    from services import time_service
+
+    # 2026-08-22 01:30:00 UTC
+    stamp = datetime(2026, 8, 22, 1, 30, tzinfo=timezone.utc).timestamp()
+
+    assert time_service.utc_naive_from_timestamp(stamp) == datetime(2026, 8, 22, 1, 30)
+
+
+def test_utc_naive_from_timestamp_ignores_the_machine_timezone(monkeypatch):
+    """Đây là lý do hàm này tồn tại.
+
+    `datetime.fromtimestamp(ts)` trần diễn giải theo giờ MÁY, nên cùng một tệp
+    sẽ ra hai kết quả khác nhau giữa máy lập trình (giờ VN) và container
+    (UTC) — lệch đúng 7 tiếng, đủ để một bản sao lưu 25 giờ tuổi bị chấm là
+    32 giờ và kêu oan mỗi ngày.
+    """
+    import time as time_module
+    from datetime import datetime, timezone
+
+    from services import time_service
+
+    stamp = datetime(2026, 8, 22, 1, 30, tzinfo=timezone.utc).timestamp()
+    expected = datetime(2026, 8, 22, 1, 30)
+
+    for zone in ("UTC", "Asia/Ho_Chi_Minh", "America/New_York"):
+        monkeypatch.setenv("TZ", zone)
+        time_module.tzset()
+        assert time_service.utc_naive_from_timestamp(stamp) == expected
+
+    monkeypatch.delenv("TZ", raising=False)
+    time_module.tzset()

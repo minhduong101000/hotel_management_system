@@ -36,6 +36,15 @@ def utc_now_naive() -> datetime:
     return utc_now().replace(tzinfo=None)
 
 
+def utc_naive_from_timestamp(timestamp: float) -> datetime:
+    """Đổi dấu thời gian POSIX (ví dụ `os.stat().st_mtime`) sang UTC-naive.
+
+    Đi qua `timezone.utc` chứ không qua giờ máy, nên kết quả đúng bất kể
+    container đặt TZ gì — điều mà `datetime.fromtimestamp()` trần KHÔNG đảm bảo.
+    """
+    return datetime.fromtimestamp(timestamp, tz=timezone.utc).replace(tzinfo=None)
+
+
 def business_now() -> datetime:
     """Giờ nghiệp vụ hiện tại (aware, múi giờ Bangkok)."""
     return utc_now().astimezone(_business_tz())
