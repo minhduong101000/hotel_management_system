@@ -30,6 +30,18 @@
    ```
    Phải thấy `alerts.json` tồn tại, chứa cả ba mục `web`/`backup`/`disk`.
 
+## Sửa `.env` thì phải TẠO LẠI container, không phải restart
+
+Compose chỉ đọc `.env` lúc **tạo** container. `docker compose restart alerts` khởi
+động lại tiến trình nhưng giữ nguyên biến môi trường cũ — nên anh sửa token hay
+ngưỡng xong, restart, rồi tưởng đã đổi trong khi nó vẫn chạy giá trị cũ.
+
+```bash
+docker compose up -d --force-recreate alerts
+```
+
+Dấu hiệu đã trúng lỗi này: sửa `chat_id` rồi mà log vẫn `Telegram trả về HTTP 403`.
+
 ## Nâng cấp từ bản cũ — đọc trước khi deploy lại
 
 Một bản dựng trước đây tạo volume `/state` **thuộc root**, trong khi container
